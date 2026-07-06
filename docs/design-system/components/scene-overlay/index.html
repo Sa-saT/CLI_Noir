@@ -1,0 +1,55 @@
+<!-- @dsCard group="Scene" name="SceneOverlay" subtitle="背景上の説明テキスト帯 + 中央イベントカード" -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SceneOverlay — CLI_Noir</title>
+<style>
+  @import "../../styles.css";
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: var(--space-6); background: var(--bg-app); font-family: var(--font-ui); }
+  .scene {
+    position: relative; height: 320px; border-radius: var(--radius-lg); overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    background:
+      radial-gradient(120% 90% at 30% 20%, rgba(201,177,143,.18), transparent 60%),
+      linear-gradient(160deg, var(--sepia-700), var(--sepia-900) 70%, #000);
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* faux copperplate hatching */
+  .scene::before {
+    content: ""; position: absolute; inset: 0; opacity: .12;
+    background-image: repeating-linear-gradient(35deg, #000 0 1px, transparent 1px 5px);
+  }
+  .overlay-text {
+    position: absolute; top: var(--space-4); left: var(--space-4);
+    background: rgba(0,0,0,.5); color: #fff;
+    padding: var(--space-2) var(--space-4); border-radius: var(--radius-sm);
+    font-size: var(--text-lg); font-weight: var(--weight-semibold);
+    max-width: 60%;
+  }
+  .overlay-text b { color: var(--accent-quiet); text-decoration: underline; }
+  .event-card {
+    position: relative; z-index: 1; width: 74%; max-width: 420px;
+    background: var(--surface-card); border: 2px solid var(--accent);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-panel);
+    padding: var(--space-4); color: var(--text-body);
+  }
+  .event-card h2 {
+    font-family: var(--font-display); font-size: var(--text-xl);
+    color: var(--accent-quiet); margin: 0 0 var(--space-2);
+  }
+  .event-card p { font-size: var(--text-sm); line-height: var(--leading-relaxed); margin: 0; }
+</style>
+</head>
+<body>
+  <div class="scene">
+    <div class="overlay-text">机の <b>引き出し</b> を調べ、businesscard.txt を見つけろ…</div>
+    <div class="event-card">
+      <h2>引き出しの中身</h2>
+      <p>色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。<br>これが最初の手がかりだ。</p>
+    </div>
+  </div>
+</body>
+</html>

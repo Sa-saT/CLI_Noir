@@ -1,0 +1,34 @@
+/* CLI_Noir — Typography tokens
+   Terminal + panels use a monospace face; story/heading copy uses a
+   humanist serif to echo the copperplate/pen-ink noir illustrations.
+   NOTE: no source font files yet — families below are Google Fonts
+   stand-ins pending the real mock (flag to user). */
+
+:root {
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
+  --font-display: "Zilla Slab", "Roboto Slab", Georgia, serif;
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+
+  /* Type scale (px) */
+  --text-xs: 0.75rem;    /* 12 */
+  --text-sm: 0.875rem;   /* 14 */
+  --text-base: 1rem;     /* 16 */
+  --text-lg: 1.125rem;   /* 18 */
+  --text-xl: 1.375rem;   /* 22 */
+  --text-2xl: 1.75rem;   /* 28 */
+  --text-3xl: 2.25rem;   /* 36 */
+  --text-display: 3rem;  /* 48 — mission titles */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+  --leading-term: 1.55;
+
+  --tracking-term: 0.02em;
+  --tracking-caps: 0.12em; /* rank labels, section eyebrows */
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+}

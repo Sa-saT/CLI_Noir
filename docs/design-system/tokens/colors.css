@@ -1,0 +1,68 @@
+/* CLI_Noir — Color tokens
+   Derived from the project brief's stated palette:
+   gray-900 ground · indigo accent · terminal black/green-400
+   yellow-300 warnings · red-400 errors.
+   Tailwind reference values used as base scale (kit is Tailwind-built). */
+
+:root {
+  /* ── Base neutral scale (Tailwind gray) ───────────────── */
+  --gray-950: #030712;
+  --gray-900: #111827;
+  --gray-800: #1f2937;
+  --gray-700: #374151;
+  --gray-600: #4b5563;
+  --gray-500: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-300: #d1d5db;
+  --gray-200: #e5e7eb;
+  --gray-100: #f3f4f6;
+
+  /* ── Indigo accent (Tailwind indigo) ──────────────────── */
+  --indigo-300: #a5b4fc;
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  --indigo-700: #4338ca;
+
+  /* ── Terminal / semantic phosphors ────────────────────── */
+  --green-400: #4ade80;   /* terminal stdout, unlocked */
+  --green-300: #86efac;
+  --yellow-300: #fde047;  /* warnings, important commands */
+  --amber-400: #fbbf24;
+  --red-400: #f87171;     /* errors */
+  --cyan-400: #22d3ee;    /* prompt / info accents */
+
+  /* ── Sepia / copperplate wash (noir illustration tone) ── */
+  --sepia-900: #2b2117;
+  --sepia-700: #4a3a29;
+  --sepia-500: #8a6f4f;
+  --sepia-300: #c9b18f;
+  --sepia-100: #efe3d0;
+
+  /* ── Semantic aliases ─────────────────────────────────── */
+  --bg-app: var(--gray-900);
+  --bg-app-deep: var(--gray-950);
+  --surface-panel: var(--gray-800);
+  --surface-card: var(--gray-800);
+  --surface-terminal: #000000;
+  --border-subtle: var(--gray-700);
+  --border-strong: var(--gray-600);
+
+  --text-body: var(--gray-200);
+  --text-muted: var(--gray-400);
+  --text-faint: var(--gray-500);
+  --text-heading: var(--gray-100);
+
+  --accent: var(--indigo-500);
+  --accent-hover: var(--indigo-400);
+  --accent-quiet: var(--indigo-300);
+
+  --term-fg: var(--green-400);
+  --term-prompt: var(--cyan-400);
+  --term-warn: var(--yellow-300);
+  --term-error: var(--red-400);
+
+  --cmd-locked: var(--gray-600);      /* greyed-out, not yet unlocked */
+  --cmd-unlocked: var(--green-400);
+  --cmd-highlight: var(--yellow-300); /* important / dangerous command */
+}

@@ -1,0 +1,54 @@
+<!-- @dsCard group="Panels" name="CommandDetail" subtitle="コマンド説明 · 実PCの意味 + ゲーム内の意味を並記" -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommandDetail — CLI_Noir</title>
+<style>
+  @import "../../styles.css";
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: var(--space-6);
+    background: var(--bg-app); color: var(--text-body);
+    font-family: var(--font-ui);
+  }
+  .detail {
+    width: var(--rail-command-w); max-width: 100%;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle); border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+    padding: var(--space-4);
+  }
+  .name {
+    font-family: var(--font-mono); font-size: var(--text-lg);
+    color: var(--accent-quiet); font-weight: var(--weight-bold); margin: 0 0 2px;
+  }
+  .syntax {
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    color: var(--text-muted); margin-bottom: var(--space-3);
+  }
+  .block { margin-top: var(--space-3); }
+  .label {
+    font-size: var(--text-xs); letter-spacing: var(--tracking-caps);
+    text-transform: uppercase; color: var(--text-faint); margin-bottom: 2px;
+  }
+  .label.game { color: var(--term-warn); }
+  .body { font-size: var(--text-sm); line-height: var(--leading-relaxed); color: var(--text-body); }
+</style>
+</head>
+<body>
+  <div class="detail">
+    <p class="name">grep</p>
+    <p class="syntax">grep [オプション] "パターン" ファイル</p>
+    <div class="block">
+      <div class="label">実際のPCでは</div>
+      <p class="body">ファイルの中から指定した文字列を含む行だけを抜き出す。捜査でいう「証言の中からキーワードを拾う」操作。</p>
+    </div>
+    <div class="block">
+      <div class="label game">この事件では</div>
+      <p class="body">名簿 <code>witnesses.txt</code> から容疑者の名前を含む行を探し出し、アリバイの矛盾を突く。</p>
+    </div>
+  </div>
+</body>
+</html>

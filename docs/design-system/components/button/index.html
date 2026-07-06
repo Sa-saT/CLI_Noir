@@ -1,0 +1,62 @@
+<!-- @dsCard group="Primitives" name="Button" subtitle="Primary / Secondary / Ghost · 2 sizes" -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Button — CLI_Noir</title>
+<style>
+  @import "../../styles.css";
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: var(--space-8);
+    background: var(--bg-app); color: var(--text-body);
+    font-family: var(--font-ui);
+    display: flex; flex-direction: column; gap: var(--space-6);
+  }
+  .row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .eyebrow {
+    font-size: var(--text-xs); letter-spacing: var(--tracking-caps);
+    text-transform: uppercase; color: var(--text-faint); margin: 0;
+  }
+  .btn {
+    font-family: var(--font-ui); font-weight: var(--weight-semibold);
+    border: 1px solid transparent; border-radius: var(--radius-md);
+    cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease;
+    padding: var(--space-2) var(--space-4); font-size: var(--text-sm);
+  }
+  .btn-lg { padding: var(--space-3) var(--space-6); font-size: var(--text-base); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--surface-panel); color: var(--text-body); border-color: var(--border-strong); }
+  .btn-secondary:hover { border-color: var(--accent-quiet); color: var(--text-heading); }
+  .btn-ghost { background: transparent; color: var(--accent-quiet); }
+  .btn-ghost:hover { background: rgba(99,102,241,.12); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div>
+    <p class="eyebrow">Primary — 探偵の署名色（indigo）</p>
+    <div class="row">
+      <button class="btn btn-primary">保存する</button>
+      <button class="btn btn-primary btn-lg">次のミッションへ</button>
+      <button class="btn btn-primary" disabled>保存する</button>
+    </div>
+  </div>
+  <div>
+    <p class="eyebrow">Secondary</p>
+    <div class="row">
+      <button class="btn btn-secondary">閉じる</button>
+      <button class="btn btn-secondary btn-lg">セーブを選ぶ</button>
+    </div>
+  </div>
+  <div>
+    <p class="eyebrow">Ghost</p>
+    <div class="row">
+      <button class="btn btn-ghost">スキップ</button>
+      <button class="btn btn-ghost btn-lg">ヒントを見る</button>
+    </div>
+  </div>
+</body>
+</html>

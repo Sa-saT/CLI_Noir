@@ -1,0 +1,8 @@
+/* CLI_Noir — Webfont declarations
+   JetBrains Mono (terminal/mono), Zilla Slab (display serif),
+   Inter (UI) are all Google Fonts. Loaded via the Fonts CSS API,
+   which provides the @font-face rules + hosted woff2 binaries.
+   If the user uploads local font files, replace this with local
+   @font-face src: url(...) declarations. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Zilla+Slab:wght@400;600;700&display=swap");
