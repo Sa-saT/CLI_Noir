@@ -1,7 +1,11 @@
-# docs/design-system — CLI_Noir デザインシステム（ソース）
+# docs/design-system — CLI_Noir デザインシステム（local ミラー）
 
-claude.ai/design の **「CLI_Noir Design System」** プロジェクト（GitHub 連携: `Sa-saT/CLI_Noir`）の
-ソース・オブ・トゥルース。プロジェクトのルート構造をそのままミラーしている。
+claude.ai/design の **「CLI_Noir Design System」** プロジェクトの **local ミラー**。
+プロジェクトのルート構造をそのまま複製している。
+
+> **デザインの正は ClaudeDesign プロジェクト側**（このディレクトリはそれを落とし込んだ複製）。
+> 開発仕様（2026-07-07 確定）: **デザイン変更は ClaudeDesign で行い、変更を local へ落とし込む**。
+> 詳細は末尾「更新フロー」を参照。
 
 ## 構成
 
@@ -37,7 +41,27 @@ docs/design-system/
   このファイルの `@font-face` を差し替えれば全コンポーネントへ波及する（`DESIGN.md § 10-6`）。
 - `_ds_manifest.json` / `_ds_bundle.js` などアプリ生成物はコミットしない（プロジェクト側で自動生成）。
 
-## 更新フロー
+## 更新フロー（開発仕様・2026-07-07 確定）
 
-1. ここ（`docs/design-system/`）のファイルを編集
-2. commit & push（GitHub 経由で design プロジェクトへ同期）
+**同期方向: ClaudeDesign プロジェクト（＝正）→ local。逆流させない。**
+
+1. **デザイン変更は ClaudeDesign で行う** — claude.ai/design の「CLI_Noir Design System」で
+   トークン・コンポーネントの見た目を変更する。
+2. **変更を local に落とし込む**（Claude Code が `DesignSync` で pull する）:
+   1. `DesignSync list_files` / `get_file` でプロジェクトの最新を取得
+   2. `docs/design-system/`（このミラー）へ反映
+   3. 差分に合わせて **`noir-client/` の実装を更新**
+      （トークンは `noir-client/app/assets/css/tokens/` にもコピーがある。両方を揃える／
+      該当コンポーネント SFC `noir-client/app/components/*.vue` を追随させる）
+3. commit & push（local を最新化して GitHub へ）
+
+### やってはいけないこと
+- **local 側を直接いじって design プロジェクトへ push しない**（source は ClaudeDesign）。
+  急ぎで local を触った場合も、正は ClaudeDesign 側に反映してから改めて落とす。
+- `_ds_manifest.json` / `_ds_bundle.js` などアプリ生成物は pull 対象外（プロジェクト側で自動生成）。
+
+### local の対応先（落とし込み先の二層）
+| ClaudeDesign 側 | local ミラー | Nuxt 実装 |
+|---|---|---|
+| `tokens/*.css`, `styles.css` | `docs/design-system/` | `noir-client/app/assets/css/tokens/`, `main.css` |
+| `components/<name>/index.html` | `docs/design-system/components/` | `noir-client/app/components/*.vue` |

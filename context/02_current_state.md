@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-07-06（ディレクトリ整理・docs/ 集約を反映）
+更新日: 2026-07-07（Nuxt 実装着手・デザインシステム管理フローを追記）
 
 ---
 
@@ -8,14 +8,31 @@
 
 ```
 CLI_Noir/
-├ CLAUDE.md      … Claude Code 用ガイド（参照優先順位・運用ルールの要約）
-├ docs/          … 全設計ドキュメント（7 ファイル）
-├ context/       … 本フォルダ（AI コンテキスト復元用）
-├ moc/           … UI モック（参考用）
-└ old_files/     … 過去バージョンのバックアップ（参照不要）
+├ CLAUDE.md          … Claude Code 用ガイド（参照優先順位・運用ルールの要約）
+├ docs/              … 全設計ドキュメント（+ design-system/ = デザイン local ミラー）
+├ context/           … 本フォルダ（AI コンテキスト復元用）
+├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手）
+├ moc/               … UI モック（参考用）
+└ old_files/         … 過去バージョンのバックアップ（参照不要）
 ```
 
 2026-07-06 の整理で、設計ドキュメント 5 点をルートから `docs/` へ移動した。
+2026-07-07 に Nuxt 実装（`noir-client/`）とデザインシステム local ミラー（`docs/design-system/`）を追加。
+
+---
+
+## 実装・デザインシステム（2026-07-07 追加）
+
+### `noir-client/`（Nuxt 4 SPA / ssr:false）
+- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）
+- `app/pages/index.vue` … Mission1 合成画面（**モック evaluator**。本番は WS evaluator へ置換予定）
+- `app/pages/design.vue` … コンポーネントギャラリー
+- `app/assets/css/tokens/*.css` + `main.css` … デザイントークン（`docs/design-system` のコピー）
+- `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来）
+
+### `docs/design-system/`（デザインの local ミラー）
+- claude.ai/design プロジェクト「CLI_Noir Design System」の複製（`styles.css` + `tokens/` + `components/`）
+- **デザインの正は ClaudeDesign 側**。更新フロー（ClaudeDesign → local）は `docs/design-system/README.md` を正とする
 
 ---
 
