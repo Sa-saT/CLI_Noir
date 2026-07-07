@@ -179,10 +179,6 @@ presentation:
   scene_images:                         # 場所キー → 画像。current_path の前方一致・最長一致で解決（docs/DESIGN.md § 1）
     "office:/root": "mission21.png"     # Mission 既定（ルートに紐付け = フォールバック）
     "office:/root/desk": "office_desk.png"  # 任意: 意味のある場所にだけ追加。配下は親の絵を継承
-  practice_card: |                      # 現場実習カード（設計指示書 § 11 機能11）。クリア演出後に表示
-    君の本物の PC でも grep は同じだ。ターミナルを開いて
-    `grep "検索したい語" ファイル名` を試してみろ。
-    （安全な読み取り系コマンドのみ。破壊的操作は書かない）
   wall_effect: "..."                    # 壁の演出（例: 出力で画面が流れる）
   catharsis_effect: "..."              # 突破の演出（例: 3行だけ静かに残る）
 
@@ -270,9 +266,6 @@ hints:
 presentation:
   scene_images:
     "office:/root": "mission4.png"   # 案: 深夜の事務所。デスクに小包とテープ、床に印字用紙の山
-  practice_card: |
-    数万行のログも、君の PC では日常だ。ターミナルで
-    `history | sort | uniq -c | sort -rn | head` — 自分が一番使うコマンドを数えてみろ。
   wall_effect: "cat tape.log 実行時、出力を高速スクロールで約3秒流し続ける（実出力は先頭1000行で打ち切り + Warning）"
   catharsis_effect: "uniq -c 成功時、出力を一拍おいて静かに表示。最多行だけ text-yellow-300"
 
@@ -345,8 +338,7 @@ tests:
 - [ ] 手がかりファイルが「世界の住人の文書」として書けている（メタ表現なし）
 - [ ] 収集要素（隠しファイル）が1つ以上ある（なくてもクリア可能）
 - [ ] `LPIC学習マップ.md` に対応行がある（なければ追記）
-- [ ] 場面画像の発注仕様（`scene_images` の場所キー・構図・場所とFSの整合）を書いた
-- [ ] 現場実習カード（`practice_card`）の文面がある（安全な読み取り系コマンドのみ・破壊的操作なし）
+- [ ] 背景画像の発注仕様（構図・場所とFSの整合）を書いた
 - [ ] `Mission参照ファイル.md` § 6 のフォーマットで登録した
 
 ---

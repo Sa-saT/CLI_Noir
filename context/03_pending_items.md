@@ -60,6 +60,11 @@
 - 概要は確定済み（`docs/Mission参照ファイル.md` § 5）。各 Mission の `expected_script_patterns` 詳細正規表現・初期FS・ヒント3段階は実装時に確定する（Mission2/3 と同じ運用）
 - Mission の実施順序は入れ替え可能（Mission20 のみ最終章固定）
 
+### ゲーム機能 9〜12 の未定項目（2026-07-07 採用に伴う）
+- やらかし体験室の解放トリガー（案: denylist コマンドを初めて打って拒否された直後に相棒が誘う。未確定）
+- ご褒美コマンド（cowsay/figlet）の隠し実績の条件（案: 隠しファイル収集数と連動。未確定）
+- Mission1〜3 の現場実習カード文面（実装時確定。Mission4〜20 も同様）
+
 ### SSH 接続先の未定項目
 - `ghost.example`（Mission11 用）の初期ディレクトリと内部FSは未定 → Mission11 実装時に確定
 - `corp_server` と `archive_node` は Mission 未割当のまま予約（Phase3 以降の拡張用）
