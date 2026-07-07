@@ -74,7 +74,7 @@ pnpm dev
 # Backend (FastAPI + SQLModel + Alembic, Python 3.12.8) ※2026-07-06 Django から変更
 pyenv local 3.12.8
 python -m venv .venv && source .venv/bin/activate
-pip install "fastapi[standard]" sqlmodel alembic pyjwt "passlib[bcrypt]" pydantic-settings
+pip install "fastapi[standard]" sqlmodel alembic pyjwt bcrypt pydantic-settings  # passlib は廃止（bcrypt 5.x 非互換のため直接使用。2026-07-08）
 pip install pytest httpx ruff
 # プロジェクトは手で掘る（スケルトンは docs/環境構築手順.md § 3-4）
 cd backend && alembic upgrade head && uvicorn app.main:app --reload

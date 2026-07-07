@@ -16,7 +16,7 @@
 
 ### 技術選定の変更
 - **Django + DRF + Channels → FastAPI + SQLModel + Alembic + uvicorn**（同日のユーザー確認で確定）: 本アプリの主役は WebSocket であり、FastAPI はネイティブ対応で Channels/daphne/ASGI 設定が丸ごと不要。Pydantic が WS フレーム定義と 1:1 で検証も自動化。async 一本の単一パラダイム。DB は SQLite（開発）→ PostgreSQL（本番・JSONB）
-- **認証は PyJWT + passlib[bcrypt]**（simplejwt は DRF 専用のため使用不可。access 30分 / refresh 7日）
+- **認証は PyJWT + bcrypt**（simplejwt は DRF 専用のため使用不可。access 30分 / refresh 7日）※当初 passlib[bcrypt] だったが 2026-07-08 に passlib を廃止（下記）
 - **xterm.js → 自作 `TerminalView.vue`**: 行単位入出力のみのゲームでは xterm は過剰（ライン編集は結局自作）。構造化 JSON 出力の DOM 直描画の方が演出自由度が高く、日本語 IME（commit メッセージ等）も native input が安全。Phase3 の vi 導入時に xterm.js を再評価。**詳細な実装仕様（品質基準）は docs/DESIGN.md § 10 を正とする**
 - **フロント追加技術**: TypeScript（WS フレーム型共有）/ Pinia / Vitest / Playwright / ESLint + Prettier。バックエンドは pytest + httpx + ruff
 - **Nuxt は SPA モード（ssr: false）**: 認証必須 + WS 主体で SSR の利点なし
@@ -61,6 +61,16 @@
 - **コンセプト強化のゲーム機能 4 項目を採用（2026-07-07 確定）**: コンセプト＝「LPIC・PC への理解 + 黒い画面は理解すれば怖くない」を § 11 に明文化し、機能 9〜12 を追加。**9. やらかし体験室**（denylist の危険コマンドを隔離 state の回想シーンで 1 回だけ安全に体験。本編 denylist は不変）/ **10. エラー図鑑**（遭遇エラーを相棒の翻訳付きで図鑑登録。コマンド図鑑に統合）/ **11. 現場実習カード**（クリア時に「実機でやってみろ」テキストカード。安全コマンド限定・**画像制作なし**）/ **12. ご褒美コマンド**（cowsay/figlet を隠し実績報酬で解放。allowlist 登録済み）。**却下**: シーン視覚同期（作成画像が増えるため）/ PC 身体検査 Mission（ゲーム内ルールを変えたくない・混乱する）/ クイズ・昇進試験・弱点ノート（学習ゲームにしたくない）
 - **Mission 仕様の整合更新（2026-07-07）**: 上記 2 決定（場面画像紐付け・ゲーム機能 9〜12）に合わせて `Mission参照ファイル.md` § 0/§ 1-E を修正（背景画像 `mission{n}.png` 固定 → `presentation.scene_images` / クリア演出後に現場実習カード表示 / エラー図鑑・やらかし体験室・ご褒美コマンドは Mission 非依存の共通機能と明記）。`AUTHORING_GUIDE.md` のスキーマに `practice_card` を追加し、DoD チェックリストにも実習カード・scene_images の項目を追加。Mission1〜3 の実習カード文面は実装時確定
 - **egrep / fgrep を追加（2026-07-07 確定）**: 正規表現系コマンドの拡充として allowlist・Level 3（捜査員・Phase 1）に追加。evaluator は grep の alias 登録（個別実装しない）+ 実 GNU grep と同じ非推奨警告 1 行を出す。fgrep は固定文字列一致（正規表現を解釈しない）。LPIC 103.7 対応。定義は `バックエンド_コマンド機能仕様.md` § 3
+
+---
+
+## passlib 廃止・bcrypt 直接利用（2026-07-08 確定）
+
+- **passlib を廃止し `bcrypt` を直接使用**する構成に変更。理由: `passlib` 1.7.4 は 2020 年以降未更新で、venv に入っていた **bcrypt 5.0.0** と非互換（初期化時の `__about__` 参照エラー等）。バックエンドは未実装（passlib 依存コードは 0 件）でグリーンフィールドのため、移行コストなしで今のうちに切替
+- 対応: `noir-api/.venv` から passlib を uninstall（bcrypt 5.0.0 は保持）。`bcrypt.hashpw`/`checkpw`/`gensalt` で直接ハッシュ。日本語含むパスワードでハッシュ/検証が正常動作することを確認済み
+- **注意点を明文化**: bcrypt はパスワードを 72 バイトで切り詰めるため、実装時は 72 バイト以内に制限または事前ハッシュする
+- 反映先: 設計指示書 § 認証 / 環境構築手順 § 3-3 / CLAUDE.md セットアップ（いずれも `passlib[bcrypt]` → `bcrypt`）。バックアップ: 設計指示書_009・環境構築手順_003
+- 補足（未対応・別件）: `noir-api/.venv` は Python **3.10.1** で作られている（CLAUDE.md 想定は 3.12.8）。実装着手時に 3.12.8 で venv を作り直す
 
 ---
 

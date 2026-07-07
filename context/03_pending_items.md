@@ -13,7 +13,7 @@
 - [ ] API 疎通確認用の最小エンドポイント
 
 ### Backend
-- [ ] 認証 API 実装（login / refresh / me。PyJWT + passlib）
+- [ ] 認証 API 実装（login / refresh / me。PyJWT + bcrypt 直接。パスワードは 72 バイト上限に留意）
 - [ ] Mission API 実装（一覧 / 詳細。complete API は廃止 — クリアは git push 時にサーバー内部で記録）
 - [ ] state API 実装（取得のみ。更新 API は廃止 — 書き込みは WS evaluator のみ。2026-07-06 改訂）
 - [ ] WebSocket エンドポイント実装（auth/hello/resume/exec/result/complete フレーム。Pydantic モデル）
