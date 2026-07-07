@@ -27,17 +27,19 @@ docs/design-system/
 │  ├ colors.css                     … 配色（gray / indigo / phosphor / sepia / brass / copper / poster + semantic alias）
 │  ├ typography.css                 … 書体（hero=Jost / display=Zilla Slab / ui=Inter / mono=JetBrains / accent=Josefin）
 │  └ spacing.css                    … 余白・角丸・影・glow・bezel・レイアウト幅
-├ components/<name>/<Name>.jsx      … 各コンポーネントの実ソース（React。移植元＝正）
 └ ui_kits/detective-terminal/index.html … 全画面の組み上げ（自己完結・最良の視覚リファレンス）
 ```
 
-- コンポーネントの実体は **`<Name>.jsx`**（ClaudeDesign が生成する React 実装）。noir-client の Vue SFC はこれを移植したもの。
-- `ui_kits/detective-terminal/index.html` は `@import "../../styles.css"` のみで動く**自己完結の全画面デモ**（ヘッダー帯・シーン・3 段ヒント・コマンドレール・疑似ターミナル）。ブラウザで直接開ける。
-- ClaudeDesign 側の `index.html`（各コンポーネント）は `_ds_bundle.js`（アプリ生成物）に依存する demo ハーネスのため、**ミラーには含めない**（`.jsx` を正とする）。
+- このミラーは **トークン + 全画面デモだけ**を持つ（デザインを ClaudeDesign に触れず確認するための最小セット）。
+- **コンポーネントの実ソース（React `.jsx`）は ClaudeDesign 側にある**。以前は `components/<name>/<Name>.jsx` を複製していたが、noir-client の Vue SFC と意図が重複しビルドでも使われないため、ミラーからは外した（2026-07-07）。個別コンポーネントの React 実装を見たいときは `DesignSync get_file` でその都度 pull する。
+- `ui_kits/detective-terminal/index.html` は `@import "../../styles.css"` のみで動く**自己完結の全画面デモ**（ヘッダー帯・シーン=カレント地点・cd/ssh/exit の 0.8s フェード・3 段ヒント・コマンドレール・疑似ターミナル）。ブラウザで直接開ける。
+- ClaudeDesign 側の `_ds_bundle.js` / `_ds_manifest.json` / `guidelines/` / `templates/` / `SKILL.md` / `HANDOFF.md` などアプリ側のスキャフォールド・生成物は**ミラーに含めない**。
 
 ## コンポーネント ⇔ 実装対応（`docs/DESIGN.md § 5` 準拠）
 
-| グループ | .jsx（正） | noir-client の Vue SFC | 対応する DESIGN.md |
+実ソースは ClaudeDesign の各 `components/<name>/`（React `.jsx`）。local では noir-client の Vue SFC が実装。
+
+| グループ | ClaudeDesign（正） | noir-client の Vue SFC | 対応する DESIGN.md |
 |---|---|---|---|
 | Terminal | `terminal-view` / `prompt` | `TerminalView.vue` / `PromptLabel.vue` | § 10 / § 4 |
 | Panels | `command-panel` / `command-detail` | `CommandPanel.vue` / `CommandDetail.vue` | § 5 |
@@ -76,10 +78,11 @@ docs/design-system/
    トークン・コンポーネントの見た目を変更する。
 2. **変更を local に落とし込む**（Claude Code が `DesignSync` で pull する）:
    1. `DesignSync list_files` / `get_file` でプロジェクトの最新を取得
-   2. `docs/design-system/`（このミラー）へ反映（tokens/*.css + components/*.jsx + ui_kits/）
+   2. `docs/design-system/`（このミラー）へ反映（tokens/*.css + styles.css + ui_kits/）
    3. 差分に合わせて **`noir-client/` の実装を更新**
       （トークンは `noir-client/app/assets/css/tokens/` にもコピーがある。両方を揃える／
-      該当コンポーネント SFC `noir-client/app/components/*.vue` を追随させる）
+      該当コンポーネント SFC `noir-client/app/components/*.vue` を、ClaudeDesign の該当 `.jsx` を
+      `get_file` で参照しながら追随させる）
 3. commit & push（local を最新化して GitHub へ）
 
 ### やってはいけないこと
@@ -93,5 +96,5 @@ docs/design-system/
 | ClaudeDesign 側 | local ミラー | Nuxt 実装 |
 |---|---|---|
 | `tokens/*.css`, `styles.css` | `docs/design-system/tokens/`, `styles.css` | `noir-client/app/assets/css/tokens/`, `main.css` |
-| `components/<name>/<Name>.jsx` | `docs/design-system/components/<name>/<Name>.jsx` | `noir-client/app/components/*.vue` |
+| `components/<name>/<Name>.jsx` | （ミラーに複製しない。`get_file` で都度参照） | `noir-client/app/components/*.vue` |
 | `ui_kits/detective-terminal/` | `docs/design-system/ui_kits/detective-terminal/` | `noir-client/app/pages/index.vue`（レイアウト参照） |

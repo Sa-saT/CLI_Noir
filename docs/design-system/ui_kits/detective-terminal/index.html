@@ -72,6 +72,15 @@
     -webkit-mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
     mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
   }
+  .scene-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0; opacity: 1; transition: opacity .8s ease;
+  }
+  .scene-img.fading { opacity: 0; }
+  .scene-scrim {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: linear-gradient(180deg, rgba(20,16,12,.35) 0%, transparent 30%, rgba(20,16,12,.45) 100%);
+  }
   .scene-caption {
     position: relative; z-index: 2; max-width: 62%;
     background: var(--poster-cream); color: var(--poster-black);
@@ -81,7 +90,7 @@
   }
   .scene-caption b { color: var(--poster-red); font-weight: var(--weight-semibold); }
   .scene-badge {
-    position: absolute; top: var(--space-5); right: var(--space-5); z-index: 2;
+    position: absolute; top: var(--space-5); right: var(--space-5); z-index: 3;
     font-family: var(--font-accent); font-weight: var(--weight-semibold);
     text-transform: uppercase; letter-spacing: var(--tracking-hero);
     font-size: var(--text-xs); color: var(--poster-cream);
@@ -222,10 +231,12 @@
     </div>
   </header>
 
-  <!-- Scene -->
+  <!-- Scene: image = current location (host:cwd). cd / ssh / exit swap it with 0.8s fade -->
   <section class="scene">
-    <span class="scene-badge">Scène III</span>
-    <div class="scene-caption">
+    <img class="scene-img" id="sceneImg" alt="" aria-hidden="true">
+    <div class="scene-scrim"></div>
+    <span class="scene-badge" id="sceneBadge">Scène III</span>
+    <div class="scene-caption" id="sceneCaption">
       閉園後の遊園地。管理棟の端末は <b>ssh</b> でしか入れない。
       鍵となる合言葉は、桟橋で拾った <b>notes.txt</b> の中にある。
     </div>
@@ -271,7 +282,7 @@
     </div>
     <button class="new-pill" id="newPill">↓ 新しい出力</button>
     <div class="input-row" id="inputRow">
-      <span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span>
+      <span class="u">detective</span><span class="d">@</span><span class="h" id="promptHost">office</span><span class="d">:</span><span class="p" id="promptPath">~/desk</span> <span class="d">$</span>
       <input class="field" id="field" type="text" autocomplete="off" spellcheck="false" aria-label="コマンド入力" placeholder="">
     </div>
   </section>
@@ -282,6 +293,68 @@
   var field = document.getElementById("field");
   var pill = document.getElementById("newPill");
 
+  // ── Scene = current location. host:cwd → illustration ────
+  // Placeholder SVGs stand in for the copperplate/pen-ink art.
+  function svgScene(bg, art, label) {
+    return "data:image/svg+xml;utf8," + encodeURIComponent(
+      "<svg xmlns='http://www.w3.org/2000/svg' width='960' height='420'>" +
+      "<rect width='960' height='420' fill='" + bg + "'/>" + art +
+      "<text x='28' y='396' fill='#c9b18f' font-family='monospace' font-size='20'>" + label + "</text></svg>");
+  }
+  var hatch = "";
+  for (var i = 0; i < 56; i++) { hatch += "<line x1='" + (i * 20) + "' y1='0' x2='" + (i * 20 - 140) + "' y2='420'/>"; }
+  var SCENES = {
+    "office:~/desk": svgScene("#241c14",
+      "<g stroke='#8a6f4f' stroke-width='1' fill='none' opacity='.55'>" + hatch + "</g>" +
+      "<rect x='90' y='210' width='300' height='170' fill='#2b2117' stroke='#8a6f4f'/>" +
+      "<circle cx='740' cy='130' r='58' fill='#3a2e20' stroke='#c9a24b'/>",
+      "探偵事務所 · 自室の机 (placeholder)"),
+    "office:~/pier": svgScene("#1a2028",
+      "<g stroke='#4a5568' stroke-width='1.5' fill='none' opacity='.7'>" +
+      "<line x1='0' y1='300' x2='960' y2='300'/><line x1='120' y1='300' x2='200' y2='420'/><line x1='320' y1='300' x2='380' y2='420'/><line x1='560' y1='300' x2='600' y2='420'/></g>" +
+      "<circle cx='800' cy='90' r='40' fill='none' stroke='#c9b18f' opacity='.6'/>",
+      "桟橋 · 22時 (placeholder)"),
+    "amusement_park:/gate": (function () {
+      var spokes = "";
+      for (var j = 0; j < 12; j++) {
+        var a = j / 12 * 6.283;
+        spokes += "<line x1='480' y1='210' x2='" + (480 + Math.cos(a) * 160).toFixed(1) + "' y2='" + (210 + Math.sin(a) * 160).toFixed(1) + "'/>";
+      }
+      return svgScene("#101820",
+        "<g stroke='#1f4e79' stroke-width='1.5' fill='none' opacity='.8'>" +
+        "<circle cx='480' cy='210' r='160'/><circle cx='480' cy='210' r='110'/><circle cx='480' cy='210' r='60'/>" + spokes + "</g>",
+        "amusement_park · /gate (placeholder)");
+    })(),
+  };
+  var CAPTIONS = {
+    "office:~/desk": "閉園後の遊園地。管理棟の端末は <b>ssh</b> でしか入れない。鍵となる合言葉は、桟橋で拾った <b>notes.txt</b> の中にある。",
+    "office:~/pier": "霞の桟橋。波の音だけが返ってくる。<b>ls</b> で足元を探せ…",
+    "amusement_park:/gate": "ゲートの端末が綠に灯る。<b>carousel-1962</b> — 合言葉は合っていた。先へ進もう。",
+  };
+  var BADGES = { "office:~/desk": "Scène III", "office:~/pier": "Scène III · 桟橋", "amusement_park:/gate": "Scène IV" };
+
+  var loc = { host: "office", cwd: "~/desk" };
+  var sceneImg = document.getElementById("sceneImg");
+  var sceneBadge = document.getElementById("sceneBadge");
+  var sceneCaption = document.getElementById("sceneCaption");
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function locKey() { return loc.host + ":" + loc.cwd; }
+  function applyScene() {
+    sceneImg.src = SCENES[locKey()] || "";
+    if (BADGES[locKey()]) sceneBadge.textContent = BADGES[locKey()];
+    if (CAPTIONS[locKey()]) sceneCaption.innerHTML = CAPTIONS[locKey()];
+    document.getElementById("promptHost").textContent = loc.host;
+    document.getElementById("promptPath").textContent = loc.cwd;
+  }
+  function goTo(host, cwd) {
+    loc = { host: host, cwd: cwd };
+    if (reduceMotion) { applyScene(); return; }
+    sceneImg.classList.add("fading");           // 0.8s fade out
+    setTimeout(function () { applyScene(); sceneImg.classList.remove("fading"); }, 800);
+  }
+  applyScene();
+
   // ── Fake responses (design demo) ────────────────────────
   var responses = {
     "ls": [["out", "notes.txt  pier_photo.jpg  .hidden_memo  case_file.sh"]],
@@ -291,7 +364,7 @@
     "ssh gate@amusement_park": [["warn", "passcode を入力せよ…"], ["out", "carousel-1962 … 認証成功。ゲートが開いた。"], ["system", "-- Scène IV へ --"]],
     "grep": [["error", 'usage: grep "パターン" ファイル']],
     "cd": [["out", "移動先を指定せよ: cd <場所>"]],
-    "help": [["out", "右のコマンド一覧をクリックすると入力欄に挿入される。"]],
+    "help": [["out", "右のコマンド一覧をクリックすると入力欄に挿入される。cd pier / ssh / exit で場面が切り替わる。"]],
   };
 
   function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
@@ -309,13 +382,38 @@
   }
 
   function echoInput(cmd) {
-    addLine("", '<span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span> <span class="cmd">' + esc(cmd) + "</span>");
+    addLine("", '<span class="u">detective</span><span class="d">@</span><span class="h">' + esc(loc.host) + '</span><span class="d">:</span><span class="p">' + esc(loc.cwd) + '</span> <span class="d">$</span> <span class="cmd">' + esc(cmd) + "</span>");
   }
 
   function run(cmd) {
     echoInput(cmd);
-    var key = cmd.trim();
-    var res = responses[key] || responses[key.split(" ")[0]];
+    var input = cmd.trim();
+
+    // Location-changing commands → scene transition (0.8s fade)
+    if (input === "cd pier" || input === "cd ~/pier") {
+      addLine("out", "桟橋へ向かう…");
+      goTo("office", "~/pier");
+      return;
+    }
+    if (input === "cd desk" || input === "cd ~/desk" || (input === "cd" && loc.host === "office" && loc.cwd !== "~/desk")) {
+      addLine("out", "自室の机に戻った。");
+      goTo("office", "~/desk");
+      return;
+    }
+    if (input === "ssh gate@amusement_park") {
+      addLine("warn", "passcode を入力せよ…");
+      setTimeout(function () { addLine("out", "carousel-1962 … 認証成功。ゲートが開いた。"); }, 240);
+      setTimeout(function () { addLine("system", "-- 接続: amusement_park · 背景フェード 0.8s --"); }, 480);
+      goTo("amusement_park", "/gate");
+      return;
+    }
+    if (input === "exit" && loc.host !== "office") {
+      addLine("system", "-- 切断 · 自室に戻る · 背景フェード 0.8s --");
+      goTo("office", "~/desk");
+      return;
+    }
+
+    var res = responses[input] || responses[input.split(" ")[0]];
     if (!res) { res = [["error", "Error: command not allowed — 右の一覧にあるコマンドだけが使える"]]; }
     res.forEach(function (r, i) {
       setTimeout(function () { addLine(r[0], esc(r[1])); }, 120 * (i + 1));

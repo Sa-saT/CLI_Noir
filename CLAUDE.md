@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-CLI_Noir は Linux コマンド学習用の探偵風ターミナルゲームの**設計ドキュメントリポジトリ**。現時点ではコードは存在せず、実装（Nuxt frontend / FastAPI backend）は未着手（`context/03_pending_items.md` 参照）。
+CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、フロントエンド実装（`noir-client/`）は着手済み、バックエンド（FastAPI）は未着手（`context/03_pending_items.md` 参照）。
 
+- コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
 - MVP: Mission1〜3 / Phase2: Mission4〜20・Level 5〜11 採用済み（2026-07-06 確定）
 - ユーザーへの返答は**常に日本語**で行う
 - ファイル名は英語、UI ラベル・ドキュメントは日本語
@@ -15,11 +16,28 @@ CLI_Noir は Linux コマンド学習用の探偵風ターミナルゲームの*
 ```
 CLI_Noir/
 ├ CLAUDE.md      … 本ファイル
-├ docs/          … 全設計ドキュメント（下記の正 + DESIGN/AUTHORING_GUIDE）
+├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
+├ noir-client/   … Nuxt 4 フロント実装（実装済み。app/components/*.vue + pages）
+├ noir-api/      … FastAPI バックエンド（未追跡のローカルスキャフォールドのみ。実装未着手）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```
+
+### エージェント向け・読むファイルの絞り込み（トークン節約）
+
+タスク種別ごとに読むべきファイルだけを開く。関係ないディレクトリは開かない。
+
+| やること | 読む | 開かない |
+|---|---|---|
+| 仕様の確認・変更 | `docs/設計指示書.md`（正）+ 関連する `docs/*.md` | `old_files/` `noir-client/` `docs/design-system/` |
+| バックエンド実装 | `docs/バックエンド_コマンド機能仕様.md` + `docs/Mission参照ファイル.md` | `old_files/` `moc/` |
+| フロント実装 | `docs/DESIGN.md` + `noir-client/app/` | `old_files/` |
+| デザイン更新 | `docs/design-system/README.md`（フロー）+ `DesignSync` | ミラーの生成物 |
+| Mission/コマンド追加 | `docs/AUTHORING_GUIDE.md` + `docs/Mission参照ファイル.md` | `old_files/` |
+
+- `old_files/` は**採番バックアップ専用**。検索・参照しない（履歴が要る時だけ）。
+- `noir-api/.venv/` は gitignore 済み・未追跡。**絶対に読み込まない**（巨大）。
 
 ## ドキュメント構成と参照優先順位
 
