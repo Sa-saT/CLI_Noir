@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import type { TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
@@ -17,6 +17,17 @@ const prompt = reactive<PromptState>({
   path: '/root/desk',
   hostType: 'local',
 })
+
+/*
+ * Per-scene main image (spec: the scene ground swaps by location and cross-fades
+ * on ssh/exit). Mission1 stays in the detective's office; remote locations plug
+ * their own art in here. Empty string → SceneOverlay's poster placeholder.
+ */
+const sceneImages: Record<string, string> = {
+  office: '/images/office.png',
+  // amusement_park: '/images/amusement_park_gate.png', // Mission3 で追加予定
+}
+const sceneImage = computed(() => sceneImages[prompt.host] ?? '')
 
 let nextId = 1
 const lines = ref<TerminalLine[]>([
@@ -119,14 +130,13 @@ function run(raw: string) {
     />
 
     <div class="ga-scene scene-col">
-      <SceneView image-url="/images/office.png">
-        <SceneOverlay
-          badge="Scène I"
-          caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
-          card-title="引き出しの中身"
-          card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。これが最初の手がかりだ。"
-        />
-      </SceneView>
+      <SceneOverlay
+        :image="sceneImage"
+        badge="Scène I"
+        caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
+        card-title="引き出しの中身"
+        card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。これが最初の手がかりだ。"
+      />
       <ClearEffect v-if="cleared" class="clear-overlay" @next="cleared = false" />
     </div>
 
@@ -169,6 +179,12 @@ function run(raw: string) {
   position: relative;
   min-width: 0;
   overflow: hidden;
+}
+/* full-bleed in the assembled screen (component draws its own brass frame in the gallery) */
+.ga-scene :deep(.scene) {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
 }
 .clear-overlay {
   position: absolute;

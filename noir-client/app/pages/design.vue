@@ -51,13 +51,13 @@ const termLines = ref<TerminalLine[]>([
         <MissionHeader tag="Mission 1" title="Edit Business Card" subtitle="依頼人の名刺を書き換えろ" rank="Lv.1 見習い" />
       </div>
       <div class="card no-pad scene-card">
-        <SceneView image-url="/images/office.png">
-          <SceneOverlay
-            caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
-            card-title="引き出しの中身"
-            card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。"
-          />
-        </SceneView>
+        <SceneOverlay
+          image="/images/office.png"
+          badge="Scène I"
+          caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
+          card-title="引き出しの中身"
+          card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。"
+        />
       </div>
     </section>
 

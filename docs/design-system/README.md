@@ -41,7 +41,7 @@ docs/design-system/
 |---|---|---|---|
 | Terminal | `terminal-view` / `prompt` | `TerminalView.vue` / `PromptLabel.vue` | § 10 / § 4 |
 | Panels | `command-panel` / `command-detail` | `CommandPanel.vue` / `CommandDetail.vue` | § 5 |
-| Scene | `mission-header` / `scene-overlay` | `MissionHeader.vue` / `SceneOverlay.vue`（+ Nuxt 固有の `SceneView.vue`） | § 3 / § 5 |
+| Scene | `mission-header` / `scene-overlay` | `MissionHeader.vue` / `SceneOverlay.vue` | § 3 / § 5 |
 | Feedback | `clear-effect` / `rank-up-effect` / `save-select-modal` | `ClearEffect.vue` / `RankUpEffect.vue` / `SaveSelectModal.vue` | § 6 / § 5 |
 | Primitives | `button` | `NoirButton.vue` | § 2 |
 
@@ -54,9 +54,11 @@ docs/design-system/
 - ClearEffect: `stamp` / `sub` / `ctaLabel`（旧 `title` → `stamp`）
 - RankUpEffect: `eyebrow` / `title` / `body` / `from` / `to` / `unlocks`
 - SaveSelectModal: `saves[{ hash, message, when, latest }]`（旧 `title` → `message`）
+- SceneOverlay: `image`（シーン地。場面ごと差し替え）/ `fading` / `caption` / `badge` / `cardTitle` / `cardBody`。`image` を第一級要素として `object-fit: cover` で敷き、ポスター調のキャプション帯・バッジ・イベントカードはその上にオーバーレイ。写真シーンには可読性スクリムを自動付与。`image` 変化で 0.8s クロスフェード（ssh/exit の local⇄remote 遷移）。`image` 空はポスターグラデにフォールバック。
 
-> Nuxt 固有: `SceneView.vue` は実際の背景画像（`public/images/office.png`）を敷くラッパで ClaudeDesign 側には無い。
-> SceneOverlay はその画像の上に、ポスター調のキャプション帯・バッジ・イベントカードを重ねる（画像を覆う全面ポスター背景は描かない）。
+> **シーンのメイン画像は第一級の仕様**（2026-07-07 追加）。ClaudeDesign の SceneOverlay が `image`/`fading` を持つよう更新済み。
+> かつて Nuxt 固有だった `SceneView.vue` はこの更新で役割を SceneOverlay に統合し**廃止**した。
+> 場面→画像のマッピング（Mission1-3=自室 `office.png` / ssh 先=現地絵）はゲーム状態＝ページ側（`pages/index.vue` の `sceneImages`）が持つ。
 
 ## 元仕様との整合
 

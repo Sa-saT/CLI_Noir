@@ -24,7 +24,7 @@ CLI_Noir/
 ## 実装・デザインシステム（2026-07-07 追加）
 
 ### `noir-client/`（Nuxt 4 SPA / ssr:false）
-- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）
+- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
 - `app/pages/index.vue` … Mission1 合成画面（**モック evaluator**。本番は WS evaluator へ置換予定）
 - `app/pages/design.vue` … コンポーネントギャラリー
 - `app/assets/css/tokens/*.css` + `main.css` … デザイントークン（`docs/design-system` のコピー）
