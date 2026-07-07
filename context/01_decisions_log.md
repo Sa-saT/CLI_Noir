@@ -64,6 +64,15 @@
 
 ---
 
+## /proc・環境変数(PATH) の採用と Mission 追加（2026-07-08 確定）
+
+- **疑似 `/proc` を採用**: 新コマンドではなく**仮想FSの特殊ディレクトリ**として提供（実PCと意味一致: /proc は ls/cat で読むファイル）。仮想プロセステーブルから**読み取り時に動的生成**・読み取り専用・`filesystem` JSON には保存しない。エントリ: `/proc/<PID>/status`・`cmdline`・`/proc/cpuinfo`・`meminfo`・`uptime`。LPIC 101.1/103.5 → 設計指示書 § 4「疑似 /proc」
+- **環境変数を state に追加**: `env_vars`（PATH / HOME 初期値）を state スキーマ・復元対象・commit snapshot に追加。`export`/`unset`/`printenv`/`type` を allowlist・Level 10 に追加。コマンド解決は PATH を尊重（PATH 汚染時は `command not found`、絶対パス実行は PATH 非依存）。LPIC 103.1 → 設計指示書 § 4「環境変数」/ § 8
+- **Mission 2 本追加・番号振り直し（全 22 Mission に）**: **Mission7: Inside the Machine「機械の胸の内」**（/proc 鑑識・Level 6。Mission6 の直後に挿入）/ **Mission21: The Missing Toolbox「消えた道具箱」**（PATH 汚染からの復旧・Level 10。Mission20「街の地図」の /bin=道具街 の比喩を回収する位置）。旧 7〜19 → 8〜20、旧 20（Case Closed）→ 22（卒業試験が最終のまま）。Mission6 の「裏取り」は `cat /proc/<PID>/cmdline` で具体化
+- 参照番号の追随修正: ghost.example → Mission12 / AUTHORING_GUIDE の道具箱表・難易度表・ヒント例 / LPIC学習マップ § 7・§ 8 の Mission 参照 / CLAUDE.md・README の「4〜20」→「4〜22」
+
+---
+
 ---
 
 ## 技術スタック

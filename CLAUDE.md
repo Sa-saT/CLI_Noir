@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、フロントエンド実装（`noir-client/`）は着手済み、バックエンド（FastAPI）は未着手（`context/03_pending_items.md` 参照）。
 
 - コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
-- MVP: Mission1〜3 / Phase2: Mission4〜20・Level 5〜11 採用済み（2026-07-06 確定）
+- MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）
 - ユーザーへの返答は**常に日本語**で行う
 - ファイル名は英語、UI ラベル・ドキュメントは日本語
 
@@ -44,7 +44,7 @@ CLI_Noir/
 `docs/設計指示書.md` が最上位の正。矛盾があれば設計指示書に従う。
 
 1. `docs/設計指示書.md` — 全体仕様（技術スタック / API / WebSocket / allowlist・レベル表 / 疑似Git / Mission判定 / エラー一覧 / 受け入れ基準）
-2. `docs/Mission参照ファイル.md` — Mission1〜20 の詳細仕様（正規表現・ヒント・配置ファイル）
+2. `docs/Mission参照ファイル.md` — Mission1〜22 の詳細仕様（正規表現・ヒント・配置ファイル）
 3. `docs/バックエンド_コマンド機能仕様.md` — evaluator 実装時の各コマンド定義書（引数 / 出力 / state 更新）
 4. `docs/LPIC学習マップ.md` — LPIC Level 1 とゲーム内コマンドの対応表（非コマンド学習要素含む）
 5. `docs/環境構築手順.md` — Nuxt / FastAPI のセットアップ手順

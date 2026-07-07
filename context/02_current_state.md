@@ -42,18 +42,18 @@ CLI_Noir/
 
 ### `docs/設計指示書.md`（最上位の正）
 - プロジェクト概要・趣旨・ペルソナ / 技術スタック / UI・ルーティング
-- 仮想FS（JSONスキーマ・復元範囲・セーブ選択）
-- local/remote（SSH接続先: amusement_park 確定、ghost.example は Mission11 用・初期ディレクトリ未定）
+- 仮想FS（JSONスキーマ・復元範囲・セーブ選択・疑似 /proc・env_vars（2026-07-08 追加））
+- local/remote（SSH接続先: amusement_park 確定、ghost.example は Mission12 用・初期ディレクトリ未定）
 - API 詳細仕様 / WebSocket 仕様
-- コマンド実行制御（allowlist 約70コマンド + egrep/fgrep・denylist・Level 1〜11 探偵ランク表・構文レベルの許可）
+- コマンド実行制御（allowlist 約70コマンド + egrep/fgrep + export/unset/printenv/type・denylist・Level 1〜11 探偵ランク表・構文レベルの許可）
 - Mission 判定仕様 / 疑似 Git・セーブ仕様
-- Mission 設計（MVP 1〜3 + Phase2 4〜20 一覧 + ゲーム機能 12 項目 = Phase2 の 8 + 2026-07-07 コンセプト強化の 4（やらかし体験室 / エラー図鑑 / 現場実習カード / ご褒美コマンド））
+- Mission 設計（MVP 1〜3 + Phase2 4〜22 一覧 + ゲーム機能 12 項目 = Phase2 の 8 + 2026-07-07 コンセプト強化の 4（やらかし体験室 / エラー図鑑 / 現場実習カード / ご褒美コマンド））
 - エラーメッセージ一覧 / 受け入れ基準 / 開発フロー
 
 ### `docs/Mission参照ファイル.md`
-- Mission 共通テンプレート（mission_id: 1..20）
+- Mission 共通テンプレート（mission_id: 1..22）
 - Mission1〜3: 確定詳細（正規表現・ヒント3段階・配置ファイル）
-- Mission4〜20: Phase2 概要確定（あらすじ/フロー/必須コマンド/クリア条件/ゲーム性。詳細正規表現は実装時）
+- Mission4〜22: Phase2 概要確定（あらすじ/フロー/必須コマンド/クリア条件/ゲーム性。詳細正規表現は実装時）。2026-07-08 に Mission7（/proc）・Mission21（PATH）を追加し番号振り直し（旧 7〜19 → 8〜20、旧 20 → 22）
 - Agent 出力フォーマット / 参照優先順位
 
 ### `docs/バックエンド_コマンド機能仕様.md`
@@ -92,9 +92,9 @@ CLI_Noir/
 
 | ファイル | 内容 |
 |---|---|
-| `設計指示書_001〜007.md` | 設計指示書の過去版（003 = Phase2 統合前 / 006 = 場面画像・egrep/fgrep 前 / 007 = ゲーム機能 9〜12 追加前） |
-| `DESIGN_001〜003.md` / `AUTHORING_GUIDE_001.md` / `バックエンド_コマンド機能仕様_001〜002.md` / `環境構築手順_001〜002.md` | 各仕様の変更前バックアップ |
-| `LPIC学習マップ_001〜003.md` / `Mission参照ファイル_001.md` | Phase2 統合前ほか |
+| `設計指示書_001〜008.md` | 設計指示書の過去版（003 = Phase2 統合前 / 006 = 場面画像・egrep/fgrep 前 / 007 = ゲーム機能 9〜12 追加前 / 008 = /proc・PATH 追加前） |
+| `DESIGN_001〜003.md` / `AUTHORING_GUIDE_001〜003.md` / `バックエンド_コマンド機能仕様_001〜002.md` / `環境構築手順_001〜002.md` | 各仕様の変更前バックアップ |
+| `LPIC学習マップ_001〜004.md` / `Mission参照ファイル_001〜003.md` | Phase2 統合前ほか |
 | `LPIC拡張_Mission案_001.md` | Phase2 提案原本（2026-07-06 全面採用・統合済み） |
 | `追加確認事項.md` / `allowlist_denylist_001.md` / `タスクフロー_001.md` | 初期の統合済みファイル |
 
