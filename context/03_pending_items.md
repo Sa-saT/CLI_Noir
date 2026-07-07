@@ -50,7 +50,11 @@
 - [ ] アーカイブの入れ子表現（仮想FSノードに `archive_content`）
 - [ ] FHS 版の仮想FSマップ（Mission19 用）
 - [ ] フロントエンド: Tab 補完 / `↑↓` 履歴 / `Ctrl+R` / `Ctrl+C` / `Ctrl+L`（`TerminalView.vue` の keydown 処理）
-- [ ] Phase2 ゲーム機能 8 項目（設計指示書 § 11）の UI 設計
+- [ ] ゲーム機能 12 項目（設計指示書 § 11。Phase2 の 8 + 2026-07-07 追加の 4）の UI 設計
+- [ ] やらかし体験室の隔離 state 実装（使い捨て state / 本編 evaluator は denylist 不変）
+- [ ] エラー図鑑の翻訳文データ作成（§ 12 エラー一覧と 1:1 対応）
+- [ ] 現場実習カードの文面作成（安全コマンド限定 + macOS/Windows のターミナルの開き方）
+- [ ] `cowsay` / `figlet` の evaluator 定義（バックエンド_コマンド機能仕様への追加。隠し実績の解放条件設計も）
 
 ### Mission4〜20 の詳細化（実装時）
 - 概要は確定済み（`docs/Mission参照ファイル.md` § 5）。各 Mission の `expected_script_patterns` 詳細正規表現・初期FS・ヒント3段階は実装時に確定する（Mission2/3 と同じ運用）
