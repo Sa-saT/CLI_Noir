@@ -30,9 +30,9 @@ const termLines = ref<TerminalLine[]>([
       </div>
       <div class="card dark">
         <div class="stack">
-          <PromptLabel user="detective" host="office" path="/root/desk" />
-          <PromptLabel user="detective" host="amusement_park" path="/gate" :remote="true" />
-          <PromptLabel user="barman" host="office" path="/bar" />
+          <PromptLabel user="detective" host="office" path="/root/desk" :caret="true" />
+          <PromptLabel user="detective" host="amusement_park" path="/gate" host-type="remote" />
+          <PromptLabel user="barman" host="office" path="/bar" host-type="su" />
         </div>
       </div>
     </section>
@@ -48,7 +48,7 @@ const termLines = ref<TerminalLine[]>([
     <section class="group">
       <h2>Scene</h2>
       <div class="card no-pad">
-        <MissionHeader index="1" title="Edit Business Card" subtitle="依頼人の名刺を書き換えろ" rank="Lv.1 見習い" />
+        <MissionHeader tag="Mission 1" title="Edit Business Card" subtitle="依頼人の名刺を書き換えろ" rank="Lv.1 見習い" />
       </div>
       <div class="card no-pad scene-card">
         <SceneView image-url="/images/office.png">

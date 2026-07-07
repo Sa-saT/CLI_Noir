@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   connected?: boolean
 }>(), {
   lines: () => [],
-  prompt: () => ({ user: 'detective', host: 'office', path: '/root', remote: false }),
+  prompt: () => ({ user: 'detective', host: 'office', path: '/root', hostType: 'local' }),
   connected: true,
 })
 
@@ -98,7 +98,7 @@ watch(() => props.lines.length, () => {
 <style scoped>
 .terminal {
   position: relative;
-  background: var(--surface-terminal);
+  background: var(--hairline-scan), var(--surface-terminal);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel), inset 0 0 60px rgba(74, 222, 128, 0.04);
@@ -118,6 +118,7 @@ watch(() => props.lines.length, () => {
   padding: var(--space-3) var(--space-4);
   color: var(--term-fg);
   user-select: text;
+  scroll-behavior: smooth;
 }
 .scrollback::-webkit-scrollbar {
   width: 10px;
@@ -154,6 +155,10 @@ watch(() => props.lines.length, () => {
   padding: var(--space-2) var(--space-4);
   background: rgba(255, 255, 255, 0.02);
 }
+.input-row:focus-within {
+  background: rgba(74, 222, 128, 0.04);
+  box-shadow: inset 0 1px 0 rgba(74, 222, 128, 0.25);
+}
 .field {
   flex: 1;
   background: transparent;
@@ -177,7 +182,7 @@ watch(() => props.lines.length, () => {
   padding: var(--space-1) var(--space-3);
   border: none;
   border-radius: 999px;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card), var(--glow-indigo);
   cursor: pointer;
 }
 </style>

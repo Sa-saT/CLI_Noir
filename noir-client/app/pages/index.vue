@@ -15,7 +15,7 @@ const prompt = reactive<PromptState>({
   user: 'detective',
   host: 'office',
   path: '/root/desk',
-  remote: false,
+  hostType: 'local',
 })
 
 let nextId = 1
@@ -33,23 +33,23 @@ const commands = ref<CommandEntry[]>([
   { name: 'git add', state: 'highlight' },
   { name: 'git commit', state: 'highlight' },
   { name: 'git push', state: 'highlight' },
-  { name: 'grep', state: 'locked', level: 'Lv.3' },
-  { name: 'awk', state: 'locked', level: 'Lv.5' },
+  { name: 'grep', state: 'locked', badge: 'Lv.3' },
+  { name: 'awk', state: 'locked', badge: 'Lv.5' },
 ])
 
-const details: Record<string, { syntax: string, real: string, game: string }> = {
-  ls: { syntax: 'ls [パス]', real: 'そのディレクトリにあるファイル・フォルダを一覧する。', game: '今いる部屋にある手がかりを見回す。' },
-  cd: { syntax: 'cd <パス>', real: '作業ディレクトリを移動する。', game: '別の部屋・引き出しへ移動する。' },
-  cat: { syntax: 'cat <ファイル>', real: 'ファイルの中身を表示する。', game: '書類や手紙を読む。' },
-  echo: { syntax: 'echo "文字列" > <ファイル>', real: '文字列を出力し、> でファイルへ書き込む。', game: '名刺の記載を書き換える（このミッションの本命）。' },
-  'git status': { syntax: 'git status', real: '作業ツリーの変更状態を確認する。', game: '証拠の提出準備がどこまで整ったか確認する。' },
-  'git add': { syntax: 'git add <ファイル>', real: '変更をステージに載せる。', game: '提出する証拠を封筒に入れる（提出前の必須手順）。' },
-  'git commit': { syntax: 'git commit -m "..."', real: '変更を記録する。', game: 'ゲームのセーブ。何度でも可能。' },
-  'git push': { syntax: 'git push', real: 'コミットをリモートへ送る。', game: 'クリア判定。最新セーブの内容で合否が出る。' },
+const details: Record<string, { syntax: string, real: string, inGame: string }> = {
+  ls: { syntax: 'ls [パス]', real: 'そのディレクトリにあるファイル・フォルダを一覧する。', inGame: '今いる部屋にある手がかりを見回す。' },
+  cd: { syntax: 'cd <パス>', real: '作業ディレクトリを移動する。', inGame: '別の部屋・引き出しへ移動する。' },
+  cat: { syntax: 'cat <ファイル>', real: 'ファイルの中身を表示する。', inGame: '書類や手紙を読む。' },
+  echo: { syntax: 'echo "文字列" > <ファイル>', real: '文字列を出力し、> でファイルへ書き込む。', inGame: '名刺の記載を書き換える（このミッションの本命）。' },
+  'git status': { syntax: 'git status', real: '作業ツリーの変更状態を確認する。', inGame: '証拠の提出準備がどこまで整ったか確認する。' },
+  'git add': { syntax: 'git add <ファイル>', real: '変更をステージに載せる。', inGame: '提出する証拠を封筒に入れる（提出前の必須手順）。' },
+  'git commit': { syntax: 'git commit -m "..."', real: '変更を記録する。', inGame: 'ゲームのセーブ。何度でも可能。' },
+  'git push': { syntax: 'git push', real: 'コミットをリモートへ送る。', inGame: 'クリア判定。最新セーブの内容で合否が出る。' },
 }
 
 const selected = ref<string>('')
-const detail = ref<{ name: string, syntax: string, real: string, game: string } | null>(null)
+const detail = ref<{ name: string, syntax: string, real: string, inGame: string } | null>(null)
 
 function onSelect(name: string) {
   selected.value = name
@@ -111,37 +111,37 @@ function run(raw: string) {
 <template>
   <div class="screen">
     <MissionHeader
-      index="1"
+      class="ga-header"
+      tag="Mission 1"
       title="Edit Business Card"
       subtitle="依頼人の名刺を書き換えろ"
       rank="Lv.1 見習い"
     />
 
-    <section class="middle">
-      <div class="scene-col">
-        <SceneView image-url="/images/office.png">
-          <SceneOverlay
-            caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
-            card-title="引き出しの中身"
-            card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。これが最初の手がかりだ。"
-          />
-        </SceneView>
-        <ClearEffect v-if="cleared" class="clear-overlay" @next="cleared = false" />
-      </div>
-
-      <div class="rail">
-        <CommandPanel :commands="commands" @select="onSelect" />
-        <CommandDetail
-          v-if="detail"
-          :name="detail.name"
-          :syntax="detail.syntax"
-          :real="detail.real"
-          :game="detail.game"
+    <div class="ga-scene scene-col">
+      <SceneView image-url="/images/office.png">
+        <SceneOverlay
+          badge="Scène I"
+          caption="机の引き出しを調べ、businesscard.txt を見つけろ…"
+          card-title="引き出しの中身"
+          card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。これが最初の手がかりだ。"
         />
-      </div>
-    </section>
+      </SceneView>
+      <ClearEffect v-if="cleared" class="clear-overlay" @next="cleared = false" />
+    </div>
 
-    <section class="term">
+    <aside class="ga-rail rail">
+      <CommandPanel :commands="commands" @select="onSelect" />
+      <CommandDetail
+        v-if="detail"
+        :name="detail.name"
+        :syntax="detail.syntax"
+        :real="detail.real"
+        :in-game="detail.inGame"
+      />
+    </aside>
+
+    <section class="ga-term term">
       <TerminalView :lines="lines" :prompt="prompt" @command="run" />
     </section>
   </div>
@@ -149,49 +149,70 @@ function run(raw: string) {
 
 <style scoped>
 .screen {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr var(--rail-command-w);
+  grid-template-rows: auto 1fr var(--terminal-h);
+  grid-template-areas:
+    "header header"
+    "scene  rail"
+    "term   rail";
   height: 100vh;
+  min-height: 640px;
+  background: var(--bg-app-deep);
   overflow: hidden;
 }
-.middle {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-  gap: var(--space-3);
-  padding: var(--space-3);
+.ga-header {
+  grid-area: header;
 }
-.scene-col {
+.ga-scene {
+  grid-area: scene;
   position: relative;
-  flex: 1;
   min-width: 0;
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .clear-overlay {
   position: absolute;
   inset: 0;
 }
-.rail {
-  width: var(--rail-command-w);
-  flex-shrink: 0;
+.ga-rail {
+  grid-area: rail;
+  border-left: 1px solid var(--brass-600);
+  box-shadow: var(--bezel-brass);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  overflow-y: auto;
+  padding: var(--space-3);
 }
-.term {
-  height: var(--terminal-h);
-  min-height: 220px;
-  padding: 0 var(--space-3) var(--space-3);
+.ga-rail :deep(.panel) {
+  width: 100%;
+}
+.ga-rail :deep(.detail) {
+  width: 100%;
+}
+.ga-term {
+  grid-area: term;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--brass-600);
 }
 
 @media (max-width: 720px) {
-  .middle {
+  .screen {
+    display: flex;
     flex-direction: column;
+    height: auto;
   }
-  .rail {
-    width: 100%;
+  .ga-scene {
+    min-height: var(--scene-min-h);
+  }
+  .ga-rail {
+    border-left: none;
+  }
+  .ga-term {
+    height: var(--terminal-h);
+    min-height: 260px;
   }
 }
 </style>

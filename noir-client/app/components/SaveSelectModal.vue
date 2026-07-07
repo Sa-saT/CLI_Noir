@@ -1,22 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+// Save-select modal — on re-login, pick a git commit (save point) to resume
+// from. Brass-trimmed cyberpunk panel; each row shows hash, message, timestamp.
 export interface SaveEntry {
   hash: string
-  title: string
+  message: string
   when: string
   latest?: boolean
 }
 
 const props = withDefaults(defineProps<{
-  missionLabel?: string
+  title?: string
+  subtitle?: string
   saves?: SaveEntry[]
 }>(), {
-  missionLabel: 'Mission 3',
+  title: 'セーブを選んで再開',
+  subtitle: 'Mission 3 — 記録された commit から選択してください',
   saves: () => [
-    { hash: 'a1f9c2e', title: '桟橋の足跡を照合', when: '2026-07-05 23:41', latest: true },
-    { hash: '7bd0410', title: 'ssh amusement_park に接続', when: '2026-07-05 23:12' },
-    { hash: '3e5aa88', title: 'case_file.sh を実行', when: '2026-07-05 22:58' },
+    { hash: 'a1f9c2e', message: '桟橋の足跡を照合', when: '2026-07-05 23:41', latest: true },
+    { hash: '7bd0410', message: 'ssh amusement_park に接続', when: '2026-07-05 23:12' },
+    { hash: '3e5aa88', message: 'case_file.sh を実行', when: '2026-07-05 22:58' },
   ],
 })
 
@@ -31,8 +35,8 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
 <template>
   <div class="modal">
     <div class="modal-head">
-      <h2>セーブを選んで再開</h2>
-      <p>{{ missionLabel }} — 記録された commit から選択してください</p>
+      <h2>{{ title }}</h2>
+      <p v-if="subtitle">{{ subtitle }}</p>
     </div>
     <ul>
       <li
@@ -43,15 +47,15 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
       >
         <span class="hash">{{ s.hash }}</span>
         <span class="msg">
-          <span class="title">{{ s.title }}</span>
+          <span class="title">{{ s.message }}</span>
           <span class="when">{{ s.when }}</span>
         </span>
         <span v-if="s.latest" class="latest">最新</span>
       </li>
     </ul>
     <div class="modal-foot">
-      <button class="btn btn-ghost" @click="emit('start-over')">最初から</button>
-      <button class="btn btn-primary" @click="emit('resume', selected)">このセーブで再開</button>
+      <NoirButton variant="ghost" @click="emit('start-over')">最初から</NoirButton>
+      <NoirButton variant="primary" @click="emit('resume', selected)">このセーブで再開</NoirButton>
     </div>
   </div>
 </template>
@@ -61,20 +65,23 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
   width: 480px;
   max-width: 100%;
   margin: 0 auto;
-  background: var(--surface-panel);
-  border: 1px solid var(--border-strong);
+  background: var(--hairline-scan), linear-gradient(180deg, var(--gray-800), var(--gray-900));
+  border: 1px solid var(--brass-600);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-panel), var(--bezel-brass);
   overflow: hidden;
+  font-family: var(--font-ui);
 }
 .modal-head {
   padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--brass-600);
+  background: linear-gradient(180deg, rgba(201, 162, 75, 0.08), transparent);
 }
 .modal-head h2 {
   margin: 0;
+  font-family: var(--font-display);
   font-size: var(--text-lg);
-  color: var(--text-heading);
+  color: var(--brass-400);
 }
 .modal-head p {
   margin: 4px 0 0;
@@ -96,17 +103,17 @@ li {
   border: 1px solid transparent;
 }
 li:hover {
-  background: var(--surface-card);
-  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.03);
 }
 li.selected {
   background: rgba(99, 102, 241, 0.12);
   border-color: var(--accent);
+  box-shadow: var(--glow-indigo);
 }
 .hash {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: var(--accent-quiet);
+  color: var(--cyan-400);
 }
 .msg {
   flex: 1;
@@ -136,22 +143,5 @@ li.selected {
   justify-content: flex-end;
   gap: var(--space-2);
   border-top: 1px solid var(--border-subtle);
-}
-.btn {
-  font-family: var(--font-ui);
-  font-weight: var(--weight-semibold);
-  font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.btn-primary {
-  background: var(--accent);
-  color: #fff;
-}
-.btn-ghost {
-  background: transparent;
-  color: var(--accent-quiet);
 }
 </style>

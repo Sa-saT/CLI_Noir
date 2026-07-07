@@ -39,6 +39,19 @@
   --sepia-300: #c9b18f;
   --sepia-100: #efe3d0;
 
+  /* ── Steampunk metals (component detail accents) ─────── */
+  --brass-400: #c9a24b;
+  --brass-600: #8a6d2f;
+  --copper-400: #c47e5a;
+  --copper-600: #8c5136;
+
+  /* ── 60s French poster palette (scene / hero imagery) ─── */
+  --poster-red: #d93a2b;
+  --poster-cream: #f2e8d5;
+  --poster-blue: #1f4e79;
+  --poster-black: #14100c;
+  --poster-mustard: #d9a521;
+
   /* ── Semantic aliases ─────────────────────────────────── */
   --bg-app: var(--gray-900);
   --bg-app-deep: var(--gray-950);
@@ -65,4 +78,10 @@
   --cmd-locked: var(--gray-600);      /* greyed-out, not yet unlocked */
   --cmd-unlocked: var(--green-400);
   --cmd-highlight: var(--yellow-300); /* important / dangerous command */
+
+  /* ── Direction aliases ─────────────────────────── */
+  --accent-metal: var(--brass-400);        /* steampunk trim: dials, bezels, rivets */
+  --scene-bg: var(--poster-black);         /* French-poster scene ground */
+  --scene-ink: var(--poster-cream);        /* poster type on dark */
+  --scene-accent: var(--poster-red);       /* poster cut-out accent */
 }

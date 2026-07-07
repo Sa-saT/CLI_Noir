@@ -3,7 +3,7 @@ export interface CommandEntry {
   name: string
   state: 'unlocked' | 'highlight' | 'locked'
   /** unlock level label shown on locked rows, e.g. "Lv.3" */
-  level?: string
+  badge?: string
 }
 
 withDefaults(defineProps<{
@@ -17,18 +17,15 @@ withDefaults(defineProps<{
     { name: 'cat', state: 'unlocked' },
     { name: 'git status', state: 'highlight' },
     { name: 'git push', state: 'highlight' },
-    { name: 'grep', state: 'locked', level: 'Lv.3' },
-    { name: 'awk', state: 'locked', level: 'Lv.5' },
+    { name: 'grep', state: 'locked', badge: 'Lv.3' },
+    { name: 'awk', state: 'locked', badge: 'Lv.5' },
   ],
 })
 
 const emit = defineEmits<{ (e: 'select', name: string): void }>()
 
-function icon(state: CommandEntry['state']) {
-  if (state === 'highlight') return '★'
-  if (state === 'locked') return '🔒'
-  return '›'
-}
+const stateIcon = { unlocked: '›', highlight: '★', locked: '☢' } as const
+
 function onSelect(cmd: CommandEntry) {
   if (cmd.state !== 'locked') emit('select', cmd.name)
 }
@@ -36,7 +33,7 @@ function onSelect(cmd: CommandEntry) {
 
 <template>
   <aside class="panel">
-    <div class="panel-head">{{ title }}</div>
+    <div class="panel-head"><span aria-hidden="true">⚙</span>{{ title }}</div>
     <ul>
       <li
         v-for="cmd in commands"
@@ -44,8 +41,9 @@ function onSelect(cmd: CommandEntry) {
         :class="cmd.state"
         @click="onSelect(cmd)"
       >
-        <span class="icon">{{ icon(cmd.state) }}</span>{{ cmd.name }}
-        <span v-if="cmd.level" class="badge">{{ cmd.level }}</span>
+        <span class="icon">{{ stateIcon[cmd.state] }}</span>
+        <span class="cmd-name">{{ cmd.name }}</span>
+        <span v-if="cmd.badge" class="badge">{{ cmd.badge }}</span>
       </li>
     </ul>
   </aside>
@@ -55,19 +53,25 @@ function onSelect(cmd: CommandEntry) {
 .panel {
   width: var(--rail-command-w);
   max-width: 100%;
-  background: var(--surface-panel);
+  background: var(--hairline-scan), linear-gradient(180deg, var(--gray-800), var(--gray-900));
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
+  box-shadow: var(--shadow-panel), var(--bezel-brass);
   overflow: hidden;
 }
 .panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--brass-600);
+  background: linear-gradient(180deg, rgba(201, 162, 75, 0.1), transparent);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  color: var(--text-heading);
-  letter-spacing: 0.01em;
+  color: var(--brass-400);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 ul {
   list-style: none;
@@ -83,28 +87,36 @@ li {
   font-size: var(--text-sm);
   cursor: default;
 }
+.icon {
+  width: 1em;
+  text-align: center;
+  color: var(--brass-400);
+  flex-shrink: 0;
+}
 li.unlocked {
-  color: var(--cmd-unlocked);
+  color: var(--green-400);
   cursor: pointer;
 }
 li.unlocked:hover {
   background: rgba(74, 222, 128, 0.08);
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
 }
 li.highlight {
-  color: var(--cmd-highlight);
+  color: var(--yellow-300);
   font-weight: var(--weight-bold);
   cursor: pointer;
 }
 li.highlight:hover {
   background: rgba(253, 224, 71, 0.08);
+  text-shadow: 0 0 8px rgba(253, 224, 71, 0.4);
 }
 li.locked {
   color: var(--cmd-locked);
+  filter: grayscale(1);
+  cursor: not-allowed;
 }
-.icon {
-  width: 1em;
-  text-align: center;
-  opacity: 0.8;
+li.locked .icon {
+  color: var(--cmd-locked);
 }
 .badge {
   margin-left: auto;

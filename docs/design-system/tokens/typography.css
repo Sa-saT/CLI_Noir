@@ -5,9 +5,12 @@
    stand-ins pending the real mock (flag to user). */
 
 :root {
-  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace;
-  --font-display: "Zilla Slab", "Roboto Slab", Georgia, serif;
-  --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  /* Hierarchy: Hero=Jost / H1–H3=Zilla Slab / Body=Inter / Code=JetBrains Mono */
+  --font-hero: "Jost", "Futura", "Century Gothic", sans-serif;   /* 60s French film-poster geometric sans */
+  --font-display: "Zilla Slab", "Roboto Slab", Georgia, serif;    /* H1–H3 */
+  --font-ui: "Inter", system-ui, -apple-system, sans-serif;       /* body */
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace; /* code/terminal */
+  --font-accent: "Josefin Sans", "Jost", sans-serif;             /* deco accent: eyebrows, scène numbers, chapter labels — small-caps only */
 
   /* Type scale (px) */
   --text-xs: 0.75rem;    /* 12 */
@@ -26,6 +29,7 @@
 
   --tracking-term: 0.02em;
   --tracking-caps: 0.12em; /* rank labels, section eyebrows */
+  --tracking-hero: 0.06em; /* Jost poster titles — wide, all-caps */
 
   --weight-normal: 400;
   --weight-medium: 500;

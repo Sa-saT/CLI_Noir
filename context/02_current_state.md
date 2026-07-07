@@ -31,8 +31,9 @@ CLI_Noir/
 - `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来）
 
 ### `docs/design-system/`（デザインの local ミラー）
-- claude.ai/design プロジェクト「CLI_Noir Design System」の複製（`styles.css` + `tokens/` + `components/`）
+- claude.ai/design プロジェクト「CLI_Noir Design System」の複製（`styles.css` + `tokens/` + `components/<name>/<Name>.jsx` + `ui_kits/detective-terminal/index.html`）
 - **デザインの正は ClaudeDesign 側**。更新フロー（ClaudeDesign → local）は `docs/design-system/README.md` を正とする
+- アートディレクション更新済み（2026-07-07）: スチームパンク金属 + ネオングロー + フレンチポスター調。トークンに brass/copper/poster/glow/bezel と font-hero(Jost)/font-accent(Josefin) を追加。コンポーネントの実ソースは `.jsx`（Vue SFC はこれを移植）、`ui_kits/detective-terminal/index.html` は自己完結の全画面リファレンス
 
 ---
 

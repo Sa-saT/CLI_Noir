@@ -56,6 +56,7 @@
 - **デザインシステムを ClaudeDesign（claude.ai/design）で管理**: プロジェクト「CLI_Noir Design System」。local ミラーを `docs/design-system/` に置く
 - **開発仕様（デザイン更新フロー）確定**: **デザイン変更は ClaudeDesign で行い、変更を local へ落とし込む**（同期方向 = ClaudeDesign（正）→ local、逆流禁止）。落とし込みは Claude Code が `DesignSync` で pull → `docs/design-system/`（ミラー）→ `noir-client/`（実装）の二層に反映。手順の正は `docs/design-system/README.md`「更新フロー」
 - **背景画像**: 探偵事務所の部屋 = `moc/images/mission1.png` を `noir-client/public/images/office.png`（場所ベース命名）としてコピー・配線
+- **デザイン更新の実施（2026-07-07 · 初回 pull）**: ClaudeDesign で作り込まれた UI/UX を local へ反映。アートディレクションを 3 レイヤー（スチームパンク金属 brass/copper・サイバーパンクのネオングロー/scanlines・60 年代フレンチポスター調 poster+Jost/Josefin）へ強化。トークン（`--brass-*`/`--poster-*`/`--glow-*`/`--bezel-brass`/`--hairline-scan`/`--font-hero`/`--font-accent`）を追加し、10 コンポーネントを再スタイル・prop API 更新（MissionHeader `tag`／CommandDetail `inGame`／Prompt `hostType`+`caret`／CommandPanel `badge`+アイコン ›★☢／ClearEffect `stamp`／RankUp `from/to/eyebrow`／Save `message`）。`index.vue` を ui_kit のグリッド（header / scene+rail / term）へ。ミラーは実ソース `.jsx` + `ui_kits/detective-terminal/`（自己完結の全画面デモ）を保持する構成に刷新（bundle 依存の index.html は非ミラー化）
 
 ---
 

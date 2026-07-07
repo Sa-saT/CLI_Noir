@@ -1,11 +1,13 @@
 <script setup lang="ts">
+// Poster-style mission title band — 60s French film-poster treatment: black
+// ground, skewed red cut-out, Jost hero title, Josefin accent tag, brass rank chip.
 withDefaults(defineProps<{
-  index?: number | string
+  tag?: string
   title?: string
   subtitle?: string
   rank?: string
 }>(), {
-  index: 1,
+  tag: 'Mission 1',
   title: 'Edit Business Card',
   subtitle: '',
   rank: '',
@@ -14,8 +16,9 @@ withDefaults(defineProps<{
 
 <template>
   <header class="header">
+    <div class="cutout" aria-hidden="true" />
     <div class="title-wrap">
-      <span class="mission-tag">Mission {{ index }}</span>
+      <span class="mission-tag">{{ tag }}</span>
       <h1 class="mission-title">{{ title }}</h1>
       <span v-if="subtitle" class="mission-sub">{{ subtitle }}</span>
     </div>
@@ -25,47 +28,71 @@ withDefaults(defineProps<{
 
 <style scoped>
 .header {
-  background: linear-gradient(180deg, var(--indigo-700), var(--indigo-600));
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+  background: var(--poster-black);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 2px solid var(--poster-red);
   box-shadow: var(--shadow-panel);
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--space-4);
 }
+.cutout {
+  position: absolute;
+  top: -20%;
+  left: -4%;
+  width: 120px;
+  height: 140%;
+  background: var(--poster-red);
+  transform: skewX(-12deg);
+  opacity: 0.9;
+}
 .title-wrap {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 0;
 }
 .mission-tag {
-  font-family: var(--font-mono);
+  font-family: var(--font-accent);
+  font-weight: var(--weight-medium);
   font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
+  letter-spacing: var(--tracking-hero);
   text-transform: uppercase;
-  color: var(--indigo-300);
+  color: var(--poster-mustard);
 }
 .mission-title {
-  font-family: var(--font-display);
+  font-family: var(--font-hero);
   font-weight: var(--weight-bold);
-  font-size: var(--text-2xl);
-  color: #fff;
+  font-size: 2.5rem;
+  line-height: 0.95;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-hero);
+  color: var(--poster-cream);
   margin: 0;
-  line-height: var(--leading-tight);
 }
 .mission-sub {
-  font-size: var(--text-sm);
-  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  color: var(--poster-red);
+  background: var(--poster-black);
+  padding: 1px 8px;
+  align-self: flex-start;
 }
 .rank {
+  position: relative;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-caps);
-  color: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--brass-400);
+  border: 1px solid var(--brass-600);
   border-radius: var(--radius-sm);
-  padding: 2px var(--space-2);
+  box-shadow: var(--glow-brass);
+  padding: 3px var(--space-2);
   white-space: nowrap;
+  background: rgba(201, 162, 75, 0.06);
 }
 </style>

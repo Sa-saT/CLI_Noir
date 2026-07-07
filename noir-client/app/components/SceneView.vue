@@ -30,7 +30,7 @@ withDefaults(defineProps<{
   height: 100%;
   min-height: var(--scene-min-h);
   overflow: hidden;
-  background: var(--gray-700);
+  background: var(--poster-black);
 }
 .bg {
   position: absolute;
@@ -42,15 +42,21 @@ withDefaults(defineProps<{
 }
 .bg[data-fallback] {
   background-image:
-    radial-gradient(120% 90% at 30% 20%, rgba(201, 177, 143, 0.18), transparent 60%),
-    linear-gradient(160deg, var(--sepia-700), var(--sepia-900) 70%, #000);
+    radial-gradient(110% 80% at 70% 25%, rgba(217, 165, 33, 0.2), transparent 55%),
+    linear-gradient(155deg, var(--poster-blue) 0%, var(--poster-black) 62%);
 }
 .bg[data-fallback]::before {
   content: '';
   position: absolute;
-  inset: 0;
-  opacity: 0.12;
-  background-image: repeating-linear-gradient(35deg, #000 0 1px, transparent 1px 5px);
+  top: -12%;
+  left: -6%;
+  width: 48%;
+  height: 124%;
+  background: var(--poster-red);
+  transform: skewX(-10deg);
+  opacity: 0.88;
+  -webkit-mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
+  mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
 }
 .fade-hide {
   opacity: 0;

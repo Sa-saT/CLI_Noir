@@ -1,0 +1,379 @@
+<!-- @dsCard group="Detective Terminal" viewport="1280x760" name="Game Screen" subtitle="poster scene · command rail · pseudo-terminal — interactive UX pass" -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLI_Noir — Game Screen</title>
+<style>
+  @import "../../styles.css";
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg-app-deep); color: var(--text-body);
+    font-family: var(--font-ui);
+    display: grid;
+    grid-template-columns: 1fr var(--rail-command-w);
+    grid-template-rows: auto 1fr var(--terminal-h);
+    grid-template-areas:
+      "header header"
+      "scene  rail"
+      "term   rail";
+    height: 100vh; min-height: 640px; gap: 0;
+  }
+
+  /* ── Mission header (poster band) ─────────────────────── */
+  .header {
+    grid-area: header; position: relative; overflow: hidden;
+    background: var(--poster-black); border-bottom: 2px solid var(--poster-red);
+    padding: var(--space-4) var(--space-6);
+    display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4);
+  }
+  .header::before {
+    content: ""; position: absolute; top: -30%; left: -3%; width: 110px; height: 160%;
+    background: var(--poster-red); transform: skewX(-12deg); opacity: .9;
+  }
+  .title-wrap { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .mission-tag {
+    font-family: var(--font-accent); font-weight: var(--weight-medium);
+    font-size: var(--text-xs); letter-spacing: var(--tracking-hero);
+    text-transform: uppercase; color: var(--poster-mustard);
+  }
+  .mission-title {
+    font-family: var(--font-hero); font-weight: var(--weight-bold);
+    font-size: 2rem; line-height: 1; text-transform: uppercase; white-space: nowrap;
+    letter-spacing: var(--tracking-hero); color: var(--poster-cream); margin: 0;
+  }
+  .mission-sub { font-family: var(--font-display); font-size: var(--text-sm); color: var(--poster-red); background: var(--poster-black); padding: 1px 8px; align-self: flex-start; }
+  .hud { position: relative; display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+  .rank {
+    font-family: var(--font-mono); font-size: var(--text-xs);
+    letter-spacing: var(--tracking-caps); color: var(--brass-400);
+    border: 1px solid var(--brass-600); border-radius: var(--radius-sm);
+    box-shadow: var(--glow-brass); padding: 3px var(--space-2);
+    background: rgba(201,162,75,.06); white-space: nowrap; flex-shrink: 0;
+  }
+  .xp { width: 130px; flex-shrink: 0; }
+  .xp .track { height: 6px; background: var(--gray-800); border-radius: 999px; overflow: hidden; border: 1px solid var(--brass-600); }
+  .xp .fill { height: 100%; width: 62%; background: linear-gradient(90deg, var(--brass-600), var(--brass-400)); box-shadow: var(--glow-brass); transition: width .6s ease; }
+  .xp .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); margin-top: 3px; letter-spacing: var(--tracking-caps); white-space: nowrap; }
+
+  /* ── Scene ────────────────────────────────────────────── */
+  .scene {
+    grid-area: scene; position: relative; overflow: hidden;
+    background:
+      radial-gradient(110% 80% at 70% 25%, rgba(217,165,33,.20), transparent 55%),
+      linear-gradient(155deg, var(--poster-blue) 0%, var(--poster-black) 62%);
+    display: flex; align-items: flex-end; padding: var(--space-6);
+  }
+  .scene::before {
+    content: ""; position: absolute; top: -12%; left: -6%; width: 48%; height: 124%;
+    background: var(--poster-red); transform: skewX(-10deg); opacity: .88;
+    -webkit-mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
+    mask-image: radial-gradient(circle at 22% 32%, #000 40%, transparent 41%);
+  }
+  .scene-caption {
+    position: relative; z-index: 2; max-width: 62%;
+    background: var(--poster-cream); color: var(--poster-black);
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-normal);
+    box-shadow: 5px 5px 0 var(--poster-red);
+  }
+  .scene-caption b { color: var(--poster-red); font-weight: var(--weight-semibold); }
+  .scene-badge {
+    position: absolute; top: var(--space-5); right: var(--space-5); z-index: 2;
+    font-family: var(--font-accent); font-weight: var(--weight-semibold);
+    text-transform: uppercase; letter-spacing: var(--tracking-hero);
+    font-size: var(--text-xs); color: var(--poster-cream);
+    border: 1px solid var(--poster-cream); padding: 4px var(--space-3);
+  }
+  /* Hint card (3-stage) */
+  .hint-card {
+    position: absolute; right: var(--space-5); bottom: var(--space-5); z-index: 3;
+    width: 320px; background: var(--hairline-scan), linear-gradient(180deg, var(--gray-800), var(--gray-900));
+    border: 1px solid var(--brass-600); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-panel), var(--bezel-brass); padding: var(--space-4);
+    display: none;
+  }
+  .hint-card.open { display: block; }
+  .hint-card h3 { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--text-sm); color: var(--brass-400); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+  .hint-step { font-size: var(--text-sm); line-height: var(--leading-relaxed); color: var(--text-body); margin: 0 0 var(--space-2); }
+  .hint-step.locked { color: var(--text-faint); }
+  .hint-step .no { font-family: var(--font-mono); color: var(--cyan-400); margin-right: 6px; }
+  .hint-more {
+    background: transparent; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    color: var(--cyan-400); font-family: var(--font-ui); font-size: var(--text-xs);
+    padding: var(--space-1) var(--space-3); cursor: pointer;
+  }
+  .hint-more:hover { border-color: var(--cyan-400); box-shadow: var(--glow-cyan); }
+  .hint-more:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+  /* ── Command rail ─────────────────────────────────────── */
+  .rail {
+    grid-area: rail; display: flex; flex-direction: column;
+    background: var(--hairline-scan), linear-gradient(180deg, var(--gray-800), var(--gray-900));
+    border-left: 1px solid var(--brass-600); box-shadow: var(--bezel-brass);
+    overflow: hidden;
+  }
+  .rail-head {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--brass-600);
+    background: linear-gradient(180deg, rgba(201,162,75,.10), transparent);
+    font-family: var(--font-display); font-size: var(--text-sm); font-weight: var(--weight-semibold);
+    color: var(--brass-400); letter-spacing: var(--tracking-caps); text-transform: uppercase;
+  }
+  .rail-head::before { content: "⚙"; opacity: .8; }
+  .cmd-list { list-style: none; margin: 0; padding: var(--space-2) 0; overflow-y: auto; flex: 1; }
+  .cmd-list li {
+    display: flex; flex-direction: column; gap: 0;
+    padding: 0; font-family: var(--font-mono); font-size: var(--text-sm);
+  }
+  .cmd-row {
+    display: flex; align-items: center; gap: var(--space-2);
+    padding: var(--space-2) var(--space-4); min-height: 36px;
+    width: 100%; background: none; border: none; text-align: left;
+    font: inherit; color: inherit; cursor: pointer;
+  }
+  .cmd-row:focus-visible { outline: 1px solid var(--cyan-400); outline-offset: -1px; }
+  .cmd-desc {
+    display: none; padding: 0 var(--space-4) var(--space-2) calc(var(--space-4) + 1em + var(--space-2));
+    font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-normal);
+    color: var(--text-muted);
+  }
+  li:hover .cmd-desc, li:focus-within .cmd-desc { display: block; }
+  .icon { width: 1em; text-align: center; color: var(--brass-400); flex-shrink: 0; }
+  li.unlocked .cmd-row { color: var(--green-400); }
+  li.unlocked .cmd-row:hover { background: rgba(74,222,128,.08); text-shadow: 0 0 8px rgba(74,222,128,.4); }
+  li.highlight .cmd-row { color: var(--yellow-300); font-weight: var(--weight-bold); }
+  li.highlight .cmd-row:hover { background: rgba(253,224,71,.08); text-shadow: 0 0 8px rgba(253,224,71,.4); }
+  li.locked .cmd-row { color: var(--cmd-locked); filter: grayscale(1); cursor: not-allowed; }
+  li.locked .icon { color: var(--cmd-locked); }
+  .badge { margin-left: auto; font-family: var(--font-ui); font-size: 10px; color: var(--text-faint); letter-spacing: var(--tracking-caps); }
+  .rail-foot {
+    padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-subtle);
+    font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .rail-foot .hint-btn {
+    background: none; border: none; font: inherit; color: var(--cyan-400); cursor: pointer; padding: 4px;
+  }
+  .rail-foot .hint-btn:hover { text-shadow: 0 0 8px rgba(34,211,238,.5); }
+
+  /* ── Terminal ─────────────────────────────────────────── */
+  .term {
+    grid-area: term; position: relative; display: flex; flex-direction: column;
+    background: var(--hairline-scan), var(--surface-terminal);
+    border-top: 1px solid var(--brass-600);
+    font-family: var(--font-mono); font-size: var(--text-sm);
+    line-height: var(--leading-term); letter-spacing: var(--tracking-term);
+    overflow: hidden;
+  }
+  .scrollback { flex: 1; overflow-y: auto; padding: var(--space-3) var(--space-5); color: var(--term-fg); scroll-behavior: smooth; }
+  .scrollback::-webkit-scrollbar { width: 10px; }
+  .scrollback::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 5px; }
+  .ln { white-space: pre-wrap; word-break: break-word; }
+  @media (prefers-reduced-motion: no-preference) {
+    .ln.new { animation: lnfade .35s ease both; }
+    @keyframes lnfade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  }
+  .ln .u { color: var(--green-300); } .ln .h { color: var(--gray-300); }
+  .ln .p { color: var(--indigo-300); } .ln .d { color: var(--text-muted); }
+  .ln .cmd { color: var(--green-300); }
+  .ln.out { color: var(--green-400); } .ln.error { color: var(--term-error); }
+  .ln.warn { color: var(--term-warn); } .ln.system { color: var(--gray-500); font-style: italic; }
+  .new-pill {
+    position: absolute; right: var(--space-5); bottom: 56px; z-index: 2;
+    background: var(--accent); color: #fff; font-family: var(--font-ui);
+    font-size: var(--text-xs); font-weight: var(--weight-semibold);
+    padding: var(--space-1) var(--space-3); border-radius: 999px;
+    box-shadow: var(--shadow-card), var(--glow-indigo); cursor: pointer; border: none;
+    display: none;
+  }
+  .new-pill.show { display: block; }
+  .input-row {
+    display: flex; align-items: baseline; gap: .5ch;
+    border-top: 1px solid var(--border-subtle); padding: var(--space-2) var(--space-5);
+    background: rgba(255,255,255,.02);
+  }
+  .input-row:focus-within { background: rgba(74,222,128,.04); box-shadow: inset 0 1px 0 rgba(74,222,128,.25); }
+  .input-row .u { color: var(--green-300); } .input-row .h { color: var(--gray-300); }
+  .input-row .p { color: var(--indigo-300); } .input-row .d { color: var(--text-muted); }
+  .field {
+    flex: 1; background: transparent; border: none; outline: none;
+    font: inherit; letter-spacing: inherit; color: var(--green-300);
+    caret-color: var(--green-400); padding: 0;
+  }
+</style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="title-wrap">
+      <span class="mission-tag">Mission 03</span>
+      <h1 class="mission-title">Nuit au Parc</h1>
+      <span class="mission-sub">遊園地の管理サーバに侵入せよ</span>
+    </div>
+    <div class="hud">
+      <div class="xp">
+        <div class="track"><div class="fill" id="xpFill"></div></div>
+        <div class="lbl" id="xpLbl">Lv.4 → Lv.5 · 62%</div>
+      </div>
+      <span class="rank">Lv.4 探偵</span>
+    </div>
+  </header>
+
+  <!-- Scene -->
+  <section class="scene">
+    <span class="scene-badge">Scène III</span>
+    <div class="scene-caption">
+      閉園後の遊園地。管理棟の端末は <b>ssh</b> でしか入れない。
+      鍵となる合言葉は、桟橋で拾った <b>notes.txt</b> の中にある。
+    </div>
+    <div class="hint-card" id="hintCard" role="dialog" aria-label="ヒント">
+      <h3>ヒント</h3>
+      <p class="hint-step" id="hint1"><span class="no">1.</span>まず notes.txt の中身を確認しよう — <b>cat</b> が使える。</p>
+      <p class="hint-step locked" id="hint2"><span class="no">2.</span>???</p>
+      <p class="hint-step locked" id="hint3"><span class="no">3.</span>???</p>
+      <button class="hint-more" id="hintMore">次のヒントを見る</button>
+    </div>
+  </section>
+
+  <!-- Command rail -->
+  <aside class="rail">
+    <div class="rail-head">使用可能コマンド</div>
+    <ul class="cmd-list" id="cmdList">
+      <li class="unlocked"><button class="cmd-row" data-cmd="ls"><span class="icon">›</span>ls</button><span class="cmd-desc">ファイルと手がかりの一覧を見る</span></li>
+      <li class="unlocked"><button class="cmd-row" data-cmd="cd"><span class="icon">›</span>cd</button><span class="cmd-desc">別の場所へ移動する</span></li>
+      <li class="unlocked"><button class="cmd-row" data-cmd="cat"><span class="icon">›</span>cat</button><span class="cmd-desc">書類・メモの中身を読む</span></li>
+      <li class="unlocked"><button class="cmd-row" data-cmd="grep"><span class="icon">›</span>grep</button><span class="cmd-desc">証言からキーワードを拾い出す</span></li>
+      <li class="highlight"><button class="cmd-row" data-cmd="ssh"><span class="icon">★</span>ssh</button><span class="cmd-desc">出張先の端末に接続する — この事件の鍵</span></li>
+      <li class="highlight"><button class="cmd-row" data-cmd="chmod"><span class="icon">★</span>chmod</button><span class="cmd-desc">鍵ファイルの権限を直す</span></li>
+      <li class="locked"><button class="cmd-row" disabled aria-disabled="true" title="Lv.6 で解放"><span class="icon">☢</span>awk<span class="badge">Lv.6 で解放</span></button></li>
+      <li class="locked"><button class="cmd-row" disabled aria-disabled="true" title="Lv.7 で解放"><span class="icon">☢</span>sed<span class="badge">Lv.7 で解放</span></button></li>
+      <li class="locked"><button class="cmd-row" disabled aria-disabled="true" title="Lv.8 で解放"><span class="icon">☢</span>find<span class="badge">Lv.8 で解放</span></button></li>
+    </ul>
+    <div class="rail-foot">
+      <span>隠しファイル 2 / 5</span>
+      <button class="hint-btn" id="hintBtn" aria-expanded="false">ヒントを見る (<span id="hintCount">0</span>/3)</button>
+    </div>
+  </aside>
+
+  <!-- Terminal -->
+  <section class="term">
+    <div class="scrollback" id="scrollback">
+      <div class="ln system">-- reconnected · commit a1f9c2e --</div>
+      <div class="ln out">Mission 3: 遊園地の管理サーバに侵入せよ</div>
+      <div class="ln"><span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span> <span class="cmd">cat notes.txt</span></div>
+      <div class="ln out">amusement_park : passcode = "carousel-1962"</div>
+      <div class="ln"><span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span> <span class="cmd">ssh gate@amusement_park</span></div>
+      <div class="ln warn">Warning: 認証には chmod 600 ~/.ssh/key が必要です</div>
+      <div class="ln error">Error: Permission denied (publickey).</div>
+    </div>
+    <button class="new-pill" id="newPill">↓ 新しい出力</button>
+    <div class="input-row" id="inputRow">
+      <span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span>
+      <input class="field" id="field" type="text" autocomplete="off" spellcheck="false" aria-label="コマンド入力" placeholder="">
+    </div>
+  </section>
+
+<script>
+(function () {
+  var sb = document.getElementById("scrollback");
+  var field = document.getElementById("field");
+  var pill = document.getElementById("newPill");
+
+  // ── Fake responses (design demo) ────────────────────────
+  var responses = {
+    "ls": [["out", "notes.txt  pier_photo.jpg  .hidden_memo  case_file.sh"]],
+    "cat notes.txt": [["out", 'amusement_park : passcode = "carousel-1962"']],
+    "cat .hidden_memo": [["out", "隠しファイルを発見した！ (3/5)"], ["system", "-- 台帳に記録: .hidden_memo --"]],
+    "chmod 600 ~/.ssh/key": [["out", "権限を修正した。鍵が使える。"], ["system", "-- 進捗を保存: commit 9c2d7f1 --"]],
+    "ssh gate@amusement_park": [["warn", "passcode を入力せよ…"], ["out", "carousel-1962 … 認証成功。ゲートが開いた。"], ["system", "-- Scène IV へ --"]],
+    "grep": [["error", 'usage: grep "パターン" ファイル']],
+    "cd": [["out", "移動先を指定せよ: cd <場所>"]],
+    "help": [["out", "右のコマンド一覧をクリックすると入力欄に挿入される。"]],
+  };
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+  function atBottom() { return sb.scrollHeight - sb.scrollTop - sb.clientHeight < 24; }
+
+  function addLine(kind, html) {
+    var d = document.createElement("div");
+    d.className = "ln new" + (kind ? " " + kind : "");
+    d.innerHTML = html;
+    var stick = atBottom();
+    sb.appendChild(d);
+    if (stick) { sb.scrollTop = sb.scrollHeight; }
+    else { pill.classList.add("show"); }
+  }
+
+  function echoInput(cmd) {
+    addLine("", '<span class="u">detective</span><span class="d">@</span><span class="h">office</span><span class="d">:</span><span class="p">~/desk</span> <span class="d">$</span> <span class="cmd">' + esc(cmd) + "</span>");
+  }
+
+  function run(cmd) {
+    echoInput(cmd);
+    var key = cmd.trim();
+    var res = responses[key] || responses[key.split(" ")[0]];
+    if (!res) { res = [["error", "Error: command not allowed — 右の一覧にあるコマンドだけが使える"]]; }
+    res.forEach(function (r, i) {
+      setTimeout(function () { addLine(r[0], esc(r[1])); }, 120 * (i + 1));
+    });
+  }
+
+  field.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && field.value.trim()) {
+      run(field.value);
+      field.value = "";
+    }
+  });
+
+  // Click anywhere in terminal focuses input
+  document.querySelector(".term").addEventListener("click", function () { field.focus(); });
+
+  // New-output pill
+  pill.addEventListener("click", function () {
+    sb.scrollTop = sb.scrollHeight; pill.classList.remove("show");
+  });
+  sb.addEventListener("scroll", function () { if (atBottom()) pill.classList.remove("show"); });
+
+  // ── Command rail → insert into input ────────────────────
+  document.getElementById("cmdList").addEventListener("click", function (e) {
+    var btn = e.target.closest(".cmd-row");
+    if (!btn || btn.disabled) return;
+    var cmd = btn.getAttribute("data-cmd");
+    field.value = (cmd === "ls") ? cmd : cmd + " ";
+    field.focus();
+  });
+
+  // ── Hint 3-stage ─────────────────────────────────────────
+  var hints = [
+    null,
+    "まず notes.txt の中身を確認しよう — <b>cat</b> が使える。",
+    "接続には鍵の権限修正が要る。<b>chmod 600 ~/.ssh/key</b>。",
+    "仕上げ: <b>ssh gate@amusement_park</b> → passcode は notes.txt に。",
+  ];
+  var step = 0;
+  var card = document.getElementById("hintCard");
+  var btn = document.getElementById("hintBtn");
+  var more = document.getElementById("hintMore");
+  function reveal() {
+    if (step >= 3) return;
+    step++;
+    var el = document.getElementById("hint" + step);
+    el.classList.remove("locked");
+    el.innerHTML = '<span class="no">' + step + ".</span>" + hints[step];
+    document.getElementById("hintCount").textContent = step;
+    if (step >= 3) { more.disabled = true; more.textContent = "ヒントは以上"; }
+  }
+  btn.addEventListener("click", function () {
+    var open = card.classList.toggle("open");
+    btn.setAttribute("aria-expanded", open);
+    if (open && step === 0) reveal();
+  });
+  more.addEventListener("click", reveal);
+})();
+</script>
+</body>
+</html>
