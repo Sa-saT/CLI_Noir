@@ -19,15 +19,29 @@ const prompt = reactive<PromptState>({
 })
 
 /*
- * Per-scene main image (spec: the scene ground swaps by location and cross-fades
- * on ssh/exit). Mission1 stays in the detective's office; remote locations plug
- * their own art in here. Empty string → SceneOverlay's poster placeholder.
+ * 場面画像はカレントディレクトリに紐付く（DESIGN.md § 1）。
+ * キーは `ホスト:パス接頭辞`。current_path の前方一致・最長一致で解決し、
+ * 配下ディレクトリは親の絵を継承。どれにも一致しなければ '' → ポスターフォールバック。
+ * 画像が変わる cd / ssh / exit のみ SceneOverlay が 0.8s クロスフェードする。
  */
 const sceneImages: Record<string, string> = {
-  office: '/images/office.png',
-  // amusement_park: '/images/amusement_park_gate.png', // Mission3 で追加予定
+  'office:/root': '/images/office.png',
+  // 'office:/root/desk': '/images/office_desk.png',              // 場所別画像の到着時に追加
+  // 'amusement_park:/gate': '/images/amusement_park_gate.png',   // Mission3 で追加予定
 }
-const sceneImage = computed(() => sceneImages[prompt.host] ?? '')
+const sceneImage = computed(() => {
+  let bestPrefix = ''
+  let img = ''
+  for (const [key, val] of Object.entries(sceneImages)) {
+    const sep = key.indexOf(':')
+    const host = key.slice(0, sep)
+    const prefix = key.slice(sep + 1)
+    if (host !== prompt.host) continue
+    if (prompt.path !== prefix && !prompt.path.startsWith(prefix + '/')) continue
+    if (prefix.length > bestPrefix.length) { bestPrefix = prefix; img = val }
+  }
+  return img
+})
 
 let nextId = 1
 const lines = ref<TerminalLine[]>([

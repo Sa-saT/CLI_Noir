@@ -25,7 +25,7 @@ CLI_Noir/
 
 ### `noir-client/`（Nuxt 4 SPA / ssr:false）
 - `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
-- `app/pages/index.vue` … Mission1 合成画面（**モック evaluator**。本番は WS evaluator へ置換予定）
+- `app/pages/index.vue` … Mission1 合成画面（**モック evaluator**。本番は WS evaluator へ置換予定）。場面画像は `sceneImages`（`ホスト:パス接頭辞` の最長一致）で **current_path に紐付け**（2026-07-07 確定・DESIGN.md § 1）
 - `app/pages/design.vue` … コンポーネントギャラリー
 - `app/assets/css/tokens/*.css` + `main.css` … デザイントークン（`docs/design-system` のコピー）
 - `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来）
@@ -44,7 +44,7 @@ CLI_Noir/
 - 仮想FS（JSONスキーマ・復元範囲・セーブ選択）
 - local/remote（SSH接続先: amusement_park 確定、ghost.example は Mission11 用・初期ディレクトリ未定）
 - API 詳細仕様 / WebSocket 仕様
-- コマンド実行制御（allowlist 約70コマンド・denylist・Level 1〜11 探偵ランク表・構文レベルの許可）
+- コマンド実行制御（allowlist 約70コマンド + egrep/fgrep・denylist・Level 1〜11 探偵ランク表・構文レベルの許可）
 - Mission 判定仕様 / 疑似 Git・セーブ仕様
 - Mission 設計（MVP 1〜3 + Phase2 4〜20 一覧 + Phase2 ゲーム機能 8 項目）
 - エラーメッセージ一覧 / 受け入れ基準 / 開発フロー
@@ -91,8 +91,9 @@ CLI_Noir/
 
 | ファイル | 内容 |
 |---|---|
-| `設計指示書_001〜003.md` | 設計指示書の過去版（003 = Phase2 統合前） |
-| `LPIC学習マップ_001.md` / `Mission参照ファイル_001.md` | Phase2 統合前 |
+| `設計指示書_001〜006.md` | 設計指示書の過去版（003 = Phase2 統合前 / 006 = 場面画像紐付け・egrep/fgrep 追加前） |
+| `DESIGN_001〜003.md` / `AUTHORING_GUIDE_001.md` / `バックエンド_コマンド機能仕様_001〜002.md` / `環境構築手順_001〜002.md` | 各仕様の変更前バックアップ |
+| `LPIC学習マップ_001〜002.md` / `Mission参照ファイル_001.md` | Phase2 統合前ほか |
 | `LPIC拡張_Mission案_001.md` | Phase2 提案原本（2026-07-06 全面採用・統合済み） |
 | `追加確認事項.md` / `allowlist_denylist_001.md` / `タスクフロー_001.md` | 初期の統合済みファイル |
 

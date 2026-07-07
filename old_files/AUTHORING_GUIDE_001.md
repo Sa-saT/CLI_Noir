@@ -176,9 +176,7 @@ hints:
   - "（3: ほぼ答え）"
 
 presentation:
-  scene_images:                         # 場所キー → 画像。current_path の前方一致・最長一致で解決（docs/DESIGN.md § 1）
-    "office:/root": "mission21.png"     # Mission 既定（ルートに紐付け = フォールバック）
-    "office:/root/desk": "office_desk.png"  # 任意: 意味のある場所にだけ追加。配下は親の絵を継承
+  background: "mission21.png"           # docs/DESIGN.md § 1 の制作ルールに従う
   wall_effect: "..."                    # 壁の演出（例: 出力で画面が流れる）
   catharsis_effect: "..."              # 突破の演出（例: 3行だけ静かに残る）
 
@@ -264,8 +262,7 @@ hints:
   - "grep TEL tape.log | sort | uniq -c | sort — 一番多い TEL がアジトだ。"
 
 presentation:
-  scene_images:
-    "office:/root": "mission4.png"   # 案: 深夜の事務所。デスクに小包とテープ、床に印字用紙の山
+  background: "mission4.png"   # 案: 深夜の事務所。デスクに小包とテープ、床に印字用紙の山
   wall_effect: "cat tape.log 実行時、出力を高速スクロールで約3秒流し続ける（実出力は先頭1000行で打ち切り + Warning）"
   catharsis_effect: "uniq -c 成功時、出力を一拍おいて静かに表示。最多行だけ text-yellow-300"
 

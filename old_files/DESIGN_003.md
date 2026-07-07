@@ -13,17 +13,7 @@
 - 画面下 1/3 は本物のターミナル（黒地・緑文字）。**上の「物語の世界」と下の「操作の世界」が常に同居**し、コマンドを打つと物語側が反応する、が体験の核
 - 光源は少なく（デスクランプ、ブラインド越しの窓光）、陰影で「事件の匂い」を出す
 
-### 場面画像とカレントディレクトリの紐付け（2026-07-07 確定）
-
-**シーン領域の場面画像はカレントディレクトリ（`current_path`）に紐付く。** Mission 単位の固定背景ではなく、プレイヤーが `cd` / `ssh` / `exit` で移動するたびに「今いる場所」の絵が表示される（実PCの「pwd = 今いる場所」の意味一致を視覚で補強する学習装置）。
-
-- **マッピング**: `場所キー → 画像パス` の辞書を Mission 定義（`AUTHORING_GUIDE.md` の `presentation.scene_images`）が持つ。場所キーは `ホスト:パス接頭辞`（local は `office`、remote は ssh ホスト名）
-- **解決規則**: `current_path` に対して**前方一致の最長一致**で解決する（例: `/root/desk/notes` は `/root/desk` の画像を継承）。ディレクトリ全部に個別画像は不要 — 意味のある「場所」（部屋・門・現場）にだけ用意し、配下は親の絵を引き継ぐ
-- **フォールバック**: どのキーにも一致しない場合は Mission 既定画像（ルート `/root` などに紐付けた 1 枚）。それも無い場合はポスターグラデ（SceneOverlay の placeholder）
-- **遷移**: 解決結果の画像が**変わったときだけ** 0.8s クロスフェード（§ 6）。同じ画像に解決される `cd` では何も起きない
-- **remote**: `ssh_host + current_path` で解決（例: `amusement_park:/gate`）。local と明確に空気感を変える
-
-### 背景画像の制作ルール（`mission{n}.png` ほか場所別画像）
+### 背景画像の制作ルール（`mission{n}.png`）
 
 | 項目 | 仕様 |
 |---|---|
@@ -32,7 +22,6 @@
 | 構図 | 中央〜やや左に焦点（右 320px はコマンドパネルに隠れるため重要要素を置かない） |
 | 明度 | 暗め。上に載る白文字（text-overlay）が読める濃度にする |
 | 場所の対応 | ミッションの仮想FSと矛盾しない絵にする（机がある部屋なら FS に `desk/` がある） |
-| 粒度 | Mission 既定 1 枚（`mission{n}.png`）+ 意味のある場所ごとの任意追加（`<host>_<place>.png`。例: `office_desk.png`, `amusement_park_gate.png`） |
 | remote 用 | ssh 接続先ごとに別画像（遊園地など）。local と明確に空気感を変える |
 
 ---
@@ -144,9 +133,8 @@ pages/
 
 components/
 ├ MissionHeader.vue         … タイトル帯。props: mission
-├ SceneOverlay.vue          … 場面画像（props: image, fading。0.8s クロスフェード + 可読性スクリム）
-│                             + 説明テキスト/イベントカードのオーバーレイ。※旧 SceneView は統合済み（2026-07-07）
-│                             current_path → image の解決（§ 1 の最長一致）はページ/store 側が行い、結果だけを渡す
+├ SceneView.vue             … 背景画像 + フェード制御。props: imageUrl, fading
+├ SceneOverlay.vue          … 説明テキスト/イベントカードのスロット
 ├ CommandPanel.vue          … 使用可能コマンド一覧。props: commands(解放状態付き)
 │                             クリックで CommandDetail をフェード表示
 ├ CommandDetail.vue         … コマンド説明（実PCでの意味 + ゲーム内の意味を並記）
@@ -168,7 +156,7 @@ components/
 
 | 場面 | 演出 |
 |---|---|
-| 場面画像の切替（`cd` / `ssh` / `exit` で解決画像が変わったとき。§ 1） | 背景をフェードアウト → 画像差し替え → フェードイン（0.8s × 2）。ターミナルは操作可能のまま |
+| ssh 接続 / exit | 背景をフェードアウト → 画像差し替え → フェードイン（0.8s × 2）。ターミナルは操作可能のまま |
 | コマンド説明の表示 | パネル内フェードイン（0.3s 程度。頻繁に起きるため短く） |
 | Mission クリア | 背景フェード → "Mission Complete!"（emerald）→ 次 Mission 導線。git push 成功の返却を受けてから発火 |
 | ランクアップ（Phase2） | クリア演出後に辞令カード表示 → 右パネルの新コマンドが点灯していく |

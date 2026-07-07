@@ -57,6 +57,8 @@
 - **開発仕様（デザイン更新フロー）確定**: **デザイン変更は ClaudeDesign で行い、変更を local へ落とし込む**（同期方向 = ClaudeDesign（正）→ local、逆流禁止）。落とし込みは Claude Code が `DesignSync` で pull → `docs/design-system/`（ミラー）→ `noir-client/`（実装）の二層に反映。手順の正は `docs/design-system/README.md`「更新フロー」
 - **背景画像**: 探偵事務所の部屋 = `moc/images/mission1.png` を `noir-client/public/images/office.png`（場所ベース命名）としてコピー・配線
 - **デザイン更新の実施（2026-07-07 · 初回 pull）**: ClaudeDesign で作り込まれた UI/UX を local へ反映。アートディレクションを 3 レイヤー（スチームパンク金属 brass/copper・サイバーパンクのネオングロー/scanlines・60 年代フレンチポスター調 poster+Jost/Josefin）へ強化。トークン（`--brass-*`/`--poster-*`/`--glow-*`/`--bezel-brass`/`--hairline-scan`/`--font-hero`/`--font-accent`）を追加し、10 コンポーネントを再スタイル・prop API 更新（MissionHeader `tag`／CommandDetail `inGame`／Prompt `hostType`+`caret`／CommandPanel `badge`+アイコン ›★☢／ClearEffect `stamp`／RankUp `from/to/eyebrow`／Save `message`）。`index.vue` を ui_kit のグリッド（header / scene+rail / term）へ。ミラーは実ソース `.jsx` + `ui_kits/detective-terminal/`（自己完結の全画面デモ）を保持する構成に刷新（bundle 依存の index.html は非ミラー化）
+- **場面画像はカレントディレクトリに紐付く（2026-07-07 確定）**: Mission 固定背景ではなく `current_path`（remote 時は `ssh_host` + パス）で画像を解決。`ホスト:パス接頭辞 → 画像` の辞書を Mission 定義 `presentation.scene_images` が持ち、**前方一致の最長一致**で解決・配下は親の絵を継承・未一致は Mission 既定 → ポスターグラデにフォールバック。画像が変わる `cd`/`ssh`/`exit` のみ 0.8s クロスフェード。正は `docs/DESIGN.md` § 1（設計指示書 § 3・AUTHORING_GUIDE スキーマ・noir-client `index.vue` も更新済み。旧 `presentation.background` は廃止）
+- **egrep / fgrep を追加（2026-07-07 確定）**: 正規表現系コマンドの拡充として allowlist・Level 3（捜査員・Phase 1）に追加。evaluator は grep の alias 登録（個別実装しない）+ 実 GNU grep と同じ非推奨警告 1 行を出す。fgrep は固定文字列一致（正規表現を解釈しない）。LPIC 103.7 対応。定義は `バックエンド_コマンド機能仕様.md` § 3
 
 ---
 
