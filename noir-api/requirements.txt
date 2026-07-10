@@ -1,0 +1,16 @@
+# CLI_Noir backend 依存（docs/環境構築手順.md § 3-3 の pip install を集約）。
+# passlib は廃止し bcrypt を直接使用（2026-07-08。bcrypt 5.x 非互換のため）。
+# 再現インストール: pip install -r requirements.txt
+
+fastapi[standard]==0.139.0
+uvicorn==0.51.0
+sqlmodel==0.0.39
+alembic==1.18.5
+pyjwt==2.13.0
+bcrypt==5.0.0
+pydantic-settings==2.14.2
+
+# --- 開発用 ---
+pytest==9.1.1
+httpx==0.28.1
+ruff==0.15.21

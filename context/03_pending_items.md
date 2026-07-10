@@ -1,6 +1,6 @@
 # 未完了・未確定の項目
 
-更新日: 2026-07-07
+更新日: 2026-07-10
 
 ---
 
@@ -8,9 +8,9 @@
 
 ### 環境構築
 - [ ] Nuxt プロジェクト作成（`pnpm create nuxt@latest frontend`）
-- [ ] FastAPI プロジェクト作成（スケルトンは `docs/環境構築手順.md` § 3-4。2026-07-06 Django から変更）
-- [ ] `.env.example` 作成
-- [ ] API 疎通確認用の最小エンドポイント
+- [x] FastAPI プロジェクト作成（2026-07-10。`noir-api/` 直下に `docs/環境構築手順.md` § 3-4 のスケルトンを構築。app/{api,ws,evaluator,models} + tests + alembic + settings/main、Python 3.12.8 venv）
+- [x] `.env.example` 作成（2026-07-10。`.gitignore`・`requirements.txt` も同時作成）
+- [x] API 疎通確認用の最小エンドポイント（2026-07-10。`GET /api/health` → `{"status":"ok"}`。pytest スモーク通過）
 
 ### Backend
 - [ ] 認証 API 実装（login / refresh / me。PyJWT + bcrypt 直接。パスワードは 72 バイト上限に留意）

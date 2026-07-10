@@ -5,6 +5,16 @@
 
 ---
 
+## バックエンド ディレクトリ構築（2026-07-10 完了）
+
+- `noir-api/` 直下に `docs/環境構築手順.md` § 3-4 のスケルトンを構築（frontend が `noir-client/` 直下なのと対称。`backend/` サブディレクトリは掘らない）
+- 構成: `app/{__init__,main,settings}.py` + `app/{api,ws,evaluator,models}/`（各 `__init__.py` + プレースホルダ）、`tests/`、`alembic/`（`alembic init`。env.py を `app.settings.database_url` と `SQLModel.metadata` に配線）、`.env.example` / `.gitignore` / `requirements.txt`
+- 中身は未実装。各 router/ws/evaluator は docstring + TODO のみ（機能は context/03_pending_items.md の Backend タスクで実装）
+- 唯一の実エンドポイントは疎通確認用 `GET /api/health`。`state` 書き込み API は設けない（設計原則通り evaluator のみ）
+- 検証済み: `app.main:app` import / pytest スモーク 1 passed / `alembic` 設定読込 / `ruff check` all passed（Python 3.12.8 venv）
+
+---
+
 ## 実装方式の改訂（2026-07-06 確定・熟考レビューによる訂正）
 
 技術スタック・API・WS の設計を精査し、以下を改訂（旧版は old_files/ の _004 / _001 系に退避済み）。
@@ -70,7 +80,7 @@
 - 対応: `noir-api/.venv` から passlib を uninstall（bcrypt 5.0.0 は保持）。`bcrypt.hashpw`/`checkpw`/`gensalt` で直接ハッシュ。日本語含むパスワードでハッシュ/検証が正常動作することを確認済み
 - **注意点を明文化**: bcrypt はパスワードを 72 バイトで切り詰めるため、実装時は 72 バイト以内に制限または事前ハッシュする
 - 反映先: 設計指示書 § 認証 / 環境構築手順 § 3-3 / CLAUDE.md セットアップ（いずれも `passlib[bcrypt]` → `bcrypt`）。バックアップ: 設計指示書_009・環境構築手順_003
-- 補足（未対応・別件）: `noir-api/.venv` は Python **3.10.1** で作られている（CLAUDE.md 想定は 3.12.8）。実装着手時に 3.12.8 で venv を作り直す
+- 補足（解消: 2026-07-10）: `noir-api/.venv` が Python **3.10.1** で作られていた問題（7/6 に古い shim 解決で作成。`pyenv local 3.12.8` は既存 venv に遡及しない）を解消。`.venv` を破棄し 3.12.8 のインタプリタを絶対パス指定で作り直し、依存（passlib 廃止版）を再インストール。`python -V` = 3.12.8・bcrypt 5.0.0 動作を確認済み
 
 ---
 
