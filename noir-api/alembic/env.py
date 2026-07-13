@@ -20,8 +20,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # autogenerate 対象のメタデータ。
-# app.models 配下のテーブル定義を import すると SQLModel.metadata に登録される。
-# import app.models  # noqa: E402  （テーブル定義追加後に有効化）
+# app.models を import するとテーブル定義が SQLModel.metadata に登録される。
+import app.models  # noqa: E402,F401
+
 target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,

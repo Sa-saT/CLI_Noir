@@ -5,6 +5,23 @@
 
 ---
 
+## バックエンド MVP 実装（2026-07-13 完了）
+
+`noir-api/` に HTTP API + WS + evaluator の縦切りを実装（Sonnet で実装、37 tests green / ruff clean）。タスク #6〜#13 完了。
+
+- **DB**: `app/models/tables.py` に User / MissionState（`data` JSON カラムに state 全体）。初回 Alembic マイグレーション適用済み。`default_state()` に `mission_id` と `command_log` を追加（判定・リプレイ用。§ 4 スキーマの拡張）
+- **認証**: `app/security.py`（PyJWT + bcrypt）。パスワードは **SHA-256→base64 で事前ハッシュ**してから bcrypt に渡し 72 バイト上限問題を回避（設計指示書の許容案）。login は access+refresh、refresh/me 実装
+- **Mission 定義**: DB に持たず `app/content/missions.py` に静的カタログ（全22件）。status は進捗から算出（順次解放）。初期FS・expected_script_patterns も MissionDef に保持
+- **evaluator**: `app/evaluator/`（engine/registry/fs/commands/git_ops/judge/allowlist/errors）。純粋関数・実OS非依存（§ 0.5）。MVP コマンド + 疑似Git + case_file.sh 判定。Phase2 コマンド群とパイプ/構文は未実装
+- **WS**: `app/ws/terminal.py`（auth→hello→exec/result、resume、mission_clear event）。state 書き込みは evaluator 経由のみ
+
+### 設計の突き合わせ（実装時に確定した解釈）
+- **case_file.sh の判定パターン**: Mission参照ファイルの Mission1 は 5 patterns（cat/echo/git add/commit/push）だが、§ 10 判定フローでは case_file.sh は git の**前**に走るため git 3件を regex で判定するのは不整合。§ 9 の判定例も「捜査タスクの証跡」中心。→ **case_file.sh は cat/echo の 2 patterns を判定し case_checked を立てる。git add/commit/push は git コマンド側で構造的に強制**（commit=staged 必須 / push=snapshot の case_checked 必須）。Mission2〜22 も同方針
+- **remote FS**: ssh 時に `state["_fs_stack"]` へ local FS を退避し remote FS を deepcopy で載せる。exit で復元（schema 外の内部フィールド。JSON blob 内で完結）
+- **未着手の主残件**: Phase2 コマンド実装、パイプ/リダイレクト`2>`/変数/if・for、Mission2〜22 の詳細（regex・初期FS）、コマンド図鑑等のゲーム機能 UI
+
+---
+
 ## バックエンド ディレクトリ構築（2026-07-10 完了）
 
 - `noir-api/` 直下に `docs/環境構築手順.md` § 3-4 のスケルトンを構築（frontend が `noir-client/` 直下なのと対称。`backend/` サブディレクトリは掘らない）

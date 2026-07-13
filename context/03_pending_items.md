@@ -12,15 +12,19 @@
 - [x] `.env.example` 作成（2026-07-10。`.gitignore`・`requirements.txt` も同時作成）
 - [x] API 疎通確認用の最小エンドポイント（2026-07-10。`GET /api/health` → `{"status":"ok"}`。pytest スモーク通過）
 
-### Backend
-- [ ] 認証 API 実装（login / refresh / me。PyJWT + bcrypt 直接。パスワードは 72 バイト上限に留意）
-- [ ] Mission API 実装（一覧 / 詳細。complete API は廃止 — クリアは git push 時にサーバー内部で記録）
-- [ ] state API 実装（取得のみ。更新 API は廃止 — 書き込みは WS evaluator のみ。2026-07-06 改訂）
-- [ ] WebSocket エンドポイント実装（auth/hello/resume/exec/result/complete フレーム。Pydantic モデル）
-- [ ] evaluator 実装（allowlist判定 → コマンド実行 → state更新）
-- [ ] 仮想FS モデル / JSON保存
-- [ ] 疑似Git（commits 配列 / セーブ選択 / push判定）
-- [ ] Mission 判定ロジック（正規表現評価）
+### Backend（2026-07-13: 骨格〜MVP 縦切りを実装。`noir-api/`。37 tests green / ruff clean）
+- [x] 認証 API 実装（login / refresh / me。PyJWT + bcrypt 直接。SHA256→base64 事前ハッシュで 72 バイト上限回避）
+- [x] Mission API 実装（一覧 / 詳細。status=cleared/open/locked を進捗から算出。Mission 定義は `app/content/missions.py` に全22件）
+- [x] state API 実装（取得のみ。`/api/missions/{id}/state/`。commits はメタのみ・snapshot 非返却）
+- [x] WebSocket エンドポイント実装（auth/hello/resume/exec/result/event。Pydantic 検証・5秒 auth タイムアウト・再接続 state 復元）
+- [x] evaluator 実装（denylist→allowlist→registry dispatch→state更新。純粋関数・実OS非依存）
+  - 実装済コマンド: ls/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/head/tail/wc/cut/chmod/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。パイプ `|`・`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+- [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
+- [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
+- [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
+  - Mission1 は expected_script_patterns + initial_filesystem を確定・実プレイ可能。**Mission2〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1 が実装リファレンス）
+  - 補足: case_file.sh は「捜査タスクの証跡」を判定し、git add/commit/push は git コマンド側で構造的に強制（§ 10 判定フローとの整合。Mission参照の Mission1 5patterns のうち git 3件は regex ではなく構造で担保）
 
 ### Frontend
 - [ ] Nuxt ルーティング（/missions, /missions/{id}）

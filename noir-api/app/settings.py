@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./noir.db"
 
     # --- 認証（設計指示書 § 認証: access 30分 / refresh 7日） ---
-    secret_key: str = "change-me-in-dotenv"  # 本番は必ず .env で上書き
+    # 本番は必ず .env で上書き（32バイト以上。dev 既定は警告回避用の十分な長さ）
+    secret_key: str = "dev-only-insecure-secret-change-me-in-dotenv"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
