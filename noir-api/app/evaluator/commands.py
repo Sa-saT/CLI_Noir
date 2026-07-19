@@ -87,6 +87,33 @@ def _content_lines(node: dict) -> list[str]:
     return content.split("\n")
 
 
+def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
+    """ファイル引数があればその内容を連結、無ければ stdin を入力行として返す。"""
+    if not files:
+        return list(stdin)
+    lines: list[str] = []
+    for f in files:
+        node = fs.get_node(state, fs.normalize(state["current_path"], f))
+        if not fs.is_file(node):
+            raise CommandError("Error: file not found")
+        lines.extend(_content_lines(node))
+    return lines
+
+
+def _flag_chars(argv: list[str]) -> set[str]:
+    """`-rn` のような連結ブールフラグを文字集合へ展開する（数値付きは対象外）。"""
+    chars: set[str] = set()
+    for a in argv[1:]:
+        if a.startswith("-") and len(a) > 1 and not a[1].isdigit():
+            chars.update(a[1:])
+    return chars
+
+
+def _operands(argv: list[str]) -> list[str]:
+    """オプションでない引数（ファイル名等）。単独の `-`（stdin）は除く。"""
+    return [a for a in argv[1:] if not a.startswith("-")]
+
+
 # --- ナビゲーション ---
 @command("ls")
 def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
@@ -242,6 +269,55 @@ def cmd_find(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
 
     walk(abs_start, node)
     return results, state
+
+
+# --- テキスト処理（Level 5） ---
+def _num_key(line: str) -> float:
+    """行頭の数値を取り出す（sort -n 用）。数値が無ければ 0。"""
+    m = re.match(r"\s*(-?\d+(?:\.\d+)?)", line)
+    return float(m.group(1)) if m else 0.0
+
+
+@command("sort")
+def cmd_sort(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    flags = _flag_chars(argv)
+    lines = _read_input(state, _operands(argv), stdin)
+
+    if "n" in flags:
+        result = sorted(lines, key=_num_key, reverse="r" in flags)
+    else:
+        result = sorted(lines, reverse="r" in flags)
+
+    if "u" in flags:  # sort -u: 連続重複を除去
+        deduped: list[str] = []
+        for ln in result:
+            if not deduped or deduped[-1] != ln:
+                deduped.append(ln)
+        result = deduped
+    return result, state
+
+
+@command("uniq")
+def cmd_uniq(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    flags = _flag_chars(argv)
+    lines = _read_input(state, _operands(argv), stdin)
+
+    # 隣接する重複のみをまとめる（実 uniq と同じ。事前 sort 前提）。
+    groups: list[list] = []  # [line, count]
+    for ln in lines:
+        if groups and groups[-1][0] == ln:
+            groups[-1][1] += 1
+        else:
+            groups.append([ln, 1])
+
+    count_flag = "c" in flags
+    dup_only = "d" in flags
+    out: list[str] = []
+    for ln, count in groups:
+        if dup_only and count < 2:
+            continue
+        out.append(f"{count:7d} {ln}" if count_flag else ln)
+    return out, state
 
 
 # --- SSH / remote ---
