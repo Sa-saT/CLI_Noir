@@ -5,6 +5,23 @@
 
 ---
 
+## MVP 完成: Mission2/3 詳細実装（2026-07-20 完了）
+
+MVP（Mission1〜3）を実プレイ可能に。タスク #14〜#16 完了（Opus で実装、全 46 tests green / ruff clean）。
+
+- **Mission2「公園の猫」**: `MissionDef` に `initial_current_path` を追加し初期 current_path=/root/park。`_MISSION2_FS`（park/swing/catinfo.txt 本命 + fountain/bench デコイ + case_file.sh）。判定は `judge.py` の **Mission2 専用ロジック**（`_CUSTOM_JUDGES`）で以下 3 点を検査し、Mission参照 § 3 の確定文言を返す:
+  - find 未使用 → `Warning: use find to locate clues`
+  - 絶対パス `/root/park/swing/catinfo.txt` 未参照 → `Error: absolute path required`
+  - STATUS キー未抽出 → `Error: required cat status not found`
+  - 汎用 AND-regex では誤答メッセージを個別化できないため専用判定にした。expected_script_patterns は空
+- **Mission3「遊園地の爆弾」**: `commands.py` の `SSH_HOSTS["amusement_park"]` /gate FS にヒント（booth/manual=Code、ferris/wiring=Wire、sign/notice=Height）+ decoy + case_file.sh を配置。判定は**汎用 AND-regex**（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み **echo で記録する Mission1 方式**（証跡=command_log の echo 行）。
+  - remote のまま `git commit`（snapshot=/gate FS + mission_flags）→ `git push` でクリア成立を確認（git_state は ssh でスタック退避しないため global に保持される）
+  - ssh 前の初期 current_path は /root（default、Mission3 は initial_filesystem/current_path なし）。exit で local 復帰
+- **判定分岐の一般化**: `judge.run_case_file` は `mission.id` で専用判定（`_CUSTOM_JUDGES`）→ なければ汎用 AND-regex にフォールバック。Mission1/3=汎用、Mission2=専用。今後の Mission も誤答個別化が要る場合はここに足す
+- テスト `tests/test_mission2_3.py`（9件）追加
+
+---
+
 ## バックエンド MVP 実装（2026-07-13 完了）
 
 `noir-api/` に HTTP API + WS + evaluator の縦切りを実装（Sonnet で実装、37 tests green / ruff clean）。タスク #6〜#13 完了。

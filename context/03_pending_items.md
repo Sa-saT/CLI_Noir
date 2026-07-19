@@ -23,8 +23,11 @@
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - Mission1 は expected_script_patterns + initial_filesystem を確定・実プレイ可能。**Mission2〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜3 が実装リファレンス）
+  - Mission2「公園の猫」: 初期 current_path=/root/park、`_MISSION2_FS`（park/swing/catinfo.txt + デコイ）。判定は judge の Mission2 専用ロジック（find使用 / 絶対パス参照 / STATUS抽出の3点、誤答文言を § 3 に一致）。`MissionDef.initial_current_path` フィールドを追加
+  - Mission3「遊園地の爆弾」: `ssh amusement_park`→/gate の `SSH_HOSTS` FS にヒント（Code/Wire/Height）+デコイ+case_file.sh を配置。判定は汎用 AND-regex（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み echo で記録する Mission1 方式。remote のまま commit/push でクリア成立を確認
   - 補足: case_file.sh は「捜査タスクの証跡」を判定し、git add/commit/push は git コマンド側で構造的に強制（§ 10 判定フローとの整合。Mission参照の Mission1 5patterns のうち git 3件は regex ではなく構造で担保）
+  - テスト: `tests/test_mission2_3.py`（9件）追加。全 46 tests green / ruff clean
 
 ### Frontend
 - [ ] Nuxt ルーティング（/missions, /missions/{id}）
