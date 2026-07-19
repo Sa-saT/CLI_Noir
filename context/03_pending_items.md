@@ -18,12 +18,14 @@
 - [x] state API 実装（取得のみ。`/api/missions/{id}/state/`。commits はメタのみ・snapshot 非返却）
 - [x] WebSocket エンドポイント実装（auth/hello/resume/exec/result/event。Pydantic 検証・5秒 auth タイムアウト・再接続 state 復元）
 - [x] evaluator 実装（denylist→allowlist→registry dispatch→state更新。純粋関数・実OS非依存）
-  - 実装済コマンド: ls/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/head/tail/wc/cut/chmod/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。パイプ `|`・`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+  - 実装済コマンド: ls/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history + **sort/uniq/wc/head/tail/cut**（2026-07-20 Level 5 追加）
+  - **パイプ `|` 対応済**（2026-07-20。engine でステージ分割・stdin スレッド。リダイレクトは最終段のみ）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/chmod/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜3 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4 実装済**（2026-07-20。パイプ集計）。**Mission5〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜4 が実装リファレンス）
+  - Mission4「盗聴テープ」: `_MISSION4_FS`（tape.log = 番号のみの発信記録をラウンドロビン散布 + ノイズ、正解=最頻出 555-0142）+ case_file.sh。判定は汎用 AND-regex（`uniq\s+-c` パイプ行 + `TEL: 555-0142` の echo 記録）。`grep TEL|sort|uniq -c|sort` で最頻番号を特定する導線。テスト `tests/test_mission4.py`（5件）
   - Mission2「公園の猫」: 初期 current_path=/root/park、`_MISSION2_FS`（park/swing/catinfo.txt + デコイ）。判定は judge の Mission2 専用ロジック（find使用 / 絶対パス参照 / STATUS抽出の3点、誤答文言を § 3 に一致）。`MissionDef.initial_current_path` フィールドを追加
   - Mission3「遊園地の爆弾」: `ssh amusement_park`→/gate の `SSH_HOSTS` FS にヒント（Code/Wire/Height）+デコイ+case_file.sh を配置。判定は汎用 AND-regex（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み echo で記録する Mission1 方式。remote のまま commit/push でクリア成立を確認
   - 補足: case_file.sh は「捜査タスクの証跡」を判定し、git add/commit/push は git コマンド側で構造的に強制（§ 10 判定フローとの整合。Mission参照の Mission1 5patterns のうち git 3件は regex ではなく構造で担保）
