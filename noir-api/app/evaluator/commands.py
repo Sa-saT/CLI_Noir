@@ -320,6 +320,133 @@ def cmd_uniq(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     return out, state
 
 
+@command("wc")
+def cmd_wc(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    flags = _flag_chars(argv)
+    files = _operands(argv)
+    lines = _read_input(state, files, stdin)
+
+    n_lines = len(lines)
+    n_words = sum(len(ln.split()) for ln in lines)
+    n_bytes = len("\n".join(lines))
+
+    parts: list[int] = []
+    if "l" in flags:
+        parts.append(n_lines)
+    if "w" in flags:
+        parts.append(n_words)
+    if "c" in flags:
+        parts.append(n_bytes)
+    if not parts:  # 無指定は行/語/バイトを併記
+        parts = [n_lines, n_words, n_bytes]
+
+    text = " ".join(str(p) for p in parts)
+    if len(files) == 1:
+        text = f"{text} {files[0]}"
+    return [text], state
+
+
+def _parse_n(argv: list[str], default: int = 10) -> tuple[int, list[str]]:
+    """head/tail の `-n N` / `-N` と入力ファイルを解釈する。"""
+    n = default
+    files: list[str] = []
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a == "-n":
+            i += 1
+            if i < len(argv):
+                try:
+                    n = int(argv[i])
+                except ValueError as exc:
+                    raise CommandError("Error: invalid input") from exc
+        elif re.fullmatch(r"-\d+", a):
+            n = int(a[1:])
+        elif not a.startswith("-"):
+            files.append(a)
+        i += 1
+    return n, files
+
+
+@command("head")
+def cmd_head(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    n, files = _parse_n(argv)
+    lines = _read_input(state, files, stdin)
+    return lines[:n], state
+
+
+@command("tail")
+def cmd_tail(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    n, files = _parse_n(argv)
+    lines = _read_input(state, files, stdin)
+    return (lines[-n:] if n > 0 else []), state
+
+
+def _parse_ranges(spec: str, maxn: int) -> list[int]:
+    """cut の LIST（`1` / `1,3` / `1-3` / `2-` / `-3`）を 1 始まりの位置列へ。"""
+    indices: list[int] = []
+    for part in spec.split(","):
+        if not part:
+            continue
+        if "-" in part:
+            a, _, b = part.partition("-")
+            start = int(a) if a else 1
+            end = int(b) if b else maxn
+            indices.extend(range(start, end + 1))
+        else:
+            indices.append(int(part))
+    return indices
+
+
+@command("cut")
+def cmd_cut(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    delim = "\t"
+    field_spec: str | None = None
+    char_spec: str | None = None
+    files: list[str] = []
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a == "-d":
+            i += 1
+            delim = argv[i] if i < len(argv) else "\t"
+        elif a.startswith("-d"):
+            delim = a[2:]
+        elif a == "-f":
+            i += 1
+            field_spec = argv[i] if i < len(argv) else None
+        elif a.startswith("-f"):
+            field_spec = a[2:]
+        elif a == "-c":
+            i += 1
+            char_spec = argv[i] if i < len(argv) else None
+        elif a.startswith("-c"):
+            char_spec = a[2:]
+        elif not a.startswith("-"):
+            files.append(a)
+        i += 1
+
+    if field_spec is None and char_spec is None:
+        raise CommandError("Error: invalid input")
+
+    lines = _read_input(state, files, stdin)
+    out: list[str] = []
+    try:
+        for ln in lines:
+            if char_spec is not None:
+                idxs = _parse_ranges(char_spec, len(ln))
+                out.append("".join(ln[j - 1] for j in idxs if 1 <= j <= len(ln)))
+            elif delim not in ln:  # 区切りが無い行はそのまま（GNU cut 既定）
+                out.append(ln)
+            else:
+                fields = ln.split(delim)
+                idxs = sorted({j for j in _parse_ranges(field_spec, len(fields))})
+                out.append(delim.join(fields[j - 1] for j in idxs if 1 <= j <= len(fields)))
+    except ValueError as exc:
+        raise CommandError("Error: invalid input") from exc
+    return out, state
+
+
 # --- SSH / remote ---
 @command("ssh")
 def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
