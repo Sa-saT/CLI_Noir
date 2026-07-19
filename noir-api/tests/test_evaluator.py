@@ -138,3 +138,49 @@ def test_ssh_unknown_host(state: dict) -> None:
     out, new = evaluate("ssh nope", state)
     assert out == ["Host not found"]
     assert new == state
+
+
+# --- パイプ ---
+def test_pipe_echo_into_grep(state: dict) -> None:
+    out, _ = evaluate("echo hello world | grep hello", state)
+    assert out == ["hello world"]
+
+    out, _ = evaluate("echo hello world | grep zzz", state)
+    assert out == []
+
+
+def test_pipe_cat_into_grep(state: dict) -> None:
+    out, _ = evaluate("cat /root/desk/businesscard.txt | grep ROLE", state)
+    assert out == ["ROLE: detective"]
+
+
+def test_pipe_chain_three_stages(state: dict) -> None:
+    # grep で2行 → 2段目 grep で絞り込み
+    out, _ = evaluate("cat /root/desk/businesscard.txt | grep ':' | grep NAME", state)
+    assert out == ["NAME: ???"]
+
+
+def test_pipe_then_redirect(state: dict) -> None:
+    _, s2 = evaluate(
+        "cat /root/desk/businesscard.txt | grep NAME > /root/desk/out.txt", state
+    )
+    node = s2["filesystem"]["root"]["children"]["desk"]["children"]["out.txt"]
+    assert node["content"] == "NAME: ???"
+
+
+def test_pipe_stage_error_propagates(state: dict) -> None:
+    out, new = evaluate("cat /root/desk/nope.txt | grep x", state)
+    assert out == ["Error: file not found"]
+    assert new == state
+
+
+def test_pipe_denylist_in_stage(state: dict) -> None:
+    out, new = evaluate("echo x | rm -rf /", state)
+    assert out == ["Error: command not allowed"]
+    assert new == state
+
+
+def test_pipe_empty_stage_invalid(state: dict) -> None:
+    assert evaluate("| grep x", state)[0] == ["Error: invalid input"]
+    assert evaluate("echo x |", state)[0] == ["Error: invalid input"]
+    assert evaluate("echo x | | grep y", state)[0] == ["Error: invalid input"]
