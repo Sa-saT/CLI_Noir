@@ -49,7 +49,9 @@ CLI_Noir/
 4. `docs/LPIC学習マップ.md` — LPIC Level 1 とゲーム内コマンドの対応表（非コマンド学習要素含む）
 5. `docs/環境構築手順.md` — Nuxt / FastAPI のセットアップ手順
 
-セッション開始時にコンテキストを復元する場合は `context/00_READ_ME_FIRST.md` から順に `context/` 内 4 ファイルを読む。
+セッション開始時にコンテキストを復元する場合は `context/00_READ_ME_FIRST.md` から順に `context/` 内 5 ファイルを読む。
+
+**バックエンド実装タスクの復元**: セッション内タスクリストが空の場合、`context/04_task_backlog.md`（Phase2 タスク P2-01〜P2-19 の正）から未完了タスクを TaskCreate で復元してから着手する。タスク完了時は backlog 側のチェックボックスも [x] にする。
 
 - `docs/DESIGN.md` — UI/ビジュアル仕様（カラートークン・レイアウト・コンポーネント分解・moc との差分表）。フロントエンド実装時に併読
 - `docs/AUTHORING_GUIDE.md` — Mission・コマンドの作り込みガイド（5幕構造・定義スキーマ・DoD）。コンテンツ追加時は必読
