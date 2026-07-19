@@ -14,12 +14,68 @@ from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
 
+def _rfile(content: str) -> dict:
+    """remote FS 用のファイルノード（読み取り専用ヒント）。"""
+    return {
+        "type": "file",
+        "content": content,
+        "mode": "r--r--r--",
+        "owner": "park",
+        "mtime": "2026-01-01T00:00:00Z",
+        "immutable": True,
+    }
+
+
 # ssh 接続先（設計指示書 § 5）。filesystem は接続時にスタックへ退避して差し替える。
+# amusement_park は Mission3 専用。/gate 配下のヒントから Code/Wire/Height を読み取り、
+# echo で記録する（判定は judge の汎用 AND-regex。証跡=echo 行）。
 SSH_HOSTS: dict[str, dict] = {
     "amusement_park": {
         "initial_path": "/gate",
-        # Mission3 の詳細 FS は実装時に拡張。現状は入口ディレクトリのみ。
-        "filesystem": {"gate": {"type": "dir", "children": {}}},
+        "filesystem": {
+            "gate": {
+                "type": "dir",
+                "children": {
+                    "booth": {
+                        "type": "dir",
+                        "children": {
+                            "manual.txt": _rfile(
+                                "DEFUSE MANUAL\n"
+                                "Enter the code printed on the panel.\n"
+                                "Code: K3Y9"
+                            ),
+                        },
+                    },
+                    "ferris": {
+                        "type": "dir",
+                        "children": {
+                            "wiring.txt": _rfile(
+                                "WIRING DIAGRAM\n"
+                                "Three wires: red / blue / yellow.\n"
+                                "Cut the correct one -> Wire: blue"
+                            ),
+                        },
+                    },
+                    "sign": {
+                        "type": "dir",
+                        "children": {
+                            "notice.txt": _rfile(
+                                "SAFETY NOTICE\n"
+                                "Ride limit for this gate.\n"
+                                "Height: 180"
+                            ),
+                        },
+                    },
+                    "decoy": {
+                        "type": "dir",
+                        "children": {
+                            "junk.txt": _rfile("popcorn receipts, nothing useful"),
+                        },
+                    },
+                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                },
+            }
+        },
     },
 }
 

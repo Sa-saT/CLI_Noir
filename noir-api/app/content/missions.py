@@ -39,6 +39,50 @@ _MISSION1_FS = {
 }
 
 
+# Mission2 の初期 FS: 公園（park）に猫情報ファイル + デコイ。swing に本命。
+# 初期 current_path=/root/park なので、find で swing 配下の catinfo.txt を探し、
+# 絶対パスで cat/grep して STATUS を読み取る導線。
+_MISSION2_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "park": {
+                "type": "dir",
+                "children": {
+                    "swing": {
+                        "type": "dir",
+                        "children": {
+                            "catinfo.txt": _file(
+                                "NAME: Mike\n"
+                                "COLOR: black\n"
+                                "STATUS: stray\n"
+                                "LAST_SEEN: swing",
+                                immutable=True,
+                            ),
+                        },
+                    },
+                    "fountain": {
+                        "type": "dir",
+                        "children": {
+                            "note.txt": _file("just water here", immutable=True),
+                        },
+                    },
+                    "bench": {
+                        "type": "dir",
+                        "children": {
+                            "trash.txt": _file("empty can", immutable=True),
+                        },
+                    },
+                    "case_file.sh": _file(
+                        "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+                    ),
+                },
+            },
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -53,6 +97,8 @@ class MissionDef:
     # 初期仮想FS（設計指示書 § 4 の filesystem スキーマ）。None は空の /root のみ。
     # Mission ごとの詳細 FS は順次ここに追加する。
     initial_filesystem: dict | None = None
+    # 初期カレントディレクトリ（Mission参照ファイル § 1 のテンプレ）。None は /root。
+    initial_current_path: str | None = None
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -80,11 +126,22 @@ _DEFS: list[MissionDef] = [
         2, "Park Cat Search", "公園の猫を探せ",
         "公園で猫ファイルを絶対パスで探索し、条件を満たして完了する。",
         ["find", "grep", "awk", "sort", "uniq"],
+        # 判定は judge.py の Mission2 専用ロジック（find 使用・絶対パス・STATUS 抽出）で
+        # 行うため expected_script_patterns は空にする（誤答メッセージを個別化するため）。
+        initial_filesystem=_MISSION2_FS,
+        initial_current_path="/root/park",
     ),
     MissionDef(
         3, "Amusement Park Bomb", "遊園地の爆弾",
         "ssh で遊園地に接続し、ヒントを集めて解除コードを特定する。",
         ["ssh", "exit", "find", "grep", "awk", "sort", "uniq"],
+        # ssh amusement_park 接続後、/gate のヒントから Code/Wire/Height を読み取り、
+        # echo で記録する（Mission1 と同じ「証跡=echo 行」方式）。汎用 AND-regex 判定。
+        expected_script_patterns=[
+            r"Code: [A-Z0-9]{4,}",
+            r"Wire: (red|blue|yellow)",
+            r"Height: [0-9]+",
+        ],
     ),
     MissionDef(
         4, "Wiretap Tape", "盗聴テープを解析せよ",

@@ -33,6 +33,8 @@ def build_initial_state(mission_id: int) -> dict:
     mission = get_mission(mission_id)
     if mission is not None and mission.initial_filesystem is not None:
         state["filesystem"] = copy.deepcopy(mission.initial_filesystem)
+    if mission is not None and mission.initial_current_path is not None:
+        state["current_path"] = mission.initial_current_path
     return state
 
 

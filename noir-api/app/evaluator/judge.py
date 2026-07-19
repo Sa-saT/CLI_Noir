@@ -9,10 +9,49 @@ import re
 
 from app.content.missions import get_mission
 
+# Mission ごとの専用判定（誤答メッセージを個別化する Mission だけ登録）。
+# 汎用 AND-regex では表現しづらい「絶対パス必須」「特定キー抽出」等をここで扱う。
+_CATINFO_ABS = "/root/park/swing/catinfo.txt"
+
+
+def _judge_mission2(state: dict) -> tuple[list[str], dict]:
+    """Mission2: find 使用・catinfo 絶対パス参照・STATUS 抽出の 3 点を検査する。
+
+    誤答メッセージは Mission参照ファイル § 3 の確定文言に一致させる。
+    """
+    log = state.get("command_log", [])
+    used_find = any(re.match(r"\s*find\b", line) for line in log)
+    used_abs_path = any(_CATINFO_ABS in line for line in log)
+    # STATUS 抽出: grep/echo 等で STATUS キーまたはその値 stray を含む行があるか。
+    read_status = any(
+        re.search(r"STATUS", line, re.IGNORECASE) or "stray" in line for line in log
+    )
+
+    if not used_find:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: use find to locate clues"], state
+    if not used_abs_path:
+        state["mission_flags"]["case_checked"] = False
+        return ["Error: absolute path required"], state
+    if not read_status:
+        state["mission_flags"]["case_checked"] = False
+        return ["Error: required cat status not found"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+_CUSTOM_JUDGES = {2: _judge_mission2}
+
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:
     """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
     mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+
+    custom = _CUSTOM_JUDGES.get(mission.id) if mission else None
+    if custom is not None:
+        return custom(state)
+
     patterns = mission.expected_script_patterns if mission else []
 
     if not patterns:
