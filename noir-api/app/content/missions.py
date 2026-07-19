@@ -83,6 +83,46 @@ _MISSION2_FS = {
 }
 
 
+# Mission4 の盗聴ログ: 電話番号を出現頻度差をつけて散らす。最頻出 = 正解。
+# grep TEL | sort | uniq -c | sort で最頻番号を割り出す導線（実際は数万行想定）。
+_MISSION4_ANSWER = "555-0142"
+_MISSION4_COUNTS = {
+    _MISSION4_ANSWER: 9,  # 最頻出（正解）
+    "555-0199": 5,
+    "555-0007": 3,
+    "555-0250": 2,
+    "555-0333": 1,
+}
+
+
+def _mission4_tape() -> str:
+    groups = [[num] * count for num, count in _MISSION4_COUNTS.items()]
+    scattered: list[str] = []
+    # ラウンドロビンで散らし、sort 前提の集計を体感させる（決定的）。
+    while any(groups):
+        for g in groups:
+            if g:
+                scattered.append(g.pop())
+    # 発信番号の記録（grep TEL | sort | uniq -c で頻度集計できるよう番号のみの行）。
+    lines = [f"TEL: {num}" for num in scattered]
+    # TEL を含まないノイズ行（grep で除外される）。
+    lines += [f"NOTE: heartbeat seq={i}" for i in range(10)]
+    return "\n".join(lines)
+
+
+_MISSION4_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "tape.log": _file(_mission4_tape(), immutable=True),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -147,6 +187,12 @@ _DEFS: list[MissionDef] = [
         4, "Wiretap Tape", "盗聴テープを解析せよ",
         "数万行のログをパイプで捌き、最頻出の電話番号を特定する。",
         ["grep", "sort", "uniq", "wc", "head", "tail"],
+        # クリア条件: uniq -c を含むパイプ集計の実行 + 正解番号の記述（Mission参照 § 4）。
+        expected_script_patterns=[
+            r"uniq\s+-c",
+            rf"TEL: {_MISSION4_ANSWER}",
+        ],
+        initial_filesystem=_MISSION4_FS,
     ),
     MissionDef(
         5, "The Locked Vault", "開かずの資料室",
