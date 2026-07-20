@@ -518,6 +518,38 @@ def cmd_cut(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     return out, state
 
 
+# --- プロセス管理（Level 6） ---
+@command("ps")
+def cmd_ps(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    processes = state.get("processes", [])
+    lines = ["USER       PID STAT COMMAND"]
+    for p in processes:
+        lines.append(f"{p['user']:<10} {p['pid']:>3} {p.get('state', 'S'):<4} {p['cmdline']}")
+    return lines, state
+
+
+@command("kill")
+def cmd_kill(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    if len(argv) < 2:
+        raise CommandError("Error: invalid input")
+    try:
+        pid = int(argv[1])
+    except ValueError as exc:
+        raise CommandError("Error: invalid input") from exc
+
+    processes = state.get("processes", [])
+    idx = next((i for i, p in enumerate(processes) if p["pid"] == pid), None)
+    if idx is None:
+        raise CommandError("Error: no such process")
+
+    if processes[idx].get("protected", False):
+        # 正規プロセスは削除しない（間違い探し。即失敗にせず警告で巻き戻す）。
+        return ["Warning: you stopped a legitimate process"], state
+
+    del processes[idx]
+    return [f"[{pid}] terminated"], state
+
+
 # --- SSH / remote ---
 @command("ssh")
 def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:

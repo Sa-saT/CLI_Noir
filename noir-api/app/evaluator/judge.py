@@ -41,7 +41,26 @@ def _judge_mission2(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
-_CUSTOM_JUDGES = {2: _judge_mission2}
+def _judge_mission6(state: dict) -> tuple[list[str], dict]:
+    """Mission6: 盗聴プログラム listener_x が processes から除去されているか検査する。
+
+    正規プロセス（protected）を kill しても kill 側で削除されないため、ここでは
+    listener_x の残存のみを見ればよい（誤って正規プロセスを止めても即失敗にしない）。
+    """
+    processes = state.get("processes", [])
+    still_running = any(p.get("name") == "listener_x" for p in processes)
+
+    if still_running:
+        state["mission_flags"]["case_checked"] = False
+        state["mission_flags"]["bug_removed"] = False
+        return ["Warning: the bug is still running"], state
+
+    state["mission_flags"]["case_checked"] = True
+    state["mission_flags"]["bug_removed"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+_CUSTOM_JUDGES = {2: _judge_mission2, 6: _judge_mission6}
 
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:

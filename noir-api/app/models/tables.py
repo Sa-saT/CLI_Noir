@@ -50,6 +50,10 @@ def default_state() -> dict:
         },
         "remote_mode": False,
         "ssh_host": None,
+        # 仮想プロセステーブル（ps/kill・/proc の対象。設計指示書 § 4 疑似 /proc）。
+        # {"pid": int, "name": str, "user": str, "cmdline": str, "state": str,
+        #  "protected": bool}。Mission 定義の initial_processes で上書きする。
+        "processes": [],
         "env_vars": {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
             "HOME": "/root",

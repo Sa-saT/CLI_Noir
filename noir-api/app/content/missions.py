@@ -162,6 +162,28 @@ _MISSION5_FS = {
 }
 
 
+# Mission6 のプロセステーブル: 正規プロセス（clock/mailbox/heater, protected）に
+# 紛れ込んだ盗聴プログラム listener_x（pid 666）。protected の kill は判定側で
+# 拒否せず kill コマンド側で「削除しない」形で汎用的に処理する。
+_MISSION6_PROCESSES = [
+    {"pid": 100, "name": "clock", "user": "root", "cmdline": "/usr/sbin/clockd", "state": "S", "protected": True},
+    {"pid": 101, "name": "mailbox", "user": "root", "cmdline": "/usr/sbin/mailboxd", "state": "S", "protected": True},
+    {"pid": 102, "name": "heater", "user": "root", "cmdline": "/usr/sbin/heaterd", "state": "S", "protected": True},
+    {"pid": 666, "name": "listener_x", "user": "root", "cmdline": "/tmp/.hidden/listener_x --tap", "state": "S", "protected": False},
+]
+
+_MISSION6_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -178,6 +200,8 @@ class MissionDef:
     initial_filesystem: dict | None = None
     # 初期カレントディレクトリ（Mission参照ファイル § 1 のテンプレ）。None は /root。
     initial_current_path: str | None = None
+    # 初期仮想プロセステーブル（ps/kill・/proc の対象）。None は空（デフォルト）。
+    initial_processes: list[dict] | None = None
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -249,6 +273,10 @@ _DEFS: list[MissionDef] = [
         6, "Shadow Process", "盗聴器を止めろ",
         "ps で不審プロセスを見つけ、裏取りしてから kill する。",
         ["ps", "kill", "grep"],
+        # 判定は judge.py の Mission6 専用ロジック（processes に listener_x が
+        # 残っていないか）で行うため expected_script_patterns は空にする。
+        initial_filesystem=_MISSION6_FS,
+        initial_processes=_MISSION6_PROCESSES,
     ),
     MissionDef(
         7, "Inside the Machine", "機械の胸の内",
