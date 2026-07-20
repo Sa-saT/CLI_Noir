@@ -508,6 +508,33 @@ _MISSION18_FS = {
 }
 
 
+# Mission19 の初期 FS: sample.sh（見本。変数+if+grep -q+echo FOUND の型）+
+# evidence.txt（実際の手がかり "Sam" を含む）。プレイヤーは自作 patrol.sh を
+# echo リダイレクトで組み立て、sh /root/patrol.sh で実行する。
+_MISSION19_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "sample.sh": _file(
+                "# sample.sh - example: define a variable, then search for it\n"
+                'KEYWORD="ExampleWord"\n'
+                'if grep -q "$KEYWORD" notes.txt; then\n'
+                '  echo "FOUND"\n'
+                "fi",
+                immutable=True,
+            ),
+            "evidence.txt": _file(
+                "Witness: Sam Whitfield was seen near the pier at midnight.",
+                immutable=True,
+            ),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -727,6 +754,9 @@ _DEFS: list[MissionDef] = [
         19, "The Detective's Playbook", "捜査手順書を書け",
         "変数と if を使ったシェルスクリプトを自作し、実行して判定する。",
         ["sh", "grep"],
+        # 判定は judge.py の Mission19 専用ロジック（patrol.sh 実行 + FOUND 出力 +
+        # 自作スクリプトに変数定義と if を含む）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION19_FS,
     ),
     MissionDef(
         20, "Map of the City", "この街の地図",

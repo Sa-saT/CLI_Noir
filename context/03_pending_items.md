@@ -31,11 +31,15 @@
   - **glob 展開 対応済**（2026-07-20 P2-13。engine.py の `_tokenize` が shlex.split を置き換え、各トークンの引用符有無を保持。引用符なし・glob文字（`*?[`）を含むトークンをカレントディレクトリ基準で fnmatch 照合し展開（マッチ無しは bash 既定どおりリテラル維持）。コマンド名（各ステージ第1トークン）は対象外。引用符付きトークンは常にリテラル（`find -name "*.txt"` 等が壊れない）。`cmd_ls` を複数ターゲット対応に拡張（`ls case_*` で複数ファイル名を一度に表示））
   - **md5sum/sha256sum 対応済**（2026-07-20 P2-14。hashlib で content の実ハッシュを計算し "<hash>  <path>" 形式。複数ファイル対応、リンクは解決してから計算）
   - **`2>`・`$?` 対応済**（2026-07-20 P2-15。state に一時キー `_stderr`（evaluate 内でのみ生成・戻り値には残さない）。`grep -r` がディレクトリ再帰し、読めないファイルは stdout に混ぜず `_stderr` へ。`2> file`/`2>/dev/null`（空白有無どちらも）で分岐: 破棄・ファイル書き込み・無指定なら stdout 末尾に結合。`env_vars["?"]` に直前コマンドの成否（0/1）を記録し `echo $?` で参照（変数展開は `$?` のみの最小実装。汎用 `$VAR` は P2-18）。既存 7 件の「state 不変」テストは `env_vars["?"]` を除いて比較するよう更新）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk 等 Phase2 コマンド群。変数展開（`$?` 以外）・if/for も未対応（§ 0.5 の Phase2）
+  - **sh スクリプト実行（変数/if/for）対応済**（2026-07-20 P2-16。新規 `app/evaluator/script.py`：改行と `;` を同じ文区切りとして正規化し、単一行形式・複数行形式の if/for を共通処理。`NAME=value` 変数定義、`$NAME` 展開（`$?` は engine 側の別実装のまま独立）、if/for のネストは非対応。スクリプト内コマンドは `evaluate()` を再帰呼び出しし denylist/allowlist を通す）
+  - `grep -q` 対応済（マッチ0件は `CommandError("Error: no match")` にして if 条件の成否を engine の既存エラー機構に乗せる。出力は常に抑制）
+  - **`sh` は実行ビット（can_exec）が必要**（設計上の統一ルール。実 Linux の `sh script.sh` は本来 read 権限のみで足りるが、本ゲームでは Mission5 以来「配置/自作スクリプトは chmod +x してから sh で実行する」で統一しており、Mission19 の自作 patrol.sh にも chmod +x が必要。`./script.sh` の直接実行相当のモデルとして意図的に採用）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk 等 Phase2 コマンド群。変数展開（`$?`/スクリプト内 `$NAME` 以外）・export/PATH も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜18 実装済**（2026-07-20）。**Mission19〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜18 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜19 実装済**（2026-07-20）。**Mission20〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜19 が実装リファレンス）
+  - Mission19「捜査手順書を書け」: sample.sh（見本）+ evidence.txt（"Sam" を含む）。プレイヤーが echo リダイレクトで自作 `/root/patrol.sh`（変数+if+grep -q+echo FOUND）を組み立て、chmod +x → sh で実行。判定は Mission19 専用 judge（sh 実行 + FOUND 出力（`mission_flags.script_found`、cmd_sh 側で設定）+ スクリプト自体に変数定義と if を含む — ハードコード echo だけでの通過を防止）。テスト `tests/test_mission19.py`（8件、denylist/for/誤ターゲットも検証）
   - Mission18「雑音の中の声」: /root/archive/ に読めないファイル3件（mode "---------"）+ witness_note.txt（"PLATE: NX-4471"）。`grep -r "witness" /root/archive 2>/dev/null` で雑音を捨てて手がかりのみ取得。判定は汎用 AND-regex（`2>\s*/dev/null` / PLATE番号の記述）。テスト `tests/test_mission18.py`（8件、$? の成功/失敗両方向を検証）
   - Mission17「指紋は嘘をつかない」: /root/contracts/copy_1〜5.txt（copy_4 のみ 1 文字改ざん "0"→"O"）+ ledger.txt（実際に hashlib で計算した原本 MD5 を記載）。判定は汎用 AND-regex（`md5sum` 実行 / "copy_4" の記述）。テスト `tests/test_mission17.py`（8件、ledger のハッシュ値と実計算値の一致も検証）
   - Mission16「一斉捜索令状」: /root/warehouse/ に case_1〜42.txt（うち case_[0-9].txt が9件）+ "top secret.txt"（空白入り、コード記載）。判定は Mission16 専用 judge（`\[0-9\]` を含む glob 使用 + 引用符付き cat 成功（command_log には成功コマンドのみ残るため未引用失敗と区別不要） + コード報告）。テスト `tests/test_mission16.py`（8件）+ `tests/test_glob.py`（9件、engine 回帰）

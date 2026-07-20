@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 
 from app.content.missions import get_mission
-from app.evaluator import fs
+from app.evaluator import fs, script
 from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
@@ -412,6 +412,14 @@ def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     lines = _read_input(state, targets, stdin)
 
     matched = [ln for ln in lines if bool(regex.search(ln)) != invert]
+
+    if "-q" in flags:
+        # 出力を捨てマッチ有無だけを終了ステータスで伝える（if 条件での利用を想定。
+        # Mission19）。マッチ無しは CommandError にして evaluate() の失敗パスへ乗せる。
+        if not matched:
+            raise CommandError("Error: no match")
+        return [], state
+
     return warning + matched, state
 
 
@@ -1095,5 +1103,9 @@ def cmd_sh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     basename = fs.segments(abs_path)[-1]
     if basename == "case_file.sh":
         return run_case_file(state)
-    # 汎用スクリプト（変数 / if / for）の実行は Mission19 実装時に対応する。
-    return [], state
+
+    # 汎用スクリプト（変数 / if / for。Mission19）。
+    out_lines, new_state = script.run_script(state, node.get("content", ""))
+    if "FOUND" in out_lines:
+        new_state.setdefault("mission_flags", {})["script_found"] = True
+    return out_lines, new_state

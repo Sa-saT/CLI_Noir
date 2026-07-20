@@ -272,6 +272,30 @@ def _judge_mission16(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION19_SCRIPT_PATH = "/root/patrol.sh"
+
+
+def _judge_mission19(state: dict) -> tuple[list[str], dict]:
+    """Mission19: 自作 patrol.sh の実行 + FOUND 出力 + スクリプト自体が変数定義と
+    if 文を含むこと（ハードコードした echo FOUND だけでの通過を防ぐ）を検査する。
+    """
+    log = state.get("command_log", [])
+    ran_script = any(re.search(r"\bsh\b.*patrol\.sh\b", line) for line in log)
+    script_found = state.get("mission_flags", {}).get("script_found", False)
+
+    script_node = fs.get_node(state, _MISSION19_SCRIPT_PATH)
+    content = script_node.get("content", "") if fs.is_file(script_node) else ""
+    has_var = re.search(r"^\s*[A-Za-z_][A-Za-z0-9_]*=", content, re.MULTILINE) is not None
+    has_if = re.search(r"\bif\b", content) is not None
+
+    if not (ran_script and script_found and has_var and has_if):
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -282,6 +306,7 @@ _CUSTOM_JUDGES = {
     14: _judge_mission14,
     15: _judge_mission15,
     16: _judge_mission16,
+    19: _judge_mission19,
 }
 
 

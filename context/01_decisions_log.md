@@ -5,9 +5,9 @@
 
 ---
 
-## Phase2 バックエンド実装: Mission5〜18（2026-07-20 進行中、Sonnet で実装）
+## Phase2 バックエンド実装: Mission5〜19（2026-07-20 進行中、Sonnet で実装）
 
-タスク #21〜#35（P2-01〜P2-15）。1 task = 1 commit + push で進行。全 214 tests green / ruff clean（#35 時点）。
+タスク #21〜#36（P2-01〜P2-16）。1 task = 1 commit + push で進行。全 222 tests green / ruff clean（#36 時点）。
 
 - **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
 - `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約
@@ -17,6 +17,9 @@
 - **`$?`（終了ステータス）を全コマンドで記録する設計に決定**（Mission18。§ 8「ゲーム操作 = 実PC操作の意味一致」を優先）: 成功=0/失敗=1 を毎回 `env_vars["?"]` に書き込む。これにより、失敗時に state を一切変えない既存 7 テスト（`assert new == state`）が `env_vars["?"]` の差分で壊れるため、それらは `env_vars["?"]` を除いて比較するよう更新した（`test_evaluator.py` 5件・`test_mission6.py`・`test_permissions.py` 各1件）。$? を成功時のみ記録する妥協案（失敗時は不変のまま）も検討したが、実 Linux と異なる片手落ちの挙動になり最重要設計原則に反するため採用しなかった
 - **stderr チャネルは state の一時キー `_stderr` で表現**（Mission18。`grep -r` の「読めたファイルはマッチ・読めないファイルは雑音」を分離するため）。evaluate() 内でのみ生成され、`2> file`/`2>/dev/null`/無指定（stdout 末尾へ結合）のいずれかで消費された後、必ず戻り値の state から pop して**永続化しない**（成功・失敗どちらの return パスでも pop 徹底）
 - `2>/dev/null`（空白無し）はトークナイザが1トークンとして返すため、glob 展開の後に `_split_glued_redirects` で `2>` と対象を強制分割する専用ステップを追加
+- **`sh` の実行ビット要件を全 Mission共通ルールとして確定**（Mission19 実装時に発覚）: 実 Linux の `sh script.sh` は本来 read 権限のみで足り chmod +x は不要（x ビットが要るのは `./script.sh` の直接実行のみ）。しかし本ゲームは Mission5 で「配置スクリプトは chmod +x してから sh で実行する」を意図的なパズル要素として先に採用済みだったため、Mission19（プレイヤーが自作する patrol.sh）でも整合性を優先しこのルールを踏襲した（`./script.sh` 直接実行モデルとして正当化）。新規 Mission で `sh` を使わせる場合、配置する `*.sh` は既定で immutable=True（can_exec の特例で chmod 不要）にするか、意図的に immutable=False + chmod +x を要求するパズルにするかを設計時に明示的に選ぶ
+- **`app/evaluator/script.py` を新設**（Mission19。sh の汎用スクリプト・ミニインタープリタ）: 改行と `;` を同じ「文」区切りとして正規化するため、単一行形式 (`if X; then Y; fi`) と複数行形式が同じ処理ロジックで解釈できる。if/for のネストは非対応（学習範囲外）。`evaluate()` を関数内で**遅延 import**している（`engine→commands→script→engine` の循環 import を避けるため。script.py 自体は module top-level で fs/commands を import しない設計にして片方向のみ許容）
+- **`grep -q` は「マッチ0件なら CommandError」として実装**（Mission19 の if 条件判定用）。出力を空にするだけでは if 側で成功/失敗を判別できないため（「エラー行なし=成功」という既存の条件判定規約に自然に乗せるため、あえて CommandError を使う設計にした）
 
 ---
 
