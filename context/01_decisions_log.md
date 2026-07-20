@@ -5,15 +5,18 @@
 
 ---
 
-## Phase2 バックエンド実装: Mission5〜16（2026-07-20 進行中、Sonnet で実装）
+## Phase2 バックエンド実装: Mission5〜18（2026-07-20 進行中、Sonnet で実装）
 
-タスク #21〜#33（P2-01〜P2-13）。1 task = 1 commit + push で進行。全 198 tests green / ruff clean（#33 時点）。
+タスク #21〜#35（P2-01〜P2-15）。1 task = 1 commit + push で進行。全 214 tests green / ruff clean（#35 時点）。
 
 - **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
 - `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約
 - Mission12 の判定は「dig→ping→ssh の**出現順序**」を command_log のインデックス比較で検査する専用 judge（§ 12「調べてから踏み込む」を機械的に担保。他 Mission には無い順序制約パターン）
 - **shlex.split → 自作 `_tokenize` に置換**（Mission16 の glob 対応。engine.py）。標準の `shlex.split` は各トークンが元々引用符で囲まれていたかの情報を破棄するため、`find -name "*.txt"` のような「引用符付きだから glob 展開させない」判定ができない。自作トークナイザは `(token, was_quoted)` のペアを返し、`_expand_globs` が「引用符なし・glob文字（`*?[`）を含む・カレントディレクトリで実際にマッチする」の3条件を満たすトークンだけを実在エントリへ展開する（bash の nullglob 無効と同じくマッチ0件はリテラルのまま）。バックスラッシュエスケープは未対応（ゲーム内コマンドで使用しないため簡略化）。既存の引用符処理・パイプ・リダイレクト挙動に回帰なし（198 tests green で確認）
 - `cmd_ls` を複数ターゲット対応に拡張（`ls case_*` の展開結果を1コマンドで表示するため必須）
+- **`$?`（終了ステータス）を全コマンドで記録する設計に決定**（Mission18。§ 8「ゲーム操作 = 実PC操作の意味一致」を優先）: 成功=0/失敗=1 を毎回 `env_vars["?"]` に書き込む。これにより、失敗時に state を一切変えない既存 7 テスト（`assert new == state`）が `env_vars["?"]` の差分で壊れるため、それらは `env_vars["?"]` を除いて比較するよう更新した（`test_evaluator.py` 5件・`test_mission6.py`・`test_permissions.py` 各1件）。$? を成功時のみ記録する妥協案（失敗時は不変のまま）も検討したが、実 Linux と異なる片手落ちの挙動になり最重要設計原則に反するため採用しなかった
+- **stderr チャネルは state の一時キー `_stderr` で表現**（Mission18。`grep -r` の「読めたファイルはマッチ・読めないファイルは雑音」を分離するため）。evaluate() 内でのみ生成され、`2> file`/`2>/dev/null`/無指定（stdout 末尾へ結合）のいずれかで消費された後、必ず戻り値の state から pop して**永続化しない**（成功・失敗どちらの return パスでも pop 徹底）
+- `2>/dev/null`（空白無し）はトークナイザが1トークンとして返すため、glob 展開の後に `_split_glued_redirects` で `2>` と対象を強制分割する専用ステップを追加
 
 ---
 

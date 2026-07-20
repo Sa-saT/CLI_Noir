@@ -1,14 +1,17 @@
 """コマンド評価エンジン。
 
 パイプライン（設計指示書 § 0.5 / § 8）:
-  入力行 → トークナイズ（引用符情報を保持）→ glob 展開 → パイプ `|` でステージ分割
-        → 最終ステージのリダイレクト分解（`>` `>>`）
+  入力行 → トークナイズ（引用符情報を保持）→ glob 展開 → `2>` の空白無し表記を分割
+        → パイプ `|` でステージ分割
+        → 最終ステージのリダイレクト分解（`>` `>>` `2>`）
         → 各ステージ: denylist → allowlist → registry の実装を実行
-          （前段 stdout を次段 stdin へ渡す）
-        → （リダイレクトあれば最終出力をファイルへ書き込み）→ 出力行 + 新 state
+          （前段 stdout を次段 stdin へ渡す。stderr は state["_stderr"] に集約）
+        → （リダイレクトあれば最終出力をファイルへ書き込み。`2>` は指定先へ、
+          `2>/dev/null` は破棄、指定無しは stdout の末尾に結合）
+        → 実行結果を env_vars["?"]（0=成功/1=失敗）に記録 → 出力行 + 新 state
 
-`2>`（stderr）は未対応（Mission18 実装時に追加）。実 OS には触れない。
-`evaluate` は state を deepcopy してから渡すため、呼び出し側の state は不変。
+実 OS には触れない。`evaluate` は state を deepcopy してから渡すため、
+呼び出し側の state は不変。
 """
 
 import copy
@@ -107,6 +110,22 @@ def _expand_globs(tok_pairs: list[tuple[str, bool]], state: dict) -> list[str]:
     return result
 
 
+def _split_glued_redirects(tokens: list[str]) -> list[str]:
+    """`2>/dev/null`（空白無し）を `2>` と `/dev/null` の2トークンへ分割する。
+
+    トークナイズは空白区切りのため、`2>` と対象が空白無しで連結されていると
+    1トークンになってしまう。`2>` そのものは素通しする。
+    """
+    result: list[str] = []
+    for tok in tokens:
+        if tok.startswith("2>") and tok != "2>":
+            result.append("2>")
+            result.append(tok[2:])
+        else:
+            result.append(tok)
+    return result
+
+
 def _split_pipeline(tokens: list[str]) -> list[list[str]]:
     """トークン列を `|` でステージへ分割する（引用符内の | は shlex 済みで安全）。"""
     stages: list[list[str]] = []
@@ -135,14 +154,17 @@ def _run_stage(
     return fn(state, argv, stdin)
 
 
-def _split_redirect(tokens: list[str]) -> tuple[list[str], str | None, bool]:
-    """トークン列から `> file` / `>> file` を抜き出す。
+def _split_redirect(
+    tokens: list[str],
+) -> tuple[list[str], str | None, bool, str | None]:
+    """トークン列から `> file` / `>> file` / `2> file` を抜き出す。
 
-    戻り値: (リダイレクト除去後の argv, 出力先パス or None, append か)。
+    戻り値: (リダイレクト除去後の argv, stdout先パスorNone, append か, stderr先パスorNone)。
     """
     argv: list[str] = []
     target: str | None = None
     append = False
+    stderr_target: str | None = None
     i = 0
     while i < len(tokens):
         tok = tokens[i]
@@ -153,9 +175,15 @@ def _split_redirect(tokens: list[str]) -> tuple[list[str], str | None, bool]:
             target = tokens[i + 1]
             i += 2
             continue
+        if tok == "2>":
+            if i + 1 >= len(tokens):
+                raise CommandError("Error: invalid input")
+            stderr_target = tokens[i + 1]
+            i += 2
+            continue
         argv.append(tok)
         i += 1
-    return argv, target, append
+    return argv, target, append, stderr_target
 
 
 def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
@@ -179,6 +207,12 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
     parent["children"][name] = fs.new_file(content=text)
 
 
+def _set_status(state: dict, code: str) -> dict:
+    """終了ステータスを env_vars["?"] に記録する（echo $? の最小実装。P2-15）。"""
+    state.setdefault("env_vars", {})["?"] = code
+    return state
+
+
 def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     """1 行を評価し (出力行, 新 state) を返す。state は変更しない（deepcopy を返す）。"""
     working = copy.deepcopy(state)
@@ -186,26 +220,31 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     try:
         tok_pairs = _tokenize(command_line)
     except ValueError:
-        return ["Error: invalid input"], state  # 引用符が閉じていない等
+        return ["Error: invalid input"], _set_status(working, "1")  # 引用符が閉じていない等
     if not tok_pairs:
+        # 空行の実行は bash と同じく $? を変更しない。
         return [], state
 
     tokens = _expand_globs(tok_pairs, working)
+    tokens = _split_glued_redirects(tokens)
 
     stages = _split_pipeline(tokens)
     # 空ステージ（`| foo` / `foo |` / `foo || bar`）はパイプ不正。
     if len(stages) > 1 and any(not st for st in stages):
-        return ["Error: invalid input"], state
+        return ["Error: invalid input"], _set_status(working, "1")
 
     # リダイレクトは最終ステージにのみ適用する。
     try:
-        stages[-1], target, append = _split_redirect(stages[-1])
+        stages[-1], target, append, stderr_target = _split_redirect(stages[-1])
     except CommandError as exc:
-        return [str(exc)], state
+        return [str(exc)], _set_status(working, "1")
     if not stages[-1]:
         # 単段のリダイレクトのみ（`> file`）は no-op。多段での空末尾は不正。
-        return ([], state) if len(stages) == 1 else (["Error: invalid input"], state)
+        if len(stages) == 1:
+            return [], _set_status(working, "0")
+        return ["Error: invalid input"], _set_status(working, "1")
 
+    working["_stderr"] = []
     try:
         stdin: list[str] = []
         st_state = working
@@ -213,13 +252,24 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
         for argv in stages:
             out_lines, st_state = _run_stage(argv, stdin, st_state)
             stdin = out_lines
+
+        stderr_lines = st_state.pop("_stderr", [])
+        if stderr_target == "/dev/null":
+            pass  # 雑音を捨てる（Mission18）
+        elif stderr_target is not None:
+            _write_file(st_state, stderr_target, stderr_lines, False)
+        else:
+            out_lines = out_lines + stderr_lines
+
         if target is not None:
             _write_file(st_state, target, out_lines, append)
             out_lines = []
     except CommandError as exc:
-        # エラーは表示のみ・state は変更しない（設計指示書 § 9）。
-        return [str(exc)], state
+        # エラーは表示のみ・domain state は変更しない（設計指示書 § 9）。
+        # ただし $? は失敗を記録する（working は state の deepcopy のまま）。
+        st_state.pop("_stderr", None)
+        return [str(exc)], _set_status(st_state, "1")
 
     # 成功したコマンドを履歴に記録（case_file.sh 判定・リプレイ台帳用）。
     st_state.setdefault("command_log", []).append(command_line)
-    return out_lines, st_state
+    return out_lines, _set_status(st_state, "0")

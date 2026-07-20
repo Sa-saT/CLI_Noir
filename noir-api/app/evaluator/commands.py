@@ -321,7 +321,10 @@ def cmd_cat(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
 
 @command("echo")
 def cmd_echo(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    return [" ".join(argv[1:])], state
+    # 変数展開の最小実装: 引数内の $? のみ置換する（汎用 $VAR 展開は P2-18）。
+    status = state.get("env_vars", {}).get("?", "0")
+    parts = [a.replace("$?", status) for a in argv[1:]]
+    return [" ".join(parts)], state
 
 
 @command("clear")
@@ -342,6 +345,20 @@ def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
 
 
 # --- 検索 ---
+def _walk_files(state: dict, abs_dir: str):
+    """ディレクトリ配下の全ファイル（symlink は辿らず素通し）を再帰列挙する。"""
+    node = fs.get_node(state, abs_dir)
+    if not fs.is_dir(node):
+        return
+    for name in sorted(node.get("children", {}).keys()):
+        child_path = fs.normalize(abs_dir, name)
+        child = node["children"][name]
+        if fs.is_dir(child):
+            yield from _walk_files(state, child_path)
+        else:
+            yield child_path
+
+
 @command("grep", "egrep", "fgrep")
 def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     name = argv[0]
@@ -350,10 +367,11 @@ def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     if not positional:
         raise CommandError("Error: invalid input")
 
-    pattern, files = positional[0], positional[1:]
+    pattern, targets = positional[0], positional[1:]
     fixed = name == "fgrep" or "-F" in flags
     ignorecase = "-i" in flags
     invert = "-v" in flags
+    recursive = "-r" in flags or "-R" in flags
 
     warning: list[str] = []
     if name == "egrep":
@@ -369,7 +387,29 @@ def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     except re.error as exc:
         raise CommandError("Error: invalid pattern") from exc
 
-    lines = _read_input(state, files, stdin)
+    if recursive:
+        if not targets:
+            raise CommandError("Error: invalid input")
+        current_user = state.get("current_user", "detective")
+        matched: list[str] = []
+        stderr = state.setdefault("_stderr", [])
+        for target in targets:
+            abs_start = fs.normalize(state["current_path"], target)
+            for file_path in _walk_files(state, abs_start):
+                node = fs.get_node(state, file_path)
+                if fs.is_link(node):
+                    node = fs.resolve_link(state, node)
+                if not fs.is_file(node):
+                    continue
+                if not fs.can_read(node, current_user):
+                    stderr.append(f"Error: permission denied: {file_path}")
+                    continue
+                for ln in _content_lines(node):
+                    if bool(regex.search(ln)) != invert:
+                        matched.append(f"{file_path}:{ln}")
+        return warning + matched, state
+
+    lines = _read_input(state, targets, stdin)
 
     matched = [ln for ln in lines if bool(regex.search(ln)) != invert]
     return warning + matched, state

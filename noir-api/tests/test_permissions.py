@@ -94,7 +94,9 @@ def test_chmod_invalid_spec() -> None:
     s = _with_file()
     out, new = evaluate("chmod zzz /root/note.txt", s)
     assert out == ["Error: invalid input"]
-    assert new == s
+    new_env = {k: v for k, v in new["env_vars"].items() if k != "?"}
+    old_env = {k: v for k, v in s["env_vars"].items() if k != "?"}
+    assert {**new, "env_vars": new_env} == {**s, "env_vars": old_env}
 
 
 def test_chmod_missing_path() -> None:

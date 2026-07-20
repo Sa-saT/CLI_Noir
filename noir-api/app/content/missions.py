@@ -480,6 +480,34 @@ _MISSION17_FS = {
 }
 
 
+# Mission18 の初期 FS: /root/archive/ に読めないファイル多数（雑音の元）+
+# 読める witness_note.txt（手がかり）。grep -r ... 2>/dev/null で雑音を捨てる。
+_MISSION18_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "archive": {
+                "type": "dir",
+                "children": {
+                    "sealed_1.txt": _mode_file("classified", "---------", immutable=True),
+                    "sealed_2.txt": _mode_file("classified", "---------", immutable=True),
+                    "sealed_3.txt": _mode_file("classified", "---------", immutable=True),
+                    "witness_note.txt": _file(
+                        "local witness report\n"
+                        "saw a black car leaving the scene\n"
+                        "PLATE: NX-4471",
+                        immutable=True,
+                    ),
+                },
+            },
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -688,6 +716,12 @@ _DEFS: list[MissionDef] = [
         18, "Silence in the Static", "雑音の中の声",
         "2>/dev/null でエラーを捨て、必要な出力だけを取り出す。",
         ["grep", "find"],
+        # クリア条件: 2>/dev/null の実行 + 手がかり（PLATE番号）の記述（Mission参照 § 18）。
+        expected_script_patterns=[
+            r"2>\s*/dev/null",
+            r"PLATE: NX-4471",
+        ],
+        initial_filesystem=_MISSION18_FS,
     ),
     MissionDef(
         19, "The Detective's Playbook", "捜査手順書を書け",

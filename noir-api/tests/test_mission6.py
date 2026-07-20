@@ -21,7 +21,9 @@ def test_mission6_kill_no_such_process() -> None:
     s = build_initial_state(6)
     out, new = _run(s, "kill 9999")
     assert out == ["Error: no such process"]
-    assert new == s
+    new_env = {k: v for k, v in new["env_vars"].items() if k != "?"}
+    old_env = {k: v for k, v in s["env_vars"].items() if k != "?"}
+    assert {**new, "env_vars": new_env} == {**s, "env_vars": old_env}
 
 
 def test_mission6_kill_protected_warns_and_rolls_back() -> None:

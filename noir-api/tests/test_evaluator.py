@@ -6,6 +6,13 @@ from app.evaluator import evaluate
 from app.models import default_state
 
 
+def _without_exit_status(s: dict) -> dict:
+    """env_vars["?"]（P2-15 の $? 記録）を除いた state を返す（不変性比較用）。"""
+    s2 = dict(s)
+    s2["env_vars"] = {k: v for k, v in s["env_vars"].items() if k != "?"}
+    return s2
+
+
 @pytest.fixture
 def state() -> dict:
     s = default_state()
@@ -29,7 +36,8 @@ def state() -> dict:
 def test_denylist_rejected(state: dict) -> None:
     out, new = evaluate("rm -rf /", state)
     assert out == ["Error: command not allowed"]
-    assert new == state
+    assert _without_exit_status(new) == _without_exit_status(state)
+    assert new["env_vars"]["?"] == "1"
 
 
 def test_unknown_command_rejected(state: dict) -> None:
@@ -54,7 +62,7 @@ def test_ls_and_cd_and_pwd(state: dict) -> None:
 def test_cd_into_missing_dir(state: dict) -> None:
     out, new = evaluate("cd nope", state)
     assert out == ["Error: directory not found"]
-    assert new == state  # state 不変
+    assert _without_exit_status(new) == _without_exit_status(state)  # state 不変
 
 
 def test_cat_file_and_missing(state: dict) -> None:
@@ -137,7 +145,7 @@ def test_ssh_and_exit_swaps_filesystem(state: dict) -> None:
 def test_ssh_unknown_host(state: dict) -> None:
     out, new = evaluate("ssh nope", state)
     assert out == ["Host not found"]
-    assert new == state
+    assert _without_exit_status(new) == _without_exit_status(state)
 
 
 # --- パイプ ---
@@ -171,13 +179,13 @@ def test_pipe_then_redirect(state: dict) -> None:
 def test_pipe_stage_error_propagates(state: dict) -> None:
     out, new = evaluate("cat /root/desk/nope.txt | grep x", state)
     assert out == ["Error: file not found"]
-    assert new == state
+    assert _without_exit_status(new) == _without_exit_status(state)
 
 
 def test_pipe_denylist_in_stage(state: dict) -> None:
     out, new = evaluate("echo x | rm -rf /", state)
     assert out == ["Error: command not allowed"]
-    assert new == state
+    assert _without_exit_status(new) == _without_exit_status(state)
 
 
 def test_pipe_empty_stage_invalid(state: dict) -> None:
