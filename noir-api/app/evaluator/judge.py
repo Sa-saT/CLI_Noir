@@ -332,6 +332,34 @@ def _judge_mission20(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION21_GOOD_PATH = "/usr/local/bin:/usr/bin:/bin"
+_MISSION21_BAD_PATH = "/tmp/.stolen"
+
+
+def _judge_mission21(state: dict) -> tuple[list[str], dict]:
+    """Mission21: PATH の正常値への復旧 + 復旧後のコマンド成功 + 汚染値の報告を検査する。
+
+    command_log は成功したコマンドのみ記録されるため、PATH 未復旧では grep/find は
+    そもそもログに残らない。ログに残っている＝復旧後に成功した証跡になる。
+    """
+    log = state.get("command_log", [])
+    path_restored = state.get("env_vars", {}).get("PATH") == _MISSION21_GOOD_PATH
+    used_tool_after_restore = any(re.match(r"\s*(grep|find)\b", line) for line in log)
+    reported_bad_path = any(
+        _MISSION21_BAD_PATH in line for line in log if re.match(r"\s*echo\b", line)
+    )
+
+    if not path_restored:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: PATH is still broken"], state
+    if not used_tool_after_restore or not reported_bad_path:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -344,6 +372,7 @@ _CUSTOM_JUDGES = {
     16: _judge_mission16,
     19: _judge_mission19,
     20: _judge_mission20,
+    21: _judge_mission21,
 }
 
 

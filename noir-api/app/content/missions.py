@@ -603,6 +603,31 @@ _MISSION20_FS = {
 }
 
 
+# Mission21 の初期 env_vars: PATH が汚染され allowlist コマンドが軒並み使えない
+# （組み込み=echo/export/printenv/which/type 等と絶対パス実行だけが生き残る）。
+_MISSION21_BAD_PATH = "/tmp/.stolen"
+_MISSION21_GOOD_PATH = "/usr/local/bin:/usr/bin:/bin"
+_MISSION21_ENV_VARS = {"PATH": _MISSION21_BAD_PATH, "HOME": "/root"}
+
+_MISSION21_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "hint.txt": _file(
+                "The tools are not gone. Someone broke the list of where to\n"
+                "find them (PATH). Check: echo $PATH or printenv PATH.\n"
+                "Trust the absolute path: /bin/ls still works.\n"
+                "Recover with: export PATH=/usr/local/bin:/usr/bin:/bin",
+                immutable=True,
+            ),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -625,6 +650,8 @@ class MissionDef:
     initial_cron_jobs: list[dict] | None = None
     # Mission15 専用: history が表示する「情報屋の履歴」（自分の履歴ではない）。
     informant_history: list[str] | None = None
+    # 初期環境変数（PATH 汚染等）。None はデフォルト（正常な PATH）。
+    initial_env_vars: dict[str, str] | None = None
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -838,6 +865,11 @@ _DEFS: list[MissionDef] = [
         21, "The Missing Toolbox", "消えた道具箱",
         "汚染された PATH を診断し、export で復旧して道具（コマンド）を取り戻す。",
         ["printenv", "export", "unset", "which", "type", "grep", "find"],
+        # 判定は judge.py の Mission21 専用ロジック（PATH 正常値への復旧 +
+        # 復旧後のコマンド成功履歴 + 汚染 PATH 値の報告）で行うため
+        # expected_script_patterns は空。
+        initial_filesystem=_MISSION21_FS,
+        initial_env_vars=_MISSION21_ENV_VARS,
     ),
     MissionDef(
         22, "Case Closed", "最終事件 — すべてを繋げろ",

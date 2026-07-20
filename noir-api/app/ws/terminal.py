@@ -39,6 +39,8 @@ def build_initial_state(mission_id: int) -> dict:
         state["processes"] = copy.deepcopy(mission.initial_processes)
     if mission is not None and mission.initial_cron_jobs is not None:
         state["cron_jobs"] = copy.deepcopy(mission.initial_cron_jobs)
+    if mission is not None and mission.initial_env_vars is not None:
+        state["env_vars"] = copy.deepcopy(mission.initial_env_vars)
     return state
 
 

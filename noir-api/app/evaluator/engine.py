@@ -1,11 +1,13 @@
 """コマンド評価エンジン。
 
 パイプライン（設計指示書 § 0.5 / § 8）:
-  入力行 → トークナイズ（引用符情報を保持）→ glob 展開 → `2>` の空白無し表記を分割
+  入力行 → env_vars による $VAR/$? 展開（シングルクォート内は保持）
+        → トークナイズ（引用符情報を保持）→ glob 展開 → `2>` の空白無し表記を分割
         → パイプ `|` でステージ分割
         → 最終ステージのリダイレクト分解（`>` `>>` `2>`）
-        → 各ステージ: denylist → allowlist → registry の実装を実行
-          （前段 stdout を次段 stdin へ渡す。stderr は state["_stderr"] に集約）
+        → 各ステージ: denylist → allowlist → PATH 解決（絶対パス実行は除外）
+          → registry の実装を実行（前段 stdout を次段 stdin へ渡す。
+          stderr は state["_stderr"] に集約）
         → （リダイレクトあれば最終出力をファイルへ書き込み。`2>` は指定先へ、
           `2>/dev/null` は破棄、指定無しは stdout の末尾に結合）
         → 実行結果を env_vars["?"]（0=成功/1=失敗）に記録 → 出力行 + 新 state
@@ -16,6 +18,7 @@
 
 import copy
 import fnmatch
+import re
 
 from app.evaluator import commands as _commands  # noqa: F401  registry 登録のため import
 from app.evaluator import fs
@@ -26,6 +29,60 @@ from app.evaluator.registry import get_command
 
 _REDIRECTS = (">", ">>")
 _GLOB_CHARS = "*?["
+
+# シェル組み込み相当（実 bash と同じく PATH 解決の対象外。設計指示書 § 4）。
+# これが無いと Mission21 で PATH が壊れている間に echo $PATH すら打てなくなる。
+_BUILTINS = {
+    "cd", "pwd", "echo", "export", "unset", "printenv", "which", "type",
+    "history", "clear", "exit", "git",
+}
+_PATH_BIN_DIRS = ("/bin", "/usr/bin", "/usr/local/bin")
+
+_VAR_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)|\$(\?)")
+
+
+def _expand_env_vars(command_line: str, env_vars: dict) -> str:
+    """コマンド行の `$NAME` / `${NAME}` / `$?` を env_vars で置換する。
+
+    シングルクォート区間は実 bash と同じく展開しない（区間ごとコピー）。
+    ダブルクォート区間・裸の単語は展開する。トークナイズより前の生テキストに
+    対して行う（設計指示書 § 8。P2-18）。
+    """
+    out: list[str] = []
+    i, n = 0, len(command_line)
+    while i < n:
+        ch = command_line[i]
+        if ch == "'":
+            end = command_line.find("'", i + 1)
+            if end == -1:
+                out.append(command_line[i:])
+                break
+            out.append(command_line[i : end + 1])
+            i = end + 1
+            continue
+        if ch == "$":
+            m = _VAR_REF.match(command_line, i)
+            if m:
+                name = m.group(1) or m.group(2) or m.group(3)
+                default = "0" if name == "?" else ""
+                out.append(env_vars.get(name, default))
+                i = m.end()
+                continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _resolve_command_name(argv0: str) -> tuple[str, bool]:
+    """コマンド名と「絶対パス実行か」を返す。絶対パスは basename で判定・登録引きする。"""
+    if argv0.startswith("/"):
+        return argv0.rsplit("/", 1)[-1], True
+    return argv0, False
+
+
+def _path_has_bin(state: dict) -> bool:
+    path_value = state.get("env_vars", {}).get("PATH", "")
+    return any(seg in _PATH_BIN_DIRS for seg in path_value.split(":"))
 
 
 def _tokenize(command_line: str) -> list[tuple[str, bool]]:
@@ -143,15 +200,20 @@ def _split_pipeline(tokens: list[str]) -> list[list[str]]:
 def _run_stage(
     argv: list[str], stdin: list[str], state: dict
 ) -> tuple[list[str], dict]:
-    """1 ステージ（denylist→allowlist→registry dispatch）を実行する。"""
-    name = argv[0]
+    """1 ステージ（denylist→allowlist→PATH解決→registry dispatch）を実行する。"""
+    name, is_absolute = _resolve_command_name(argv[0])
     if name in DENYLIST or name not in ALLOWLIST:
         raise CommandError("Error: command not allowed")
+    # PATH に /bin 系が無い間は組み込み以外のコマンドが引けない（絶対パス実行は除外。
+    # Mission21）。
+    if not is_absolute and name not in _BUILTINS and not _path_has_bin(state):
+        raise CommandError("Error: command not found")
     fn = get_command(name)
     if fn is None:
         # allowlist にはあるが未実装。MVP では利用不可として扱う。
         raise CommandError("Error: command not allowed")
-    return fn(state, argv, stdin)
+    call_argv = [name, *argv[1:]] if is_absolute else argv
+    return fn(state, call_argv, stdin)
 
 
 def _split_redirect(
@@ -217,8 +279,10 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     """1 行を評価し (出力行, 新 state) を返す。state は変更しない（deepcopy を返す）。"""
     working = copy.deepcopy(state)
 
+    expanded_line = _expand_env_vars(command_line, working.get("env_vars", {}))
+
     try:
-        tok_pairs = _tokenize(command_line)
+        tok_pairs = _tokenize(expanded_line)
     except ValueError:
         return ["Error: invalid input"], _set_status(working, "1")  # 引用符が閉じていない等
     if not tok_pairs:

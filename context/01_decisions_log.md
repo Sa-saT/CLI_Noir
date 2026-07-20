@@ -5,9 +5,9 @@
 
 ---
 
-## Phase2 バックエンド実装: Mission5〜19（2026-07-20 進行中、Sonnet で実装）
+## Phase2 バックエンド実装: Mission5〜21（2026-07-20 進行中、Sonnet で実装）
 
-タスク #21〜#36（P2-01〜P2-16）。1 task = 1 commit + push で進行。全 222 tests green / ruff clean（#36 時点）。
+タスク #21〜#38（P2-01〜P2-18）。1 task = 1 commit + push で進行。全 237 tests green / ruff clean（#38 時点）。
 
 - **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
 - `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約
@@ -20,6 +20,10 @@
 - **`sh` の実行ビット要件を全 Mission共通ルールとして確定**（Mission19 実装時に発覚）: 実 Linux の `sh script.sh` は本来 read 権限のみで足り chmod +x は不要（x ビットが要るのは `./script.sh` の直接実行のみ）。しかし本ゲームは Mission5 で「配置スクリプトは chmod +x してから sh で実行する」を意図的なパズル要素として先に採用済みだったため、Mission19（プレイヤーが自作する patrol.sh）でも整合性を優先しこのルールを踏襲した（`./script.sh` 直接実行モデルとして正当化）。新規 Mission で `sh` を使わせる場合、配置する `*.sh` は既定で immutable=True（can_exec の特例で chmod 不要）にするか、意図的に immutable=False + chmod +x を要求するパズルにするかを設計時に明示的に選ぶ
 - **`app/evaluator/script.py` を新設**（Mission19。sh の汎用スクリプト・ミニインタープリタ）: 改行と `;` を同じ「文」区切りとして正規化するため、単一行形式 (`if X; then Y; fi`) と複数行形式が同じ処理ロジックで解釈できる。if/for のネストは非対応（学習範囲外）。`evaluate()` を関数内で**遅延 import**している（`engine→commands→script→engine` の循環 import を避けるため。script.py 自体は module top-level で fs/commands を import しない設計にして片方向のみ許容）
 - **`grep -q` は「マッチ0件なら CommandError」として実装**（Mission19 の if 条件判定用）。出力を空にするだけでは if 側で成功/失敗を判別できないため（「エラー行なし=成功」という既存の条件判定規約に自然に乗せるため、あえて CommandError を使う設計にした）
+- **環境変数展開はトークナイズ前の生テキストに対して正規表現で行う**（Mission21。P2-18）: 既存の `_tokenize` は「引用符で囲まれていたか」を bool でしか持たず、シングルクォート/ダブルクォートを区別できない（glob 展開ではそれで足りたが、$展開は「シングルクォートだけ抑制・ダブルクォートは展開する」という非対称ルールが必要）。そのため `_expand_env_vars` を新設し、生の command_line を1文字ずつ走査してシングルクォート区間だけスキップする専用実装にした。command_log には**展開前の原文**を記録する（実 bash の history が入力どおりを残すのに合わせた）
+- **`echo` 独自の `$?` 置換（P2-15 で追加）を撤去し、engine の一括展開に統合**: 個別コマンドでの $ 展開は引用符の扱いが不完全になりバグの温床になるため（`echo '$?'` が本来は展開されず literal "$?" を出すべきところ、echo 側の単純 `.replace()` では誤って数値に置換してしまう）。$ 展開は必ず engine.evaluate() の入口一箇所に集約する方針とした
+- **シェル組み込み（`_BUILTINS`）は PATH 解決の対象外**（実 bash と同じ）: cd/pwd/echo/export/unset/printenv/which/type/history/clear/exit/git。これが無いと Mission21 で PATH が壊れている間 `echo $PATH` すら打てず詰む。`which`/`type` は本来 bash では外部コマンド寄りだが、本ゲームでは「PATH 破損の診断ツール」という役割を優先し組み込み扱いにした（意図的な簡略化）
+- **絶対パス実行は basename で ALLOWLIST 判定・PATH 無視で dispatch**（`/bin/ls` 等）。仮想 `/bin` に個々のコマンドを実ファイルとして配置することはせず、パス文字列だけで判定する簡略化（設計指示書のとおり）
 
 ---
 

@@ -14,6 +14,7 @@ from datetime import datetime
 
 from app.content.missions import get_mission
 from app.evaluator import fs, script
+from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
@@ -321,10 +322,8 @@ def cmd_cat(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
 
 @command("echo")
 def cmd_echo(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    # 変数展開の最小実装: 引数内の $? のみ置換する（汎用 $VAR 展開は P2-18）。
-    status = state.get("env_vars", {}).get("?", "0")
-    parts = [a.replace("$?", status) for a in argv[1:]]
-    return [" ".join(parts)], state
+    # $VAR/$? の展開は engine.evaluate() が呼び出し前に一括で行う（P2-18）。
+    return [" ".join(argv[1:])], state
 
 
 @command("clear")
@@ -1013,6 +1012,60 @@ def cmd_crontab(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
 @command("date")
 def cmd_date(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     return ["Thu Jan  1 00:00:00 UTC 2026"], state
+
+
+# --- 環境変数（Level 10。Mission21） ---
+_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+
+
+@command("export")
+def cmd_export(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    if len(argv) < 2:
+        raise CommandError("Error: invalid input")
+    m = _ASSIGN.match(argv[1])
+    if not m:
+        raise CommandError("Error: invalid input")
+    state.setdefault("env_vars", {})[m.group(1)] = m.group(2)
+    return [], state
+
+
+@command("unset")
+def cmd_unset(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    if len(argv) < 2:
+        raise CommandError("Error: invalid input")
+    state.setdefault("env_vars", {}).pop(argv[1], None)
+    return [], state
+
+
+@command("printenv")
+def cmd_printenv(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    env_vars = state.get("env_vars", {})
+    operands = _operands(argv)
+    if not operands:
+        return [f"{k}={v}" for k, v in env_vars.items()], state
+    return [env_vars[k] for k in operands if k in env_vars], state
+
+
+@command("which")
+def cmd_which(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    name = operands[0]
+    if name in DENYLIST or name not in ALLOWLIST:
+        raise CommandError("Error: command not allowed")
+    return [f"/bin/{name}"], state
+
+
+@command("type")
+def cmd_type(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    name = operands[0]
+    if name in DENYLIST or name not in ALLOWLIST:
+        raise CommandError("Error: command not allowed")
+    return [f"{name} is /bin/{name}"], state
 
 
 # --- SSH / remote ---
