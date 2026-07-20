@@ -56,6 +56,10 @@ def default_state() -> dict:
         # {"pid": int, "name": str, "user": str, "cmdline": str, "state": str,
         #  "protected": bool}。Mission 定義の initial_processes で上書きする。
         "processes": [],
+        # 仮想 cron テーブル（crontab -l の対象）。
+        # {"id": int, "schedule": str, "command": str, "malicious": bool}。
+        # 書き込み系（crontab -r 等）は実装せず閲覧のみ（rm 禁止と同じ方針）。
+        "cron_jobs": [],
         "env_vars": {
             "PATH": "/usr/local/bin:/usr/bin:/bin",
             "HOME": "/root",

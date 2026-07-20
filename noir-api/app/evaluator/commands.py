@@ -868,6 +868,24 @@ def cmd_ss(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     ], state
 
 
+# --- 自動化（Level 10） ---
+@command("crontab")
+def cmd_crontab(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    # 閲覧のみ対応（rm 禁止と同じ方針で書き込み系は実装しない。解除は
+    # judge 側で「正解ジョブの発動日時を報告」できたかどうかで判定する）。
+    if "-l" not in argv[1:]:
+        raise CommandError("Error: invalid input")
+    jobs = state.get("cron_jobs", [])
+    if not jobs:
+        return ["no crontab for detective"], state
+    return [f"{j['schedule']} {j['command']}" for j in jobs], state
+
+
+@command("date")
+def cmd_date(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    return ["Thu Jan  1 00:00:00 UTC 2026"], state
+
+
 # --- SSH / remote ---
 @command("ssh")
 def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:

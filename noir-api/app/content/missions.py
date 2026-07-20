@@ -326,6 +326,32 @@ _MISSION11_FS = {
 }
 
 
+# Mission13 のジョブ表: 金曜0時発動の危険ジョブ + 無害ジョブ2件。
+_MISSION13_CRON_JOBS = [
+    {"id": 1, "schedule": "0 0 * * 5", "command": "/tmp/.dark/broadcast.sh", "malicious": True},
+    {"id": 2, "schedule": "0 6 * * *", "command": "/usr/bin/backup.sh", "malicious": False},
+    {"id": 3, "schedule": "*/15 * * * *", "command": "/usr/bin/healthcheck.sh", "malicious": False},
+]
+
+_MISSION13_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "hint.txt": _file(
+                "CRONTAB FORMAT (man 5 crontab)\n"
+                "minute hour day month weekday command\n"
+                "weekday: 0=Sunday 1=Monday ... 5=Friday 6=Saturday\n"
+                "Example: 0 0 * * 5 -> every Friday at 00:00",
+                immutable=True,
+            ),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -344,6 +370,8 @@ class MissionDef:
     initial_current_path: str | None = None
     # 初期仮想プロセステーブル（ps/kill・/proc の対象）。None は空（デフォルト）。
     initial_processes: list[dict] | None = None
+    # 初期仮想 cron テーブル（crontab -l の対象）。None は空（デフォルト）。
+    initial_cron_jobs: list[dict] | None = None
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -481,6 +509,13 @@ _DEFS: list[MissionDef] = [
         13, "Midnight Broadcast", "深夜0時の犯行予告",
         "cron 書式を解読し、危険な時限ジョブだけを解除する。",
         ["crontab", "date", "grep"],
+        # クリア条件: crontab -l 実行 + 危険ジョブの発動日時（FRIDAY 00:00）の記述。
+        expected_script_patterns=[
+            r"crontab\s+-l",
+            r"FRIDAY\s+00:00",
+        ],
+        initial_filesystem=_MISSION13_FS,
+        initial_cron_jobs=_MISSION13_CRON_JOBS,
     ),
     MissionDef(
         14, "Hall of Mirrors", "鏡の館",
