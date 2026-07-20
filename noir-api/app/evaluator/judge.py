@@ -218,6 +218,33 @@ def _judge_mission14(state: dict) -> tuple[list[str], dict]:
     return ["Warning: pattern mismatch"], state
 
 
+_MISSION15_DESTINATION = "PIER 13"
+
+
+def _judge_mission15(state: dict) -> tuple[list[str], dict]:
+    """Mission15: informant_history の各行を command_log 上でそのまま再現し、
+    かつ行き先を report（echo）したかを検査する。
+    """
+    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    required = mission.informant_history if mission else []
+    required = required or []
+    log = state.get("command_log", [])
+    reproduced = all(cmd in log for cmd in required)
+    reported = any(
+        _MISSION15_DESTINATION in line for line in log if re.match(r"\s*echo\b", line)
+    )
+
+    if not reproduced:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: retrace the informant's exact steps"], state
+    if not reported:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -226,6 +253,7 @@ _CUSTOM_JUDGES = {
     10: _judge_mission10,
     12: _judge_mission12,
     14: _judge_mission14,
+    15: _judge_mission15,
 }
 
 

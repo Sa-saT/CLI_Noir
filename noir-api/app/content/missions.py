@@ -392,6 +392,34 @@ _MISSION14_FS = {
 }
 
 
+# Mission15: 情報屋の履歴（history が演出として表示）+ journal.log の足跡。
+# history どおりに再実行すると行き先（PIER 13）にたどり着く。
+_MISSION15_HISTORY = [
+    "tail -n 5 /root/journal.log",
+    "grep PIER /root/journal.log",
+]
+
+_MISSION15_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "journal.log": _file(
+                "09:00 left the office\n"
+                "09:15 stopped at the docks\n"
+                "09:40 called an unknown number\n"
+                "10:02 bought a one-way ticket\n"
+                "10:30 last seen near the warehouse\n"
+                "10:45 note left: meet at PIER 13",
+                immutable=True,
+            ),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -412,6 +440,8 @@ class MissionDef:
     initial_processes: list[dict] | None = None
     # 初期仮想 cron テーブル（crontab -l の対象）。None は空（デフォルト）。
     initial_cron_jobs: list[dict] | None = None
+    # Mission15 専用: history が表示する「情報屋の履歴」（自分の履歴ではない）。
+    informant_history: list[str] | None = None
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -569,6 +599,10 @@ _DEFS: list[MissionDef] = [
         15, "The Informant's Trail", "情報屋の足取り",
         "history とログから操作を再現し、情報屋の行き先を突き止める。",
         ["history", "tail", "grep"],
+        # 判定は judge.py の Mission15 専用ロジック（informant_history の再現 +
+        # 行き先の報告）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION15_FS,
+        informant_history=_MISSION15_HISTORY,
     ),
     MissionDef(
         16, "The Great Sweep", "一斉捜索令状",

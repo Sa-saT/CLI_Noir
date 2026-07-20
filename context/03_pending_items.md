@@ -27,11 +27,13 @@
   - **ネットワーク 対応済**（2026-07-20 P2-09。`dig`/`host`/`ping`/`ss`。静的ホスト表 `NET_HOSTS`（現状 ghost.example のみ）。`ssh` はホスト名/IP どちらでも接続可）
   - **cron 対応済**（2026-07-20 P2-10。state に `cron_jobs` 配列を追加。`crontab -l` は閲覧のみ（rm 禁止と同じ方針で書き込み系は未実装。解除は judge が「正解ジョブの発動日時報告」で判定）、`date` は固定文字列を返す）
   - **シンボリックリンク 対応済**（2026-07-20 P2-11。FS ノード `type:"link"` + `target`（絶対パス）。`fs.resolve_link` で多段リンクを解決。`cat`/`grep`/`sort` 等は `_read_input` 経由でリンクを自動で辿る（実 Linux と同じ）。`ls -l` は `lrwxrwxrwx ... name -> target`、`file` は `symbolic link to <target>`。`ln -s <target> <name>` で作成）
+  - `history` を `clear` から分離（2026-07-20 P2-12）。通常は空（フロント側の責務）だが、`MissionDef.informant_history` があればそれを番号付き表示する演出用フックを追加（Mission15）
   - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk/md5sum 等 Phase2 コマンド群。`2>`・変数展開・if/for・glob も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜14 実装済**（2026-07-20）。**Mission15〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜14 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜15 実装済**（2026-07-20）。**Mission16〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜15 が実装リファレンス）
+  - Mission15「情報屋の足取り」: journal.log（末尾に行き先 "PIER 13"）+ `informant_history`（history 演出で "tail -n 5 ..." / "grep PIER ..." を表示）。判定は Mission15 専用 judge（informant_history の各行を command_log 上でそのまま再現 + 行き先の echo 報告。行数を変える等の非完全一致は "Warning: retrace the informant's exact steps"）。テスト `tests/test_mission15.py`（6件）
   - Mission14「鏡の館」: /root/mirror_hall/ に多段リンク（deed_a→deed_b→vault/real_deed.txt、deed_c→deed_a）+ 実体1つ。判定は Mission14 専用 judge（report=echo 行に実体の絶対パスがあれば合格。リンクパスのみの報告は "Error: that is only a mirror"）。テスト `tests/test_mission14.py`（10件）
   - Mission13「深夜0時の犯行予告」: `cron_jobs`（危険ジョブ "0 0 * * 5 /tmp/.dark/broadcast.sh" + 無害2件）+ man 5 crontab 風ヒント。判定は汎用 AND-regex（`crontab\s+-l` / `FRIDAY\s+00:00` の echo）。テスト `tests/test_mission13.py`（6件）
   - Mission12「幽霊回線を追え」: **ghost.example を確定**（SSH_HOSTS、IP "10.66.6.6" 別名あり。/den/evidence/orders.txt="BOSS: Selene Vance" + デコイ + case_file.sh）。判定は Mission12 専用 judge（command_log 上の dig→ping→ssh **出現順序** + remote 証拠閲覧 + 黒幕名報告。順序不成立は "Warning: investigate before you breach"）。テスト `tests/test_mission12.py`（10件）

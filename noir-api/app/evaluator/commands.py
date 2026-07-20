@@ -11,6 +11,7 @@ import fnmatch
 import re
 from datetime import datetime
 
+from app.content.missions import get_mission
 from app.evaluator import fs
 from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
@@ -316,10 +317,21 @@ def cmd_echo(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     return [" ".join(argv[1:])], state
 
 
-@command("clear", "history")
-def cmd_noop(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    # 表示制御・履歴はフロント側の責務。evaluator は state を変えない。
+@command("clear")
+def cmd_clear(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    # 表示制御はフロント側の責務。evaluator は state を変えない。
     return [], state
+
+
+@command("history")
+def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    # 通常は自分の操作履歴（フロント側の責務）だが、Mission15 は「情報屋の履歴」を
+    # 演出として見せるため MissionDef.informant_history があればそれを表示する。
+    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    informant_history = mission.informant_history if mission else None
+    if not informant_history:
+        return [], state
+    return [f"{i + 1}  {cmd}" for i, cmd in enumerate(informant_history)], state
 
 
 # --- 検索 ---
