@@ -25,7 +25,8 @@
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4 実装済**（2026-07-20。パイプ集計）。**Mission5〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜4 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4/5 実装済**（2026-07-20）。**Mission6〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜5 が実装リファレンス）
+  - Mission5「開かずの資料室」: `_MISSION5_FS`（/root/vault/locked_evidence.txt は mode "---------" → `chmod +r` で解錠 → ヒントが指す inner/case_file.sh は mode "rw-r--r--" だが x 無し・immutable=False → `chmod +x` で解錠）。判定は汎用 AND-regex（`chmod\s+\+?r` / `chmod\s+\+?x`）。P2-01 の権限基盤（can_read/can_exec）の実地検証も兼ねる。テスト `tests/test_mission5.py`（5件）
   - Mission4「盗聴テープ」: `_MISSION4_FS`（tape.log = 番号のみの発信記録をラウンドロビン散布 + ノイズ、正解=最頻出 555-0142）+ case_file.sh。判定は汎用 AND-regex（`uniq\s+-c` パイプ行 + `TEL: 555-0142` の echo 記録）。`grep TEL|sort|uniq -c|sort` で最頻番号を特定する導線。テスト `tests/test_mission4.py`（5件）
   - Mission2「公園の猫」: 初期 current_path=/root/park、`_MISSION2_FS`（park/swing/catinfo.txt + デコイ）。判定は judge の Mission2 専用ロジック（find使用 / 絶対パス参照 / STATUS抽出の3点、誤答文言を § 3 に一致）。`MissionDef.initial_current_path` フィールドを追加
   - Mission3「遊園地の爆弾」: `ssh amusement_park`→/gate の `SSH_HOSTS` FS にヒント（Code/Wire/Height）+デコイ+case_file.sh を配置。判定は汎用 AND-regex（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み echo で記録する Mission1 方式。remote のまま commit/push でクリア成立を確認

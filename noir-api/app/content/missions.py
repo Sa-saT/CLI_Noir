@@ -11,15 +11,19 @@ from dataclasses import dataclass, field
 BASE_COMMANDS = ["ls", "cd", "cat", "pwd", "echo", "git"]
 
 
-def _file(content: str, *, immutable: bool = False) -> dict:
+def _mode_file(content: str, mode: str, *, immutable: bool = False) -> dict:
     return {
         "type": "file",
         "content": content,
-        "mode": "rw-r--r--",
+        "mode": mode,
         "owner": "detective",
         "mtime": "2026-01-01T00:00:00Z",
         "immutable": immutable,
     }
+
+
+def _file(content: str, *, immutable: bool = False) -> dict:
+    return _mode_file(content, "rw-r--r--", immutable=immutable)
 
 
 # Mission1 の初期 FS: 机の名刺 + 判定スクリプト。
@@ -123,6 +127,41 @@ _MISSION4_FS = {
 }
 
 
+# Mission5 の初期 FS: /root/vault/ に閲覧不可のヒントファイル（chmod +r で解錠）。
+# ヒントが指す inner/ に実行権限のない case_file.sh（chmod +x で解錠）。
+# immutable=False で配置し、P2-01 の can_exec 特例（immutable=True は実行可）を
+# 適用させない — このため sh 実行には明示的な chmod +x が必須になる。
+_MISSION5_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "vault": {
+                "type": "dir",
+                "children": {
+                    "locked_evidence.txt": _mode_file(
+                        "SEALED EVIDENCE ROOM\n"
+                        "This file is locked. Use chmod +r to read it.\n"
+                        "The inner room waits at /root/vault/inner.",
+                        "---------",
+                        immutable=False,
+                    ),
+                    "inner": {
+                        "type": "dir",
+                        "children": {
+                            "case_file.sh": _mode_file(
+                                "# 事件ファイル: sh case_file.sh で判定する\n",
+                                "rw-r--r--",
+                                immutable=False,
+                            ),
+                        },
+                    },
+                },
+            },
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -198,6 +237,13 @@ _DEFS: list[MissionDef] = [
         5, "The Locked Vault", "開かずの資料室",
         "パーミッションを読み解き、chmod で証拠と case_file.sh を解錠する。",
         ["ls", "chmod"],
+        # クリア条件: chmod +r（ヒント解錠）と chmod +x（case_file.sh 解錠）の
+        # 2 系統が command_log に存在すること（Mission参照 § 5「2回以上」）。
+        expected_script_patterns=[
+            r"chmod\s+\+?r",
+            r"chmod\s+\+?x",
+        ],
+        initial_filesystem=_MISSION5_FS,
     ),
     MissionDef(
         6, "Shadow Process", "盗聴器を止めろ",
