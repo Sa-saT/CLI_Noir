@@ -138,9 +138,15 @@ def is_file(node: dict | None) -> bool:
     return node is not None and node.get("type") == "file"
 
 
-def can_read(node: dict) -> bool:
-    """所有者の読み取りビット（mode[0]=='r'）を検査する。"""
-    return node.get("mode", "rw-r--r--")[0] == "r"
+def can_read(node: dict, current_user: str = "detective") -> bool:
+    """読み取り権限を検査する。current_user がファイルの owner と一致すれば
+    所有者ビット（mode[0]）、一致しなければその他ビット（mode[6]）を見る
+    （グループは概念として持たないため owner/other の二値で判定する）。
+    """
+    mode = node.get("mode", "rw-r--r--")
+    owner = node.get("owner", "detective")
+    idx = 0 if current_user == owner else 6
+    return mode[idx] == "r"
 
 
 def can_exec(node: dict) -> bool:

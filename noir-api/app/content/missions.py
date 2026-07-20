@@ -205,6 +205,56 @@ _MISSION7_FS = {
 }
 
 
+def _owner_file(content: str, mode: str, owner: str) -> dict:
+    return {
+        "type": "file",
+        "content": content,
+        "mode": mode,
+        "owner": owner,
+        "mtime": "2026-01-01T00:00:00Z",
+        "immutable": False,
+    }
+
+
+# Mission8 の初期 FS: bar/ にヒント（誰でも読める）+ barman だけが読める台帳。
+# 合言葉探しは「ヒントの発見体験」として実装し、su 自体はパスワード検証なしで
+# 成功させる（判定は su barman・whoami・秘密ファイル閲覧・detective への復帰の
+# 4 点で担保する。judge.py の Mission8 専用ロジック）。
+_MISSION8_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "bar": {
+                "type": "dir",
+                "children": {
+                    "hint.txt": _owner_file(
+                        "The barman keeps a ledger nobody else may read.\n"
+                        "Become him: su barman\n"
+                        "The ledger waits at /root/bar/back/ledger.txt",
+                        "rw-r--r--",
+                        "detective",
+                    ),
+                    "back": {
+                        "type": "dir",
+                        "children": {
+                            "ledger.txt": _owner_file(
+                                "SUSPECT: Nico Faro\n"
+                                "LAST SEEN: back room, midnight",
+                                "rw-------",
+                                "barman",
+                            ),
+                        },
+                    },
+                    "case_file.sh": _file(
+                        "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+                    ),
+                },
+            },
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -312,6 +362,9 @@ _DEFS: list[MissionDef] = [
         8, "Master of Disguise", "変装潜入",
         "合言葉を見つけ su で barman になり、権限付きファイルを読む。",
         ["su", "whoami", "exit"],
+        # 判定は judge.py の Mission8 専用ロジック（su barman・whoami・秘密ファイル
+        # 閲覧・detective への復帰の4点）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION8_FS,
     ),
     MissionDef(
         9, "Sealed Evidence", "封印された証拠品",

@@ -92,16 +92,17 @@ def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
     """ファイル引数があればその内容を連結、無ければ stdin を入力行として返す。
 
     cat/grep/sort/uniq/wc/head/tail/cut のファイル読み取りをここに集約し、
-    権限検査（mode の所有者読み取りビット）も一箇所で行う。
+    権限検査（current_user と owner に基づく読み取りビット）も一箇所で行う。
     """
     if not files:
         return list(stdin)
+    current_user = state.get("current_user", "detective")
     lines: list[str] = []
     for f in files:
         node = fs.get_node(state, fs.normalize(state["current_path"], f))
         if not fs.is_file(node):
             raise CommandError("Error: file not found")
-        if not fs.can_read(node):
+        if not fs.can_read(node, current_user):
             raise CommandError("Error: permission denied")
         lines.extend(_content_lines(node))
     return lines
@@ -602,6 +603,13 @@ def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
 
 @command("exit")
 def cmd_exit(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    # su での変装復帰を優先する（ssh の remote 離脱とスタックが独立しているため、
+    # 変装中に ssh していても su の復帰が先に処理される）。
+    user_stack = state.get("_user_stack", [])
+    if user_stack:
+        state["current_user"] = user_stack.pop()
+        return [], state
+
     stack = state.get("_fs_stack", [])
     if not stack:
         # local での exit は no-op（ガイド文言）。
@@ -612,6 +620,32 @@ def cmd_exit(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     state["remote_mode"] = prev["remote_mode"]
     state["ssh_host"] = prev["ssh_host"]
     return [], state
+
+
+# --- ユーザー切替（Level 7） ---
+_UID_MAP = {"root": 0, "detective": 1000}
+
+
+@command("su")
+def cmd_su(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    if len(argv) < 2:
+        raise CommandError("Error: invalid input")
+    stack = state.setdefault("_user_stack", [])
+    stack.append(state.get("current_user", "detective"))
+    state["current_user"] = argv[1]
+    return [], state
+
+
+@command("whoami")
+def cmd_whoami(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    return [state.get("current_user", "detective")], state
+
+
+@command("id")
+def cmd_id(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    user = state.get("current_user", "detective")
+    uid = _UID_MAP.get(user, 1001)
+    return [f"uid={uid}({user}) gid={uid}({user})"], state
 
 
 # --- スクリプト実行 / Mission 判定 ---

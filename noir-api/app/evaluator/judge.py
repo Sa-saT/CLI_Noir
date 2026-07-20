@@ -88,7 +88,42 @@ def _judge_mission7(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
-_CUSTOM_JUDGES = {2: _judge_mission2, 6: _judge_mission6, 7: _judge_mission7}
+_MISSION8_SECRET_PATH = "/root/bar/back/ledger.txt"
+
+
+def _judge_mission8(state: dict) -> tuple[list[str], dict]:
+    """Mission8: su barman → whoami → 秘密ファイル閲覧 → 元ユーザーへの復帰、
+    の 4 段階を検査する。exit で local に戻る Mission3 の ssh/exit と対になる構造。
+    """
+    log = state.get("command_log", [])
+    did_su = any(re.match(r"\s*su\s+barman\b", line) for line in log)
+    did_whoami = any(re.match(r"\s*whoami\b", line) for line in log)
+    read_secret = any(_MISSION8_SECRET_PATH in line for line in log)
+    returned_home = state.get("current_user", "detective") == "detective"
+
+    if not did_su:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: find a way to become barman"], state
+    if not did_whoami:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: confirm who you are with whoami"], state
+    if not read_secret:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: the ledger is still unread"], state
+    if not returned_home:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: return to your own identity before reporting"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+_CUSTOM_JUDGES = {
+    2: _judge_mission2,
+    6: _judge_mission6,
+    7: _judge_mission7,
+    8: _judge_mission8,
+}
 
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:

@@ -50,6 +50,8 @@ def default_state() -> dict:
         },
         "remote_mode": False,
         "ssh_host": None,
+        # 現在のユーザー（su/whoami/id・owner ベースの読み取り権限判定に使う）。
+        "current_user": "detective",
         # 仮想プロセステーブル（ps/kill・/proc の対象。設計指示書 § 4 疑似 /proc）。
         # {"pid": int, "name": str, "user": str, "cmdline": str, "state": str,
         #  "protected": bool}。Mission 定義の initial_processes で上書きする。
