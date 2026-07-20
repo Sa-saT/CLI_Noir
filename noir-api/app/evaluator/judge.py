@@ -60,7 +60,35 @@ def _judge_mission6(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
-_CUSTOM_JUDGES = {2: _judge_mission2, 6: _judge_mission6}
+_MISSION7_IMPOSTOR_PID = 923
+_MISSION7_FAKE_CMDLINE = "/tmp/.fake/exfil --send"
+
+
+def _judge_mission7(state: dict) -> tuple[list[str], dict]:
+    """Mission7: /proc での裏取り（status/cmdline 閲覧）→ 偽装 cmdline の報告
+    → 停止、の 3 段階を検査する。「名簿（ps）と持ち物検査（/proc）」の二段推理。
+    """
+    log = state.get("command_log", [])
+    pid = _MISSION7_IMPOSTOR_PID
+    inspected = any(re.search(rf"/proc/{pid}/(status|cmdline)", line) for line in log)
+    reported = any(_MISSION7_FAKE_CMDLINE in line for line in log)
+    still_running = any(p.get("pid") == pid for p in state.get("processes", []))
+
+    if not inspected:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: check /proc before you accuse anyone"], state
+    if not reported:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: report the impostor's real command"], state
+    if still_running:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: the impostor is still running"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+_CUSTOM_JUDGES = {2: _judge_mission2, 6: _judge_mission6, 7: _judge_mission7}
 
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:

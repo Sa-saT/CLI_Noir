@@ -21,13 +21,14 @@
   - 実装済コマンド: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history + **sort/uniq/wc/head/tail/cut**（2026-07-20 Level 5 追加）+ **chmod**（2026-07-20 P2-01 で追加）
   - **パイプ `|` 対応済**（2026-07-20。engine でステージ分割・stdin スレッド。リダイレクトは最終段のみ）
   - **権限検査 対応済**（2026-07-20 P2-01。`fs.can_read`/`fs.can_exec`。読み取り系は `_read_input` に集約し owner 読みビット検査 + `Error: permission denied`。`sh` は実行ビット検査。デフォルト配置ファイル（immutable=True）は特例で実行可 — 制限したい Mission は immutable=False で配置）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4/5/6 実装済**（2026-07-20）。**Mission7〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜6 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4/5/6/7 実装済**（2026-07-20）。**Mission8〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜7 が実装リファレンス）
   - Mission5「開かずの資料室」: `_MISSION5_FS`（/root/vault/locked_evidence.txt は mode "---------" → `chmod +r` で解錠 → ヒントが指す inner/case_file.sh は mode "rw-r--r--" だが x 無し・immutable=False → `chmod +x` で解錠）。判定は汎用 AND-regex（`chmod\s+\+?r` / `chmod\s+\+?x`）。P2-01 の権限基盤（can_read/can_exec）の実地検証も兼ねる。テスト `tests/test_mission5.py`（5件）
   - Mission6「盗聴器を止めろ」: **仮想プロセステーブル基盤を新設**（state に `processes` 配列を追加。`.get` 後方互換。`MissionDef.initial_processes` で Mission ごとに上書き）。`ps`/`kill` を実装（kill は `protected: true` のプロセスを削除せず "Warning: you stopped a legitimate process" で巻き戻す汎用設計）。判定は Mission6 専用 judge（processes に listener_x が残っていないか）。テスト `tests/test_mission6.py`（6件）
+  - Mission7「機械の胸の内」: **疑似 /proc を実装**（`fs.py` の `get_node` に `/proc` フック。filesystem JSON には保存せず processes テーブルから毎回動的生成・読み取り専用。`/proc/<PID>/status`・`cmdline`・`/proc/cpuinfo`・`meminfo`・`uptime`）。書き込み系（touch/mkdir/リダイレクト）は `/proc` 配下で `Permission denied`（設計指示書 § 4 の文言どおり、他の `Error: ...` 系とは別表記）。`free`/`uptime` は `/proc/meminfo`・`uptime` と同じ定数（`fs.PROC_MEM_TOTAL_KB` 等）から算出し整合を保証。Mission7: 名前 "clock" を騙る侵入者（pid 923, cmdline "/tmp/.fake/exfil --send"）。判定は Mission7 専用 judge（/proc 裏取り → 偽装 cmdline 報告 → 停止、の3段階）。テスト `tests/test_mission7.py`（9件）
   - Mission4「盗聴テープ」: `_MISSION4_FS`（tape.log = 番号のみの発信記録をラウンドロビン散布 + ノイズ、正解=最頻出 555-0142）+ case_file.sh。判定は汎用 AND-regex（`uniq\s+-c` パイプ行 + `TEL: 555-0142` の echo 記録）。`grep TEL|sort|uniq -c|sort` で最頻番号を特定する導線。テスト `tests/test_mission4.py`（5件）
   - Mission2「公園の猫」: 初期 current_path=/root/park、`_MISSION2_FS`（park/swing/catinfo.txt + デコイ）。判定は judge の Mission2 専用ロジック（find使用 / 絶対パス参照 / STATUS抽出の3点、誤答文言を § 3 に一致）。`MissionDef.initial_current_path` フィールドを追加
   - Mission3「遊園地の爆弾」: `ssh amusement_park`→/gate の `SSH_HOSTS` FS にヒント（Code/Wire/Height）+デコイ+case_file.sh を配置。判定は汎用 AND-regex（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み echo で記録する Mission1 方式。remote のまま commit/push でクリア成立を確認

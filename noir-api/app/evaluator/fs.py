@@ -38,16 +38,85 @@ def root_node(state: dict) -> dict:
     return {"type": "dir", "children": state["filesystem"]}
 
 
-def get_node(state: dict, abs_path: str) -> dict | None:
-    """絶対パスのノードを返す。存在しない/途中がディレクトリでなければ None。"""
-    node = root_node(state)
-    for seg in segments(abs_path):
+# --- 疑似 /proc（設計指示書 § 4）---
+# filesystem JSON には保存せず、読み取り時に processes テーブルから動的生成する
+# 読み取り専用ツリー。「ps も /proc を読んでいる」タネ明かし（Mission7）用に
+# free/uptime コマンドと同じ定数を参照させ、出力を整合させる。
+PROC_MEM_TOTAL_KB = 8_192_000
+PROC_MEM_USED_KB = 2_048_000
+PROC_UPTIME_SECONDS = 132345.67
+
+_PROC_CPUINFO = (
+    "processor\t: 0\n"
+    "vendor_id\t: NoirVirtual\n"
+    "model name\t: Virtual CPU @ 2.40GHz"
+)
+
+
+def _proc_file(content: str) -> dict:
+    return {
+        "type": "file",
+        "content": content,
+        "mode": "r--r--r--",
+        "owner": "root",
+        "mtime": "2026-01-01T00:00:00Z",
+        "immutable": True,
+    }
+
+
+def _proc_meminfo_text() -> str:
+    free_kb = PROC_MEM_TOTAL_KB - PROC_MEM_USED_KB
+    return (
+        f"MemTotal:       {PROC_MEM_TOTAL_KB} kB\n"
+        f"MemFree:        {free_kb} kB\n"
+        f"MemUsed:        {PROC_MEM_USED_KB} kB"
+    )
+
+
+def _proc_pid_dir(p: dict) -> dict:
+    uid = 0 if p.get("user") == "root" else 1000
+    status = f"Name:\t{p['name']}\nState:\t{p.get('state', 'S')} (sleeping)\nUid:\t{uid}"
+    return {
+        "type": "dir",
+        "children": {
+            "status": _proc_file(status),
+            "cmdline": _proc_file(p["cmdline"]),
+        },
+    }
+
+
+def _proc_root(state: dict) -> dict:
+    children = {str(p["pid"]): _proc_pid_dir(p) for p in state.get("processes", [])}
+    children["cpuinfo"] = _proc_file(_PROC_CPUINFO)
+    children["meminfo"] = _proc_file(_proc_meminfo_text())
+    children["uptime"] = _proc_file(f"{PROC_UPTIME_SECONDS} 0.00")
+    return {"type": "dir", "children": children}
+
+
+def is_proc_path(abs_path: str) -> bool:
+    segs = segments(abs_path)
+    return bool(segs) and segs[0] == "proc"
+
+
+def _walk(node: dict, segs: list[str]) -> dict | None:
+    for seg in segs:
         if node.get("type") != "dir":
             return None
         node = node.get("children", {}).get(seg)
         if node is None:
             return None
     return node
+
+
+def get_node(state: dict, abs_path: str) -> dict | None:
+    """絶対パスのノードを返す。存在しない/途中がディレクトリでなければ None。
+
+    `/proc` 配下は processes テーブルから動的生成する（読み取り専用）。
+    """
+    segs = segments(abs_path)
+    if segs and segs[0] == "proc":
+        return _walk(_proc_root(state), segs[1:])
+    return _walk(root_node(state), segs)
 
 
 def get_parent(state: dict, abs_path: str) -> tuple[dict | None, str | None]:

@@ -77,6 +77,8 @@ def _split_redirect(tokens: list[str]) -> tuple[list[str], str | None, bool]:
 
 def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
     abs_path = fs.normalize(state["current_path"], path)
+    if fs.is_proc_path(abs_path):
+        raise CommandError("Permission denied")
     node = fs.get_node(state, abs_path)
     text = "\n".join(lines)
     if fs.is_file(node):

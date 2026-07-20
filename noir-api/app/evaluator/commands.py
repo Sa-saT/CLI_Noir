@@ -184,6 +184,8 @@ def cmd_touch(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
     abs_path = fs.normalize(state["current_path"], argv[1])
+    if fs.is_proc_path(abs_path):
+        raise CommandError("Permission denied")
     node = fs.get_node(state, abs_path)
     if node is not None:
         node["mtime"] = fs.now_iso()
@@ -200,6 +202,8 @@ def cmd_mkdir(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
     abs_path = fs.normalize(state["current_path"], argv[1])
+    if fs.is_proc_path(abs_path):
+        raise CommandError("Permission denied")
     if fs.get_node(state, abs_path) is not None:
         raise CommandError("Error: directory already exists")
     parent, name = fs.get_parent(state, abs_path)
@@ -548,6 +552,26 @@ def cmd_kill(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
 
     del processes[idx]
     return [f"[{pid}] terminated"], state
+
+
+@command("free")
+def cmd_free(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    # /proc/meminfo と同じ定数から算出する（「ps/free も /proc を読んでいる」の
+    # タネ明かし。Mission7）。
+    total = fs.PROC_MEM_TOTAL_KB
+    used = fs.PROC_MEM_USED_KB
+    free_kb = total - used
+    header = "              total        used        free"
+    row = f"Mem:     {total:>10} {used:>10} {free_kb:>10}"
+    return [header, row], state
+
+
+@command("uptime")
+def cmd_uptime(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    seconds = fs.PROC_UPTIME_SECONDS
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    return [f"up {hours} hours, {minutes} minutes"], state
 
 
 # --- SSH / remote ---

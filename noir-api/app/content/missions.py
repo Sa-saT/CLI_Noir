@@ -184,6 +184,27 @@ _MISSION6_FS = {
 }
 
 
+# Mission7 のプロセステーブル: 正規プロセスに紛れ、名前だけ "clock" を騙る侵入者
+# （実体は cmdline "/tmp/.fake/exfil --send"）。ps の名簿だけでは見抜けず、
+# /proc/<PID>/cmdline まで裏取りして初めて正体が割れる（タイトル通りの「胸の内」）。
+_MISSION7_PROCESSES = [
+    {"pid": 201, "name": "mailbox", "user": "root", "cmdline": "/usr/sbin/mailboxd", "state": "S", "protected": True},
+    {"pid": 202, "name": "heater", "user": "root", "cmdline": "/usr/sbin/heaterd", "state": "S", "protected": True},
+    {"pid": 923, "name": "clock", "user": "root", "cmdline": "/tmp/.fake/exfil --send", "state": "S", "protected": False},
+]
+
+_MISSION7_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -282,6 +303,10 @@ _DEFS: list[MissionDef] = [
         7, "Inside the Machine", "機械の胸の内",
         "/proc を読み、偽装プロセスの正体を暴いて起訴・停止する。",
         ["ps", "kill", "grep", "free", "uptime"],
+        # 判定は judge.py の Mission7 専用ロジック（/proc 裏取り・偽装 cmdline 報告・
+        # 停止済みの 3 点）で行うため expected_script_patterns は空にする。
+        initial_filesystem=_MISSION7_FS,
+        initial_processes=_MISSION7_PROCESSES,
     ),
     MissionDef(
         8, "Master of Disguise", "変装潜入",
