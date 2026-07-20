@@ -187,6 +187,37 @@ def _judge_mission12(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION14_REAL_PATH = "/root/mirror_hall/vault/real_deed.txt"
+_MISSION14_LINK_PATHS = [
+    "/root/mirror_hall/deed_a.txt",
+    "/root/mirror_hall/deed_b.txt",
+    "/root/mirror_hall/deed_c.txt",
+]
+
+
+def _judge_mission14(state: dict) -> tuple[list[str], dict]:
+    """Mission14: report（echo 行）に実体の絶対パスが書かれているかを検査する。
+
+    探索中の cat/ls/file 呼び出しにはリンクパスが自然に出現するため、
+    誤答判定は「report で使われた echo 行」に絞って行う（Mission参照 § 14）。
+    """
+    echo_lines = [line for line in state.get("command_log", []) if re.match(r"\s*echo\b", line)]
+    reported_real = any(_MISSION14_REAL_PATH in line for line in echo_lines)
+    reported_link_only = any(
+        any(p in line for p in _MISSION14_LINK_PATHS) for line in echo_lines
+    )
+
+    if reported_real:
+        state["mission_flags"]["case_checked"] = True
+        return ["case_file.sh: all checks passed"], state
+    if reported_link_only:
+        state["mission_flags"]["case_checked"] = False
+        return ["Error: that is only a mirror"], state
+
+    state["mission_flags"]["case_checked"] = False
+    return ["Warning: pattern mismatch"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -194,6 +225,7 @@ _CUSTOM_JUDGES = {
     8: _judge_mission8,
     10: _judge_mission10,
     12: _judge_mission12,
+    14: _judge_mission14,
 }
 
 

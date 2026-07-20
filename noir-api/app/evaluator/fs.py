@@ -138,6 +138,19 @@ def is_file(node: dict | None) -> bool:
     return node is not None and node.get("type") == "file"
 
 
+def is_link(node: dict | None) -> bool:
+    return node is not None and node.get("type") == "link"
+
+
+def resolve_link(state: dict, node: dict | None, *, max_hops: int = 10) -> dict | None:
+    """symlink を実体まで辿る（多段リンク対応）。循環・未解決なら None を返す。"""
+    hops = 0
+    while node is not None and node.get("type") == "link" and hops < max_hops:
+        node = get_node(state, node.get("target", ""))
+        hops += 1
+    return node
+
+
 def can_read(node: dict, current_user: str = "detective") -> bool:
     """読み取り権限を検査する。current_user がファイルの owner と一致すれば
     所有者ビット（mode[0]）、一致しなければその他ビット（mode[6]）を見る
@@ -172,3 +185,13 @@ def new_file(content: str = "", *, immutable: bool = False) -> dict:
 
 def new_dir() -> dict:
     return {"type": "dir", "children": {}}
+
+
+def new_link(target: str) -> dict:
+    return {
+        "type": "link",
+        "target": target,
+        "mode": "rwxrwxrwx",
+        "owner": "detective",
+        "mtime": now_iso(),
+    }

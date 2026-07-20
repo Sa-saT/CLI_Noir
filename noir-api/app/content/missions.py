@@ -352,6 +352,46 @@ _MISSION13_FS = {
 }
 
 
+def _link_file(target: str) -> dict:
+    return {
+        "type": "link",
+        "target": target,
+        "mode": "rwxrwxrwx",
+        "owner": "detective",
+        "mtime": "2026-01-01T00:00:00Z",
+    }
+
+
+# Mission14 の初期 FS: 同名系の案内板（symlink）が多数、実体は1つだけ。
+# deed_a -> deed_b -> vault/real_deed.txt（2段リンク）、deed_c -> deed_a（3段）。
+_MISSION14_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "mirror_hall": {
+                "type": "dir",
+                "children": {
+                    "deed_a.txt": _link_file("/root/mirror_hall/deed_b.txt"),
+                    "deed_b.txt": _link_file("/root/mirror_hall/vault/real_deed.txt"),
+                    "deed_c.txt": _link_file("/root/mirror_hall/deed_a.txt"),
+                    "vault": {
+                        "type": "dir",
+                        "children": {
+                            "real_deed.txt": _file(
+                                "DEED: THE OLD LIGHTHOUSE PROPERTY", immutable=True
+                            ),
+                        },
+                    },
+                    "case_file.sh": _file(
+                        "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+                    ),
+                },
+            },
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -521,6 +561,9 @@ _DEFS: list[MissionDef] = [
         14, "Hall of Mirrors", "鏡の館",
         "ls -l と file でシンボリックリンクを見抜き、実体の絶対パスを特定する。",
         ["ls", "file"],
+        # 判定は judge.py の Mission14 専用ロジック（report の echo 行に実体の
+        # 絶対パスがあるか。リンクパスのみの報告は不合格）で行う。
+        initial_filesystem=_MISSION14_FS,
     ),
     MissionDef(
         15, "The Informant's Trail", "情報屋の足取り",

@@ -118,7 +118,8 @@ def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
     """ファイル引数があればその内容を連結、無ければ stdin を入力行として返す。
 
     cat/grep/sort/uniq/wc/head/tail/cut のファイル読み取りをここに集約し、
-    権限検査（current_user と owner に基づく読み取りビット）も一箇所で行う。
+    シンボリックリンクの解決と権限検査（current_user と owner に基づく
+    読み取りビット）も一箇所で行う。
     """
     if not files:
         return list(stdin)
@@ -126,6 +127,8 @@ def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
     lines: list[str] = []
     for f in files:
         node = fs.get_node(state, fs.normalize(state["current_path"], f))
+        if fs.is_link(node):
+            node = fs.resolve_link(state, node)
         if not fs.is_file(node):
             raise CommandError("Error: file not found")
         if not fs.can_read(node, current_user):
@@ -157,13 +160,22 @@ def _format_mtime(mtime: str) -> str:
 
 
 def _ls_long_line(name: str, node: dict) -> str:
-    is_dir = node.get("type") == "dir"
-    mode = node.get("mode", "rw-r--r--")
-    perm = ("d" if is_dir else "-") + mode
+    node_type = node.get("type")
+    prefix = {"dir": "d", "link": "l"}.get(node_type, "-")
+    mode = node.get("mode", "rwxrwxrwx" if node_type == "link" else "rw-r--r--")
+    perm = prefix + mode
     owner = node.get("owner", "detective")
-    size = 0 if is_dir else len(node.get("content", ""))
+    if node_type == "link":
+        size = len(node.get("target", ""))
+        label = f"{name} -> {node.get('target', '')}"
+    elif node_type == "dir":
+        size = 0
+        label = name
+    else:
+        size = len(node.get("content", ""))
+        label = name
     date = _format_mtime(node.get("mtime", "2026-01-01T00:00:00Z"))
-    return f"{perm} 1 {owner} {owner} {size:>6} {date} {name}"
+    return f"{perm} 1 {owner} {owner} {size:>6} {date} {label}"
 
 
 # --- ナビゲーション ---
@@ -178,7 +190,7 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     if node is None:
         raise CommandError("Error: path not found")
 
-    if fs.is_file(node):
+    if fs.is_file(node) or fs.is_link(node):
         name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
         return ([_ls_long_line(name, node)] if long else [name]), state
 
@@ -399,6 +411,8 @@ def cmd_file(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
         raise CommandError("Error: path not found")
     if fs.is_dir(node):
         return [f"{label}: directory"], state
+    if fs.is_link(node):
+        return [f"{label}: symbolic link to {node.get('target', '')}"], state
     desc = _FILE_DESCRIPTIONS.get(node.get("archive_type"), "ASCII text")
     return [f"{label}: {desc}"], state
 
@@ -409,6 +423,27 @@ def _extract_into_cwd(state: dict, archive_content: dict) -> None:
         raise CommandError("Error: path not found")
     for name, node in archive_content.items():
         cwd["children"][name] = copy.deepcopy(node)
+
+
+@command("ln")
+def cmd_ln(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    args = argv[1:]
+    if "-s" not in args:
+        raise CommandError("Error: invalid input")
+    operands = [a for a in args if a != "-s"]
+    if len(operands) != 2:
+        raise CommandError("Error: invalid input")
+
+    target, link_name = operands
+    abs_target = fs.normalize(state["current_path"], target)
+    abs_link = fs.normalize(state["current_path"], link_name)
+    if fs.get_node(state, abs_link) is not None:
+        raise CommandError("Error: path already exists")
+    parent, name = fs.get_parent(state, abs_link)
+    if parent is None:
+        raise CommandError("Error: path not found")
+    parent["children"][name] = fs.new_link(abs_target)
+    return [], state
 
 
 @command("tar")
