@@ -255,6 +255,32 @@ _MISSION8_FS = {
 }
 
 
+def _archive_file(archive_type: str, archive_content: dict) -> dict:
+    node = _file("", immutable=True)
+    node["archive_type"] = archive_type
+    node["archive_content"] = archive_content
+    return node
+
+
+# Mission9 の初期 FS: 拡張子は当てにならない（evidence.dat の実体は tar.gz）。
+# evidence.dat（tar.gz）→ sealed.zip（zip）→ final_clue.txt の3層アーカイブ。
+_MISSION9_FINAL_CLUE = _file("CODE: NOIR-1948", immutable=True)
+_MISSION9_SEALED_ZIP = _archive_file("zip", {"final_clue.txt": _MISSION9_FINAL_CLUE})
+_MISSION9_EVIDENCE = _archive_file("tar.gz", {"sealed.zip": _MISSION9_SEALED_ZIP})
+
+_MISSION9_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "evidence.dat": _MISSION9_EVIDENCE,
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -370,6 +396,13 @@ _DEFS: list[MissionDef] = [
         9, "Sealed Evidence", "封印された証拠品",
         "file で正体を確かめながら、多重アーカイブを開封して手がかりを得る。",
         ["file", "tar", "gunzip", "unzip"],
+        # クリア条件: tar 展開 / unzip 展開 / 最深部コードの記述（Mission参照 § 9）。
+        expected_script_patterns=[
+            r"tar\s+-x",
+            r"unzip\s+",
+            r"CODE: NOIR-1948",
+        ],
+        initial_filesystem=_MISSION9_FS,
     ),
     MissionDef(
         10, "The Forged Letter", "改ざんされた遺言状",

@@ -347,6 +347,102 @@ def cmd_find(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     return results, state
 
 
+# --- アーカイブ・鑑識（Level 8） ---
+# アーカイブは file ノードに任意キー "archive_type"（"tar"|"tar.gz"|"zip"|"gzip"）と
+# "archive_content" を持たせて表現する。拡張子ではなく file コマンドで実体を確かめる
+# 設計（Mission9）。gzip は単一ファイルの中身ノードそのもの、tar/zip は
+# {name: node, ...} の展開後エントリ集合。
+
+_FILE_DESCRIPTIONS = {
+    "tar.gz": "gzip compressed data",
+    "gzip": "gzip compressed data",
+    "zip": "Zip archive data",
+    "tar": "POSIX tar archive",
+}
+
+
+@command("file")
+def cmd_file(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    label = operands[0]
+    abs_path = fs.normalize(state["current_path"], label)
+    node = fs.get_node(state, abs_path)
+    if node is None:
+        raise CommandError("Error: path not found")
+    if fs.is_dir(node):
+        return [f"{label}: directory"], state
+    desc = _FILE_DESCRIPTIONS.get(node.get("archive_type"), "ASCII text")
+    return [f"{label}: {desc}"], state
+
+
+def _extract_into_cwd(state: dict, archive_content: dict) -> None:
+    cwd = fs.get_node(state, state["current_path"])
+    if not fs.is_dir(cwd):
+        raise CommandError("Error: path not found")
+    for name, node in archive_content.items():
+        cwd["children"][name] = copy.deepcopy(node)
+
+
+@command("tar")
+def cmd_tar(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    flags = [a for a in argv[1:] if a.startswith("-")]
+    operands = _operands(argv)
+    if not operands or not flags:
+        raise CommandError("Error: invalid input")
+    flag_letters = flags[0].lstrip("-")
+    if "x" not in flag_letters or "f" not in flag_letters:
+        raise CommandError("Error: invalid input")
+
+    abs_path = fs.normalize(state["current_path"], operands[0])
+    node = fs.get_node(state, abs_path)
+    if not fs.is_file(node):
+        raise CommandError("Error: file not found")
+    if node.get("archive_type") not in ("tar", "tar.gz"):
+        raise CommandError("Error: invalid input")
+
+    _extract_into_cwd(state, node.get("archive_content", {}))
+    return [], state
+
+
+@command("unzip")
+def cmd_unzip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    abs_path = fs.normalize(state["current_path"], operands[0])
+    node = fs.get_node(state, abs_path)
+    if not fs.is_file(node):
+        raise CommandError("Error: file not found")
+    if node.get("archive_type") != "zip":
+        raise CommandError("Error: invalid input")
+
+    _extract_into_cwd(state, node.get("archive_content", {}))
+    return [], state
+
+
+@command("gunzip")
+def cmd_gunzip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    abs_path = fs.normalize(state["current_path"], operands[0])
+    node = fs.get_node(state, abs_path)
+    if not fs.is_file(node):
+        raise CommandError("Error: file not found")
+    if node.get("archive_type") != "gzip":
+        raise CommandError("Error: invalid input")
+
+    parent, name = fs.get_parent(state, abs_path)
+    if parent is None:
+        raise CommandError("Error: path not found")
+    new_name = name[:-3] if name.endswith(".gz") else f"{name}.out"
+    del parent["children"][name]
+    parent["children"][new_name] = copy.deepcopy(node["archive_content"])
+    return [], state
+
+
 # --- テキスト処理（Level 5） ---
 def _num_key(line: str) -> float:
     """行頭の数値を取り出す（sort -n 用）。数値が無ければ 0。"""

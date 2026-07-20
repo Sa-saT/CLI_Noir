@@ -21,11 +21,13 @@
   - 実装済コマンド: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history + **sort/uniq/wc/head/tail/cut**（2026-07-20 Level 5 追加）+ **chmod**（2026-07-20 P2-01 で追加）
   - **パイプ `|` 対応済**（2026-07-20。engine でステージ分割・stdin スレッド。リダイレクトは最終段のみ）
   - **権限検査 対応済**（2026-07-20 P2-01・P2-05 で owner 対応に拡張。`fs.can_read(node, current_user)`/`fs.can_exec`。current_user==owner なら所有者ビット、不一致ならその他ビットを検査。読み取り系は `_read_input` に集約し + `Error: permission denied`。`sh` は実行ビット検査。デフォルト配置ファイル（immutable=True）は特例で実行可 — 制限したい Mission は immutable=False で配置）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+  - **アーカイブ/鑑識 対応済**（2026-07-20 P2-06。`file`/`tar`/`unzip`/`gunzip`。file ノードに任意キー `archive_type`（tar/tar.gz/zip/gzip）+ `archive_content` を持たせ、拡張子ではなく `file` で実体を判定する設計。tar/unzip は archive_content をカレントディレクトリへ展開・元ファイルは残す、gunzip は .gz を削除して中身に置換）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4/5/6/7/8 実装済**（2026-07-20）。**Mission9〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜8 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜9 実装済**（2026-07-20）。**Mission10〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜9 が実装リファレンス）
+  - Mission9「封印された証拠品」: evidence.dat（archive_type "tar.gz"）→ sealed.zip（"zip"）→ final_clue.txt（"CODE: NOIR-1948"）の3層。`file` は拡張子を見ず archive_type で判定（evidence.dat は .dat 拡張子だが "gzip compressed data" と表示）。判定は汎用 AND-regex（`tar\s+-x` / `unzip\s+` / `CODE: NOIR-1948` の echo）。テスト `tests/test_mission9.py`（7件）
   - Mission8「変装潜入」: **ユーザー切替基盤を新設**（state に `current_user`（既定 "detective"）を追加。`su <user>` で切替、`_user_stack` で退避し `exit` で復帰 — `_fs_stack`（ssh）とは独立管理で、`exit` は user_stack 優先。`whoami`/`id` 追加）。`fs.can_read` を owner 対応に拡張（current_user==owner なら所有者ビット、不一致ならその他ビット）。合言葉はパスワード検証なしで `su barman` が即成功し、bar/back/ledger.txt（owner="barman", mode "rw-------"）で難易度を作る。判定は Mission8 専用 judge（su barman・whoami・秘密ファイル閲覧・detective への復帰の4点）。テスト `tests/test_mission8.py`（7件）
   - Mission5「開かずの資料室」: `_MISSION5_FS`（/root/vault/locked_evidence.txt は mode "---------" → `chmod +r` で解錠 → ヒントが指す inner/case_file.sh は mode "rw-r--r--" だが x 無し・immutable=False → `chmod +x` で解錠）。判定は汎用 AND-regex（`chmod\s+\+?r` / `chmod\s+\+?x`）。P2-01 の権限基盤（can_read/can_exec）の実地検証も兼ねる。テスト `tests/test_mission5.py`（5件）
   - Mission6「盗聴器を止めろ」: **仮想プロセステーブル基盤を新設**（state に `processes` 配列を追加。`.get` 後方互換。`MissionDef.initial_processes` で Mission ごとに上書き）。`ps`/`kill` を実装（kill は `protected: true` のプロセスを削除せず "Warning: you stopped a legitimate process" で巻き戻す汎用設計）。判定は Mission6 専用 judge（processes に listener_x が残っていないか）。テスト `tests/test_mission6.py`（6件）
