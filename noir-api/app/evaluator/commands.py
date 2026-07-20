@@ -6,6 +6,7 @@ deepcopy 済みを渡すので、その場で書き換えて返してよい。�
 """
 
 import copy
+import difflib
 import fnmatch
 import re
 from datetime import datetime
@@ -617,6 +618,65 @@ def cmd_cut(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     except ValueError as exc:
         raise CommandError("Error: invalid input") from exc
     return out, state
+
+
+def _diff_range(start: int, end: int) -> str:
+    """diff の範囲表記（1始まり）。単一行は "N"、複数行は "N,M"。"""
+    if end - start <= 1:
+        return str(start + 1)
+    return f"{start + 1},{end}"
+
+
+def _classic_diff(a_lines: list[str], b_lines: list[str]) -> list[str]:
+    """古典 diff 形式（"NcM" / "< " / "---" / "> "）で差分を返す。同一なら []。"""
+    sm = difflib.SequenceMatcher(None, a_lines, b_lines, autojunk=False)
+    out: list[str] = []
+    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+        if tag == "equal":
+            continue
+        if tag == "replace":
+            out.append(f"{_diff_range(i1, i2)}c{_diff_range(j1, j2)}")
+            out.extend(f"< {ln}" for ln in a_lines[i1:i2])
+            out.append("---")
+            out.extend(f"> {ln}" for ln in b_lines[j1:j2])
+        elif tag == "delete":
+            out.append(f"{_diff_range(i1, i2)}d{j1}")
+            out.extend(f"< {ln}" for ln in a_lines[i1:i2])
+        elif tag == "insert":
+            out.append(f"{i1}a{_diff_range(j1, j2)}")
+            out.extend(f"> {ln}" for ln in b_lines[j1:j2])
+    return out
+
+
+@command("diff")
+def cmd_diff(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if len(operands) != 2:
+        raise CommandError("Error: invalid input")
+    a_lines = _read_input(state, [operands[0]], [])
+    b_lines = _read_input(state, [operands[1]], [])
+    return _classic_diff(a_lines, b_lines), state
+
+
+_SED_PATTERN = re.compile(r"^s/(.*)/(.*)/(g)?$")
+
+
+@command("sed")
+def cmd_sed(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    m = _SED_PATTERN.match(operands[0])
+    if not m:
+        raise CommandError("Error: invalid input")
+    old, new, flag_g = m.group(1), m.group(2), m.group(3)
+
+    lines = _read_input(state, operands[1:], stdin)
+    count = 0 if flag_g else 1
+    try:
+        return [re.sub(old, new, ln, count=count) for ln in lines], state
+    except re.error as exc:
+        raise CommandError("Error: invalid input") from exc
 
 
 # --- プロセス管理（Level 6） ---

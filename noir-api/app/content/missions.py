@@ -281,6 +281,28 @@ _MISSION9_FS = {
 }
 
 
+# Mission10 の初期 FS: original.txt（正本、immutable）と submitted.txt
+# （1文字だけ改ざんされた写し。"0" と "O" — 目視では見つけにくい）。
+_MISSION10_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "original.txt": _file(
+                "PAY TO: THE ORPHANAGE\nAMOUNT: $50000\nSIGNED: J. Whitfield",
+                immutable=True,
+            ),
+            "submitted.txt": _file(
+                "PAY TO: THE ORPHANAGE\nAMOUNT: $5O000\nSIGNED: J. Whitfield",
+                immutable=False,
+            ),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -408,6 +430,9 @@ _DEFS: list[MissionDef] = [
         10, "The Forged Letter", "改ざんされた遺言状",
         "diff で改ざん箇所を特定し、sed で原本どおりに復元する。",
         ["diff", "sed"],
+        # 判定は judge.py の Mission10 専用ロジック（diff 実行 + submitted.txt が
+        # original.txt と完全一致）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION10_FS,
     ),
     MissionDef(
         11, "Torn Note", "切り裂かれた脅迫状",
