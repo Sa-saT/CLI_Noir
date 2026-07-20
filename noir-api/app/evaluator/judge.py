@@ -296,6 +296,42 @@ def _judge_mission19(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION20_BLACK_NAME = "mr_black"
+_MISSION20_ZONES = {
+    "etc": r"/etc(/|$)",
+    "var_log": r"/var/log(/|$)",
+    "tmp": r"/tmp(/|$)",
+    "home": r"/home(/|$)",
+}
+
+
+def _judge_mission20(state: dict) -> tuple[list[str], dict]:
+    """Mission20: /etc・/var/log・/tmp・/home の4区画それぞれへの探索
+    （ls/cat/tail/grep のいずれか）+ 黒幕名の報告を検査する。
+    """
+    log = state.get("command_log", [])
+    explored = {
+        key: any(
+            re.match(r"\s*(ls|cat|tail|grep)\b", line) and re.search(pattern, line)
+            for line in log
+        )
+        for key, pattern in _MISSION20_ZONES.items()
+    }
+    reported = any(
+        _MISSION20_BLACK_NAME in line for line in log if re.match(r"\s*echo\b", line)
+    )
+
+    if not all(explored.values()):
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: the map is incomplete"], state
+    if not reported:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -307,6 +343,7 @@ _CUSTOM_JUDGES = {
     15: _judge_mission15,
     16: _judge_mission16,
     19: _judge_mission19,
+    20: _judge_mission20,
 }
 
 

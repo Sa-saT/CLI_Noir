@@ -535,6 +535,74 @@ _MISSION19_FS = {
 }
 
 
+# Mission20 の初期 FS: 探偵事務所の1階層マップとは別レイアウト（FHS）。
+# /etc・/var/log・/tmp・/home の4区画を巡って黒幕（mr_black）の住民登録に辿り着く。
+_MISSION20_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    },
+    "etc": {
+        "type": "dir",
+        "children": {
+            "hosts": _file(
+                "127.0.0.1 localhost\n10.66.6.6 ghost.example", immutable=True
+            ),
+            "passwd": _file(
+                "root:x:0:0:root:/root:/bin/sh\n"
+                "detective:x:1000:1000:detective:/home/detective:/bin/sh\n"
+                "mr_black:x:1001:1001:mr_black:/home/mr_black:/bin/sh",
+                immutable=True,
+            ),
+        },
+    },
+    "var": {
+        "type": "dir",
+        "children": {
+            "log": {
+                "type": "dir",
+                "children": {
+                    "entry.log": _file(
+                        "08:00 detective entered\n"
+                        "23:50 unknown entered via side door\n"
+                        "23:55 unknown left toward /home/mr_black\n"
+                        "00:10 detective entered",
+                        immutable=True,
+                    ),
+                },
+            },
+        },
+    },
+    "tmp": {
+        "type": "dir",
+        "children": {
+            ".forgotten": _file(
+                "reminder: burn the ledger before sunrise - mr_black",
+                immutable=True,
+            ),
+        },
+    },
+    "home": {
+        "type": "dir",
+        "children": {
+            "mr_black": {
+                "type": "dir",
+                "children": {
+                    "registration.txt": _file(
+                        "RESIDENT: mr_black\nOCCUPATION: unknown", immutable=True
+                    ),
+                },
+            },
+        },
+    },
+    "bin": {"type": "dir", "children": {}},
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -762,6 +830,9 @@ _DEFS: list[MissionDef] = [
         20, "Map of the City", "この街の地図",
         "FHS（/etc, /var/log, /home, /tmp）を巡り、黒幕の住民登録を探す。",
         ["grep", "tail"],
+        # 判定は judge.py の Mission20 専用ロジック（/etc・/var/log・/tmp・/home の
+        # 4区画探索 + 黒幕名報告）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION20_FS,
     ),
     MissionDef(
         21, "The Missing Toolbox", "消えた道具箱",
