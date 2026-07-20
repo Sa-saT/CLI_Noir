@@ -24,11 +24,13 @@
   - **アーカイブ/鑑識 対応済**（2026-07-20 P2-06。`file`/`tar`/`unzip`/`gunzip`。file ノードに任意キー `archive_type`（tar/tar.gz/zip/gzip）+ `archive_content` を持たせ、拡張子ではなく `file` で実体を判定する設計。tar/unzip は archive_content をカレントディレクトリへ展開・元ファイルは残す、gunzip は .gz を削除して中身に置換）
   - **diff/sed 対応済**（2026-07-20 P2-07。`diff` は `difflib.SequenceMatcher` ベースの古典形式(`NcM`/`<`/`---`/`>`)、`sed` は `s/old/new/` `s/old/new/g` のみ・`old` は正規表現として `re.sub` に渡す）
   - **paste/tr 対応済**（2026-07-20 P2-08。`paste` は複数ファイルを行単位でタブ/`-d`区切り結合、`tr`（stdin専用）は文字変換 `tr a b` / 削除 `tr -d x`）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for・glob も未対応（§ 0.5 の Phase2）
+  - **ネットワーク 対応済**（2026-07-20 P2-09。`dig`/`host`/`ping`/`ss`。静的ホスト表 `NET_HOSTS`（現状 ghost.example のみ）。`ssh` はホスト名/IP どちらでも接続可）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk/md5sum 等 Phase2 コマンド群。`2>`・変数展開・if/for・glob も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜11 実装済**（2026-07-20）。**Mission12〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜11 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜12 実装済**（2026-07-20）。**Mission13〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜12 が実装リファレンス）
+  - Mission12「幽霊回線を追え」: **ghost.example を確定**（SSH_HOSTS、IP "10.66.6.6" 別名あり。/den/evidence/orders.txt="BOSS: Selene Vance" + デコイ + case_file.sh）。判定は Mission12 専用 judge（command_log 上の dig→ping→ssh **出現順序** + remote 証拠閲覧 + 黒幕名報告。順序不成立は "Warning: investigate before you breach"）。テスト `tests/test_mission12.py`（10件）
   - Mission11「切り裂かれた脅迫状」: /root/scraps/pieces.txt（シャッフル済みタグ付き断片 "3:ALONE" 等。glob 非依存の導線 — P2-13 で glob 対応後も両立）。`sort | cut -d: -f2` でタグ順に本文復元。判定は汎用 AND-regex（`sort` / `cut`か`paste` / 復元全文の echo）。テスト `tests/test_mission11.py`（8件）
   - Mission10「改ざんされた遺言状」: original.txt（正本、immutable）と submitted.txt（1文字改ざん "0"→"O"）。判定は Mission10 専用 judge（diff 実行 + submitted.txt の content が original.txt と完全一致するまで sed で復元されているか）。テスト `tests/test_mission10.py`（9件）
   - Mission9「封印された証拠品」: evidence.dat（archive_type "tar.gz"）→ sealed.zip（"zip"）→ final_clue.txt（"CODE: NOIR-1948"）の3層。`file` は拡張子を見ず archive_type で判定（evidence.dat は .dat 拡張子だが "gzip compressed data" と表示）。判定は汎用 AND-regex（`tar\s+-x` / `unzip\s+` / `CODE: NOIR-1948` の echo）。テスト `tests/test_mission9.py`（7件）
@@ -92,7 +94,7 @@
 - Mission1〜3 の現場実習カード文面（実装時確定。Mission4〜22 も同様）
 
 ### SSH 接続先の未定項目
-- `ghost.example`（Mission12 用）の初期ディレクトリと内部FSは未定 → Mission12 実装時に確定
+- ~~`ghost.example`（Mission12 用）~~（解消: 2026-07-20。初期ディレクトリ /den + 内部FS確定。IP "10.66.6.6" 別名あり。`noir-api/app/evaluator/commands.py` SSH_HOSTS 参照）
 - `corp_server` と `archive_node` は Mission 未割当のまま予約（Phase3 以降の拡張用）
 
 ### ~~Mission4/5 の詳細~~（解消: 2026-07-06）

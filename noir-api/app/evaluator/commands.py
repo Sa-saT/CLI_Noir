@@ -79,7 +79,32 @@ SSH_HOSTS: dict[str, dict] = {
             }
         },
     },
+    # ghost.example は Mission12 専用（設計指示書 § 5 で未定だった接続先を確定。
+    # 2026-07-20）。/den 配下に黒幕の指示書 + デコイ。dig で判明する IP でも
+    # 接続できるよう別名登録する。
+    "ghost.example": {
+        "initial_path": "/den",
+        "filesystem": {
+            "den": {
+                "type": "dir",
+                "children": {
+                    "evidence": {
+                        "type": "dir",
+                        "children": {
+                            "orders.txt": _rfile(
+                                "BOSS: Selene Vance\n"
+                                "ORDERS: silence the informant before midnight"
+                            ),
+                            "decoy.txt": _rfile("routine chatter, nothing useful"),
+                        },
+                    },
+                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                },
+            }
+        },
+    },
 }
+SSH_HOSTS["10.66.6.6"] = SSH_HOSTS["ghost.example"]
 
 
 def _content_lines(node: dict) -> list[str]:
@@ -775,6 +800,72 @@ def cmd_uptime(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     return [f"up {hours} hours, {minutes} minutes"], state
+
+
+# --- ネットワーク（Level 9） ---
+# 静的なホスト表（設計指示書 § 5。ghost.example は Mission12 実装時に確定）。
+NET_HOSTS: dict[str, str] = {"ghost.example": "10.66.6.6"}
+
+
+def _resolve_ip(target: str) -> str | None:
+    if target in NET_HOSTS:
+        return NET_HOSTS[target]
+    if target in NET_HOSTS.values():
+        return target
+    return None
+
+
+@command("dig")
+def cmd_dig(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    host = operands[0]
+    ip = _resolve_ip(host)
+    if ip is None:
+        raise CommandError("Host not found")
+    return [
+        ";; ANSWER SECTION:",
+        f"{host}.\t300\tIN\tA\t{ip}",
+    ], state
+
+
+@command("host")
+def cmd_host(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    target = operands[0]
+    ip = _resolve_ip(target)
+    if ip is None:
+        raise CommandError("Host not found")
+    return [f"{target} has address {ip}"], state
+
+
+@command("ping")
+def cmd_ping(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    target = operands[0]
+    ip = _resolve_ip(target)
+    if ip is None:
+        raise CommandError("Host not found")
+    return [
+        f"PING {target} ({ip}): 56 data bytes",
+        f"64 bytes from {ip}: icmp_seq=0 ttl=64 time=0.5 ms",
+        f"64 bytes from {ip}: icmp_seq=1 ttl=64 time=0.4 ms",
+        "--- ping statistics ---",
+        "2 packets transmitted, 2 packets received, 0% packet loss",
+    ], state
+
+
+@command("ss")
+def cmd_ss(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    return [
+        "Netid  State   Local Address:Port   Peer Address:Port",
+        "tcp    LISTEN  0.0.0.0:22           0.0.0.0:*",
+    ], state
 
 
 # --- SSH / remote ---

@@ -473,6 +473,9 @@ _DEFS: list[MissionDef] = [
         12, "Ghost Line", "幽霊回線を追え",
         "dig で IP を割り出し、ping で生存確認して ssh で突入する。",
         ["dig", "host", "ping", "ss", "ssh", "exit", "grep"],
+        # 判定は judge.py の Mission12 専用ロジック（dig→ping→ssh の出現順序 +
+        # remote 証拠閲覧 + 黒幕名報告）で行うため expected_script_patterns は空。
+        # 現場（/den 以下）は SSH_HOSTS["ghost.example"] に定義（local FS 不要）。
     ),
     MissionDef(
         13, "Midnight Broadcast", "深夜0時の犯行予告",

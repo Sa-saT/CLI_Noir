@@ -5,6 +5,16 @@
 
 ---
 
+## Phase2 バックエンド実装: Mission5〜12（2026-07-20 進行中、Sonnet で実装）
+
+タスク #21〜#29（P2-01〜P2-09）。1 task = 1 commit + push で進行。全 159 tests green / ruff clean（#29 時点）。
+
+- **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
+- `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約
+- Mission12 の判定は「dig→ping→ssh の**出現順序**」を command_log のインデックス比較で検査する専用 judge（§ 12「調べてから踏み込む」を機械的に担保。他 Mission には無い順序制約パターン）
+
+---
+
 ## MVP 完成: Mission2/3 詳細実装（2026-07-20 完了）
 
 MVP（Mission1〜3）を実プレイ可能に。タスク #14〜#16 完了（Opus で実装、全 46 tests green / ruff clean）。

@@ -146,12 +146,54 @@ def _judge_mission10(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION12_BOSS = "Selene Vance"
+_MISSION12_EVIDENCE_PATH = "/den/evidence/orders.txt"
+
+
+def _first_index(log: list[str], pattern: str) -> int | None:
+    for i, line in enumerate(log):
+        if re.match(pattern, line):
+            return i
+    return None
+
+
+def _judge_mission12(state: dict) -> tuple[list[str], dict]:
+    """Mission12: dig → ping → ssh の出現順序 + remote 証拠閲覧 + 黒幕名報告を検査する。
+
+    「調べてから踏み込む」実務手順そのものを判定条件にする（Mission参照 § 12）。
+    """
+    log = state.get("command_log", [])
+    dig_idx = _first_index(log, r"\s*dig\b")
+    ping_idx = _first_index(log, r"\s*ping\b")
+    ssh_idx = _first_index(log, r"\s*ssh\b")
+
+    order_ok = (
+        dig_idx is not None
+        and ping_idx is not None
+        and ssh_idx is not None
+        and dig_idx < ping_idx < ssh_idx
+    )
+    if not order_ok:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: investigate before you breach"], state
+
+    read_evidence = any(_MISSION12_EVIDENCE_PATH in line for line in log)
+    reported_boss = any(_MISSION12_BOSS in line for line in log)
+    if not read_evidence or not reported_boss:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
     7: _judge_mission7,
     8: _judge_mission8,
     10: _judge_mission10,
+    12: _judge_mission12,
 }
 
 
