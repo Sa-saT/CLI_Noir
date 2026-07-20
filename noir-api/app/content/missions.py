@@ -449,6 +449,37 @@ _MISSION16_FS = {
 }
 
 
+# Mission17 の初期 FS: 見た目が同一な契約書コピー5通のうち copy_4 のみ
+# 1文字改ざん（"0" と "O"）。ledger.txt に原本の実 md5 ハッシュを記載。
+_MISSION17_ORIGINAL_TEXT = "Article 7: 0% interest\nSigned by both parties."
+_MISSION17_TAMPERED_TEXT = "Article 7: O% interest\nSigned by both parties."
+_MISSION17_ORIGINAL_MD5 = "f5826660ac7d8193b17651462cefe538"
+
+_MISSION17_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "contracts": {
+                "type": "dir",
+                "children": {
+                    "copy_1.txt": _file(_MISSION17_ORIGINAL_TEXT, immutable=True),
+                    "copy_2.txt": _file(_MISSION17_ORIGINAL_TEXT, immutable=True),
+                    "copy_3.txt": _file(_MISSION17_ORIGINAL_TEXT, immutable=True),
+                    "copy_4.txt": _file(_MISSION17_TAMPERED_TEXT, immutable=True),
+                    "copy_5.txt": _file(_MISSION17_ORIGINAL_TEXT, immutable=True),
+                    "ledger.txt": _file(
+                        f"ORIGINAL MD5: {_MISSION17_ORIGINAL_MD5}", immutable=True
+                    ),
+                },
+            },
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -646,6 +677,12 @@ _DEFS: list[MissionDef] = [
         17, "Fingerprint", "指紋は嘘をつかない",
         "md5sum で契約書コピーを照合し、改ざんされた1通を特定する。",
         ["md5sum", "sha256sum", "diff", "sort"],
+        # クリア条件: md5sum 実行 + 改ざんファイル名 copy_4 の記述（Mission参照 § 17）。
+        expected_script_patterns=[
+            r"\bmd5sum\b",
+            r"copy_4",
+        ],
+        initial_filesystem=_MISSION17_FS,
     ),
     MissionDef(
         18, "Silence in the Static", "雑音の中の声",
