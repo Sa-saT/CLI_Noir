@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-07-07（Nuxt 実装着手・デザインシステム管理フローを追記）
+更新日: 2026-07-20（バックエンド Mission1〜22 全実装完了・Phase2 コマンド大半実装を反映）
 
 ---
 
@@ -10,15 +10,34 @@
 CLI_Noir/
 ├ CLAUDE.md          … Claude Code 用ガイド（参照優先順位・運用ルールの要約）
 ├ docs/              … 全設計ドキュメント（+ design-system/ = デザイン local ミラー）
-├ context/           … 本フォルダ（AI コンテキスト復元用）
-├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手）
-├ noir-api/          … FastAPI バックエンド（未追跡のローカルスキャフォールドのみ・実装未着手）
+├ context/           … 本フォルダ（AI コンテキスト復元用。04_task_backlog.md も参照）
+├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手・evaluator はモックのまま）
+├ noir-api/          … FastAPI バックエンド（2026-07-13 骨格〜MVP、2026-07-20 Mission1〜22 全実装。241 tests green）
 ├ moc/               … UI モック（参考用）
 └ old_files/         … 過去バージョンのバックアップ（参照不要）
 ```
 
 2026-07-06 の整理で、設計ドキュメント 5 点をルートから `docs/` へ移動した。
 2026-07-07 に Nuxt 実装（`noir-client/`）とデザインシステム local ミラー（`docs/design-system/`）を追加。
+
+---
+
+## `noir-api/`（FastAPI バックエンド。2026-07-13 骨格〜MVP、2026-07-20 Phase2 完了）
+
+**Mission1〜22 すべて実プレイ可能**（241 tests green / ruff clean）。詳細は `context/01_decisions_log.md`「Phase2 バックエンド実装」節・`context/03_pending_items.md` Backend 節を参照。
+
+- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）・`app/models/`（User / MissionState / default_state）は MVP 時点から変更なし
+- `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
+- `app/evaluator/`:
+  - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）
+  - `commands.py` — 実装コマンド一覧は下記
+  - `engine.py` — トークナイズ（引用符追跡）→ 環境変数展開（`$VAR`/`$?`、シングルクォート保護）→ glob 展開 → パイプ分割 → PATH 解決付き dispatch → リダイレクト（`>`/`>>`/`2>`）→ `$?` 記録
+  - `script.py`（新規）— `sh` 汎用スクリプトのミニインタープリタ（変数・if・for、ネスト非対応）
+  - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック
+  - `git_ops.py` — 疑似Git（変更なし）
+- 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
+- 未実装（allowlist にあるが未登録）: awk のみ
+- `docs/設計指示書.md` の ghost.example「初期ディレクトリ未定」は**解消済み**（`/den`、Mission12/22 で使用）。`corp_server`・`archive_node` は Phase3 予約のまま未使用
 
 ---
 
@@ -86,7 +105,7 @@ CLI_Noir/
 | `CLAUDE.md` | Claude Code 用ガイド。ドキュメント参照優先順位と運用ルールの要約 |
 | `moc/index.html` | UI モック（Vue CDN 直書き）。確定仕様との差分は `docs/DESIGN.md` § 8 |
 | `moc/images/mission1.png` | 背景画像の画風基準（セピア調・銅版画風ノワール） |
-| `context/` | 本フォルダ（読み込み順は 00 → 01 → 02 → 03） |
+| `context/` | 本フォルダ（読み込み順は 00 → 01 → 02 → 03 → 04） |
 
 ## old_files/（バックアップ・参照不要）
 

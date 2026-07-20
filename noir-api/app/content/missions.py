@@ -628,6 +628,77 @@ _MISSION21_FS = {
 }
 
 
+# Mission22（最終事件）: これまで学んだ全技術を関所として直列に配置する。
+# find → ssh(ghost.example の既存証拠を再利用) → chmod → grep|sort|uniq -c →
+# tar → md5sum → 自作 sh → 黒幕名（Mission12 の黒幕 Selene Vance と同一人物）報告 →
+# git push。
+_MISSION22_CULPRIT = "Selene Vance"
+_MISSION22_BURNER = "555-0199"
+_MISSION22_NOTE = "NOTE: meet at the pier - S.V."
+_MISSION22_NOTE_MD5 = "18567fb6f71f0a1f44814c158a8f7798"
+
+_MISSION22_CALL_COUNTS = {
+    _MISSION22_BURNER: 6,  # 最頻出＝vault の手がかりと一致する裏取り対象
+    "555-0142": 3,
+    "555-0007": 1,
+}
+
+
+def _mission22_calls_log() -> str:
+    groups = [[num] * count for num, count in _MISSION22_CALL_COUNTS.items()]
+    scattered: list[str] = []
+    while any(groups):
+        for g in groups:
+            if g:
+                scattered.append(g.pop())
+    return "\n".join(f"TEL: {num}" for num in scattered)
+
+
+_MISSION22_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "clues": {
+                "type": "dir",
+                "children": {
+                    "deep": {
+                        "type": "dir",
+                        "children": {
+                            "access.key": _file(
+                                "connect via ssh to ghost.example", immutable=True
+                            ),
+                        },
+                    },
+                },
+            },
+            "vault": {
+                "type": "dir",
+                "children": {
+                    "locked.txt": _mode_file(
+                        f"burner number traced to: {_MISSION22_BURNER}",
+                        "---------",
+                        immutable=False,
+                    ),
+                },
+            },
+            "logs": {
+                "type": "dir",
+                "children": {
+                    "calls.log": _file(_mission22_calls_log(), immutable=True),
+                },
+            },
+            "evidence.tar": _archive_file(
+                "tar", {"final_note.txt": _file(_MISSION22_NOTE, immutable=True)}
+            ),
+            "ledger.txt": _file(f"ORIGINAL MD5: {_MISSION22_NOTE_MD5}", immutable=True),
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -875,6 +946,10 @@ _DEFS: list[MissionDef] = [
         22, "Case Closed", "最終事件 — すべてを繋げろ",
         "学んだ全技術を関所として突破し、黒幕の名を本部に提出する。",
         ["find", "ssh", "exit", "chmod", "grep", "sort", "uniq", "tar", "md5sum", "sh"],
+        # 判定は judge.py の Mission22 専用ロジック（8関所を直列検査。欠けた関所を
+        # "Warning: checkpoint <n> incomplete" で示す）で行うため
+        # expected_script_patterns は空。
+        initial_filesystem=_MISSION22_FS,
     ),
 ]
 

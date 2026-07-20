@@ -5,9 +5,13 @@
 
 ---
 
-## Phase2 バックエンド実装: Mission5〜21（2026-07-20 進行中、Sonnet で実装）
+## Phase2 バックエンド完了: Mission5〜22（2026-07-20 完了、Sonnet で実装）
 
-タスク #21〜#38（P2-01〜P2-18）。1 task = 1 commit + push で進行。全 237 tests green / ruff clean（#38 時点）。
+タスク #21〜#39（P2-01〜P2-19）**全完了**。1 task = 1 commit + push を最後まで厳守。**241 tests green / ruff clean**。バックエンドは Mission1〜22 すべて実プレイ可能な状態に到達（フロントエンドは未着手のまま）。
+
+- **Mission22（最終事件）**: 8関所を直列に検査する専用 judge（find→ssh(ghost.example の既存証拠を再利用、新規 remote は作らず既存資産で完結)→chmod→`grep|sort|uniq -c`→tar→md5sum→自作 sh(Mission19 の `script_found`/"FOUND" 機構を再利用)→黒幕名報告）。欠けた関所は `Warning: checkpoint <n> incomplete`（n=1始まり、判定順=関所の実施順ではなく判定順）。黒幕を Mission12 の "Selene Vance" と同一人物にして全編の一貫性を確保。golden transcript（18手順）が一発で通過し、他 Mission の実装が正しく組み合わさることを検証できた
+- **総仕上げ**: `context/02_current_state.md` に `noir-api/` セクションを新設（実装済みコマンド一覧・ファイル構成の要約）。`context/03_pending_items.md` の Backend 節・関連する未確定セクション（Mission4〜22 詳細化・/proc・環境変数・case_file.sh 中身）を「解消」として整理
+- Phase2 全体の総括: engine 変更を伴う難所5件（P2-13 glob、P2-15 stderr/$?、P2-16 sh スクリプト、P2-18 env/PATH）はいずれも Opus への切替なしに Sonnet のみで完遂。各回とも「実装 → 新規テスト → 全体回帰（pytest 全緑 / ruff）→ context 更新 → 1 commit + push」の型を崩さなかったことが、19個のタスクを通じて regression ゼロを維持できた最大の要因
 
 - **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
 - `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約

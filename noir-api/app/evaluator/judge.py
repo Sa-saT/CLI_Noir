@@ -360,6 +360,69 @@ def _judge_mission21(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION22_CULPRIT = "Selene Vance"
+
+
+def _m22_find(log: list[str], state: dict) -> bool:
+    return any(re.match(r"\s*find\b", ln) and "key" in ln for ln in log)
+
+
+def _m22_ssh(log: list[str], state: dict) -> bool:
+    return any(re.match(r"\s*ssh\s+ghost\.example\b", ln) for ln in log)
+
+
+def _m22_chmod(log: list[str], state: dict) -> bool:
+    return any(re.match(r"\s*chmod\s+\+?r\b", ln) for ln in log)
+
+
+def _m22_pipe(log: list[str], state: dict) -> bool:
+    return any(re.search(r"uniq\s+-c", ln) for ln in log)
+
+
+def _m22_tar(log: list[str], state: dict) -> bool:
+    return any(re.match(r"\s*tar\s+-x", ln) for ln in log)
+
+
+def _m22_hash(log: list[str], state: dict) -> bool:
+    return any(re.match(r"\s*md5sum\b", ln) for ln in log)
+
+
+def _m22_script(log: list[str], state: dict) -> bool:
+    return state.get("mission_flags", {}).get("script_found", False)
+
+
+def _m22_report(log: list[str], state: dict) -> bool:
+    return any(
+        _MISSION22_CULPRIT in ln for ln in log if re.match(r"\s*echo\b", ln)
+    )
+
+
+_MISSION22_CHECKPOINTS = [
+    _m22_find,
+    _m22_ssh,
+    _m22_chmod,
+    _m22_pipe,
+    _m22_tar,
+    _m22_hash,
+    _m22_script,
+    _m22_report,
+]
+
+
+def _judge_mission22(state: dict) -> tuple[list[str], dict]:
+    """Mission22: これまでの全 Mission で学んだ技術を8関所として直列に検査する
+    （find→ssh→chmod→パイプ集計→tar→md5sum→自作sh→報告）。
+    """
+    log = state.get("command_log", [])
+    for i, check in enumerate(_MISSION22_CHECKPOINTS, start=1):
+        if not check(log, state):
+            state["mission_flags"]["case_checked"] = False
+            return [f"Warning: checkpoint {i} incomplete"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -373,6 +436,7 @@ _CUSTOM_JUDGES = {
     19: _judge_mission19,
     20: _judge_mission20,
     21: _judge_mission21,
+    22: _judge_mission22,
 }
 
 

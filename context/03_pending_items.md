@@ -1,6 +1,6 @@
 # 未完了・未確定の項目
 
-更新日: 2026-07-10
+更新日: 2026-07-20（バックエンド Phase2 完了。Mission1〜22 全実装・241 tests green / ruff clean）
 
 ---
 
@@ -12,7 +12,7 @@
 - [x] `.env.example` 作成（2026-07-10。`.gitignore`・`requirements.txt` も同時作成）
 - [x] API 疎通確認用の最小エンドポイント（2026-07-10。`GET /api/health` → `{"status":"ok"}`。pytest スモーク通過）
 
-### Backend（2026-07-13: 骨格〜MVP 縦切りを実装。`noir-api/`。37 tests green / ruff clean）
+### Backend（2026-07-13: 骨格〜MVP。2026-07-20: Phase2 完了・**Mission1〜22 全実装**。`noir-api/`。241 tests green / ruff clean。ファイル構成・コマンド一覧の要約は `context/02_current_state.md` の「noir-api/」節を参照）
 - [x] 認証 API 実装（login / refresh / me。PyJWT + bcrypt 直接。SHA256→base64 事前ハッシュで 72 バイト上限回避）
 - [x] Mission API 実装（一覧 / 詳細。status=cleared/open/locked を進捗から算出。Mission 定義は `app/content/missions.py` に全22件）
 - [x] state API 実装（取得のみ。`/api/missions/{id}/state/`。commits はメタのみ・snapshot 非返却）
@@ -40,7 +40,8 @@
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜21 実装済**（2026-07-20）。**Mission22 のみ詳細 regex・初期FS が未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜21 が実装リファレンス）
+  - **Mission1〜22 すべて実プレイ可能**（2026-07-20 完了）。下記に各 Mission の実装メモ（Mission22→1 の新しい順）
+  - Mission22「最終事件」: これまでの技術を8関所として直列検査する専用 judge（find→ssh(ghost.example の既存証拠を再利用)→chmod→`grep|sort|uniq -c`→tar→md5sum→自作sh(Mission19と同じ script_found 機構、キーワードは "FOUND" を再利用)→黒幕名報告）。欠けた関所は "Warning: checkpoint <n> incomplete"（n=1始まり）。黒幕は Mission12 と同一人物 "Selene Vance"（世界観の一貫性）。テスト `tests/test_mission22.py`（4件、フル18手順の golden transcript を含む）
   - Mission21「消えた道具箱」: `initial_env_vars` で PATH="/tmp/.stolen" に汚染して開始。/root/hint.txt（絶対パス実行・export での復旧を示唆）。判定は Mission21 専用 judge（`env_vars.PATH` が正常値 "/usr/local/bin:/usr/bin:/bin" に一致 + 復旧後の grep/find 成功履歴（command_log は成功のみ記録されるため復旧の証跡になる）+ 汚染 PATH 値の報告）。テスト `tests/test_mission21.py`（9件）
   - Mission19「捜査手順書を書け」: sample.sh（見本）+ evidence.txt（"Sam" を含む）。プレイヤーが echo リダイレクトで自作 `/root/patrol.sh`（変数+if+grep -q+echo FOUND）を組み立て、chmod +x → sh で実行。判定は Mission19 専用 judge（sh 実行 + FOUND 出力（`mission_flags.script_found`、cmd_sh 側で設定）+ スクリプト自体に変数定義と if を含む — ハードコード echo だけでの通過を防止）。テスト `tests/test_mission19.py`（8件、denylist/for/誤ターゲットも検証）
   - Mission18「雑音の中の声」: /root/archive/ に読めないファイル3件（mode "---------"）+ witness_note.txt（"PLATE: NX-4471"）。`grep -r "witness" /root/archive 2>/dev/null` で雑音を捨てて手がかりのみ取得。判定は汎用 AND-regex（`2>\s*/dev/null` / PLATE番号の記述）。テスト `tests/test_mission18.py`（8件、$? の成功/失敗両方向を検証）
@@ -61,7 +62,9 @@
   - Mission2「公園の猫」: 初期 current_path=/root/park、`_MISSION2_FS`（park/swing/catinfo.txt + デコイ）。判定は judge の Mission2 専用ロジック（find使用 / 絶対パス参照 / STATUS抽出の3点、誤答文言を § 3 に一致）。`MissionDef.initial_current_path` フィールドを追加
   - Mission3「遊園地の爆弾」: `ssh amusement_park`→/gate の `SSH_HOSTS` FS にヒント（Code/Wire/Height）+デコイ+case_file.sh を配置。判定は汎用 AND-regex（`Code: [A-Z0-9]{4,}` / `Wire: (red|blue|yellow)` / `Height: [0-9]+`）。値を読み echo で記録する Mission1 方式。remote のまま commit/push でクリア成立を確認
   - 補足: case_file.sh は「捜査タスクの証跡」を判定し、git add/commit/push は git コマンド側で構造的に強制（§ 10 判定フローとの整合。Mission参照の Mission1 5patterns のうち git 3件は regex ではなく構造で担保）
-  - テスト: `tests/test_mission2_3.py`（9件）追加。全 46 tests green / ruff clean
+  - テスト: `tests/test_mission2_3.py`（9件）追加
+
+**バックエンド Phase2 完了（2026-07-20）**: タスク #21〜#39（P2-01〜P2-19）を1 task = 1 commit + push で完遂。241 tests green / ruff clean。残る主な未着手は Frontend（下記）と、下記「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）。
 
 ### Frontend
 - [ ] Nuxt ルーティング（/missions, /missions/{id}）
@@ -97,15 +100,15 @@
 - [ ] 現場実習カードの文面作成（安全コマンド限定 + macOS/Windows のターミナルの開き方）
 - [ ] `cowsay` / `figlet` の evaluator 定義（バックエンド_コマンド機能仕様への追加。隠し実績の解放条件設計も）
 
-### Mission4〜22 の詳細化（実装時）
-- 概要は確定済み（`docs/Mission参照ファイル.md` § 5）。各 Mission の `expected_script_patterns` 詳細正規表現・初期FS・ヒント3段階は実装時に確定する（Mission2/3 と同じ運用）
-- Mission の実施順序は入れ替え可能（Mission22 のみ最終章固定）
+### ~~Mission4〜22 の詳細化~~（解消: 2026-07-20）
+- 全 Mission の `expected_script_patterns`/カスタム judge・初期FS・プロセス表・cron 表・env_vars を `noir-api/app/content/missions.py` に実装済み（ヒント3段階のフロント表示文言のみ未着手 — フロント実装時に確定）
+- Mission の実施順序は入れ替え可能（Mission22 のみ最終章固定）という設計は維持
 
-### /proc・環境変数の未定項目（2026-07-08 採用に伴う）
-- 仮想プロセステーブルの内容（正規プロセス名・PID 範囲・偽装プロセスの cmdline）は Mission6/7 実装時に確定
-- `/proc/cpuinfo`・`meminfo` の表示内容（実 Linux 出力のどこまでを再現するか）は evaluator 実装時に確定
-- Mission21 の汚染 PATH 初期値・正常値の正規表現は実装時に確定
-- `export`/`unset`/`printenv`/`type` の evaluator 定義（バックエンド_コマンド機能仕様への追加）は Phase2 コマンド定義タスクに含む
+### ~~/proc・環境変数の未定項目~~（解消: 2026-07-20）
+- 仮想プロセステーブル・偽装プロセス cmdline は Mission6/7 で確定（`noir-api/app/content/missions.py` `_MISSION6_PROCESSES`/`_MISSION7_PROCESSES`）
+- `/proc/cpuinfo`・`meminfo` は `noir-api/app/evaluator/fs.py`（`_PROC_CPUINFO`/`_proc_meminfo_text`）で確定・実装済み
+- Mission21 の汚染 PATH 初期値は `/tmp/.stolen`、正常値は `/usr/local/bin:/usr/bin:/bin` で確定（`_MISSION21_ENV_VARS`）
+- `export`/`unset`/`printenv`/`type`/`which` は `noir-api/app/evaluator/commands.py` に実装済み（`docs/バックエンド_コマンド機能仕様.md` への正式反映はまだ・下記 Phase2 タスクに残す）
 
 ### ゲーム機能 9〜12 の未定項目（2026-07-07 採用に伴う）
 - やらかし体験室の解放トリガー（案: denylist コマンドを初めて打って拒否された直後に相棒が誘う。未確定）
@@ -122,9 +125,8 @@
 ### ~~cp / mv コマンド~~（解消: 2026-07-06）
 - allowlist の Level 8 に追加済み。`docs/バックエンド_コマンド機能仕様.md` への定義追加は Phase2 実装タスクに含む
 
-### case_file.sh の具体的な中身
-- Mission1 の正規表現パターンは推奨値あり（Mission参照ファイル参照）
-- Mission2/3 の正規表現パターンは概要レベル。実装時に詳細化が必要
+### ~~case_file.sh の具体的な中身~~（解消: 2026-07-20）
+- Mission1〜22 すべて `noir-api/app/content/missions.py`（+ Mission 別カスタム judge は `app/evaluator/judge.py`）に実装済み
 
 ---
 
