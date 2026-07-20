@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、フロントエンド実装（`noir-client/`）は着手済み、バックエンド（FastAPI）は未着手（`context/03_pending_items.md` 参照）。
+CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は Mission1〜22 全実装済み（2026-07-20 完了）、フロントエンド（`noir-client/`）は着手済みだが実バックエンド未接続（`context/03_pending_items.md` § Frontend、`context/04_task_backlog.md` Part 2 参照）。
 
 - コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
 - MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）
@@ -18,8 +18,8 @@ CLI_Noir/
 ├ CLAUDE.md      … 本ファイル
 ├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
-├ noir-client/   … Nuxt 4 フロント実装（実装済み。app/components/*.vue + pages）
-├ noir-api/      … FastAPI バックエンド（未追跡のローカルスキャフォールドのみ。実装未着手）
+├ noir-client/   … Nuxt 4 フロント実装（実装済み。app/components/*.vue + pages。evaluator はモックのまま未接続）
+├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み。241 tests green / ruff clean）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```
@@ -51,7 +51,7 @@ CLI_Noir/
 
 セッション開始時にコンテキストを復元する場合は `context/00_READ_ME_FIRST.md` から順に `context/` 内 5 ファイルを読む。
 
-**バックエンド実装タスクの復元**: セッション内タスクリストが空の場合、`context/04_task_backlog.md`（Phase2 タスク P2-01〜P2-19 の正）から未完了タスクを TaskCreate で復元してから着手する。タスク完了時は backlog 側のチェックボックスも [x] にする。
+**実装タスクの復元**: セッション内タスクリストが空の場合、`context/04_task_backlog.md`（実装タスクの正。Part 1=バックエンド Phase2・完了済み、Part 2=フロントエンド FE-01〜FE-08・次の着手対象）から未完了タスクを TaskCreate で復元してから着手する。タスク完了時は backlog 側のチェックボックスも [x] にする。
 
 - `docs/DESIGN.md` — UI/ビジュアル仕様（カラートークン・レイアウト・コンポーネント分解・moc との差分表）。フロントエンド実装時に併読
 - `docs/AUTHORING_GUIDE.md` — Mission・コマンドの作り込みガイド（5幕構造・定義スキーマ・DoD）。コンテンツ追加時は必読
