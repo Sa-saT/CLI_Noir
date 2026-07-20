@@ -303,6 +303,29 @@ _MISSION10_FS = {
 }
 
 
+# Mission11 の初期 FS: シャッフル済みタグ付き断片（glob 非依存の導線。P2-08）。
+# sort でタグ順に並び替え、cut -d: -f2 で本文を取り出す。
+_MISSION11_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "scraps": {
+                "type": "dir",
+                "children": {
+                    "pieces.txt": _file(
+                        "3:ALONE\n1:MIDNIGHT AT THE OLD PIER\n2:BRING THE LEDGER",
+                        immutable=True,
+                    ),
+                },
+            },
+            "case_file.sh": _file(
+                "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+            ),
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -438,6 +461,13 @@ _DEFS: list[MissionDef] = [
         11, "Torn Note", "切り裂かれた脅迫状",
         "断片ファイルを sort/cut/paste で並べ替え、全文を復元する。",
         ["sort", "cut", "paste"],
+        # クリア条件: sort 実行 + cut/paste 実行 + 復元全文の記述（Mission参照 § 11）。
+        expected_script_patterns=[
+            r"\bsort\b",
+            r"\b(cut|paste)\b",
+            r"MIDNIGHT AT THE OLD PIER BRING THE LEDGER ALONE",
+        ],
+        initial_filesystem=_MISSION11_FS,
     ),
     MissionDef(
         12, "Ghost Line", "幽霊回線を追え",

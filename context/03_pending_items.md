@@ -23,11 +23,13 @@
   - **権限検査 対応済**（2026-07-20 P2-01・P2-05 で owner 対応に拡張。`fs.can_read(node, current_user)`/`fs.can_exec`。current_user==owner なら所有者ビット、不一致ならその他ビットを検査。読み取り系は `_read_input` に集約し + `Error: permission denied`。`sh` は実行ビット検査。デフォルト配置ファイル（immutable=True）は特例で実行可 — 制限したい Mission は immutable=False で配置）
   - **アーカイブ/鑑識 対応済**（2026-07-20 P2-06。`file`/`tar`/`unzip`/`gunzip`。file ノードに任意キー `archive_type`（tar/tar.gz/zip/gzip）+ `archive_content` を持たせ、拡張子ではなく `file` で実体を判定する設計。tar/unzip は archive_content をカレントディレクトリへ展開・元ファイルは残す、gunzip は .gz を削除して中身に置換）
   - **diff/sed 対応済**（2026-07-20 P2-07。`diff` は `difflib.SequenceMatcher` ベースの古典形式(`NcM`/`<`/`---`/`>`)、`sed` は `s/old/new/` `s/old/new/g` のみ・`old` は正規表現として `re.sub` に渡す）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+  - **paste/tr 対応済**（2026-07-20 P2-08。`paste` は複数ファイルを行単位でタブ/`-d`区切り結合、`tr`（stdin専用）は文字変換 `tr a b` / 削除 `tr -d x`）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: awk/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for・glob も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）
-  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜10 実装済**（2026-07-20）。**Mission11〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜10 が実装リファレンス）
+  - **MVP（Mission1〜3）完成・実プレイ可能**（2026-07-20。Mission2/3 を詳細化）。**Mission4〜11 実装済**（2026-07-20）。**Mission12〜22 の詳細 regex・初期FS は未確定**（下記「Mission4〜22 の詳細化」に含む。Mission1〜11 が実装リファレンス）
+  - Mission11「切り裂かれた脅迫状」: /root/scraps/pieces.txt（シャッフル済みタグ付き断片 "3:ALONE" 等。glob 非依存の導線 — P2-13 で glob 対応後も両立）。`sort | cut -d: -f2` でタグ順に本文復元。判定は汎用 AND-regex（`sort` / `cut`か`paste` / 復元全文の echo）。テスト `tests/test_mission11.py`（8件）
   - Mission10「改ざんされた遺言状」: original.txt（正本、immutable）と submitted.txt（1文字改ざん "0"→"O"）。判定は Mission10 専用 judge（diff 実行 + submitted.txt の content が original.txt と完全一致するまで sed で復元されているか）。テスト `tests/test_mission10.py`（9件）
   - Mission9「封印された証拠品」: evidence.dat（archive_type "tar.gz"）→ sealed.zip（"zip"）→ final_clue.txt（"CODE: NOIR-1948"）の3層。`file` は拡張子を見ず archive_type で判定（evidence.dat は .dat 拡張子だが "gzip compressed data" と表示）。判定は汎用 AND-regex（`tar\s+-x` / `unzip\s+` / `CODE: NOIR-1948` の echo）。テスト `tests/test_mission9.py`（7件）
   - Mission8「変装潜入」: **ユーザー切替基盤を新設**（state に `current_user`（既定 "detective"）を追加。`su <user>` で切替、`_user_stack` で退避し `exit` で復帰 — `_fs_stack`（ssh）とは独立管理で、`exit` は user_stack 優先。`whoami`/`id` 追加）。`fs.can_read` を owner 対応に拡張（current_user==owner なら所有者ビット、不一致ならその他ビット）。合言葉はパスワード検証なしで `su barman` が即成功し、bar/back/ledger.txt（owner="barman", mode "rw-------"）で難易度を作る。判定は Mission8 専用 judge（su barman・whoami・秘密ファイル閲覧・detective への復帰の4点）。テスト `tests/test_mission8.py`（7件）

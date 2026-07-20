@@ -620,6 +620,52 @@ def cmd_cut(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     return out, state
 
 
+@command("paste")
+def cmd_paste(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    delim = "\t"
+    files: list[str] = []
+    i = 1
+    while i < len(argv):
+        a = argv[i]
+        if a == "-d":
+            i += 1
+            delim = argv[i] if i < len(argv) else "\t"
+        elif a.startswith("-d"):
+            delim = a[2:]
+        elif not a.startswith("-"):
+            files.append(a)
+        i += 1
+
+    if not files:
+        return list(stdin), state
+
+    columns = [_read_input(state, [f], []) for f in files]
+    max_len = max(len(c) for c in columns)
+    out: list[str] = []
+    for row in range(max_len):
+        parts = [col[row] if row < len(col) else "" for col in columns]
+        out.append(delim.join(parts))
+    return out, state
+
+
+@command("tr")
+def cmd_tr(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    args = argv[1:]
+    delete_flag = "-d" in args
+    operands = [a for a in args if not a.startswith("-")]
+
+    if delete_flag:
+        if not operands:
+            raise CommandError("Error: invalid input")
+        to_delete = set(operands[0])
+        return ["".join(ch for ch in ln if ch not in to_delete) for ln in stdin], state
+
+    if len(operands) != 2 or len(operands[0]) != len(operands[1]):
+        raise CommandError("Error: invalid input")
+    table = str.maketrans(operands[0], operands[1])
+    return [ln.translate(table) for ln in stdin], state
+
+
 def _diff_range(start: int, end: int) -> str:
     """diff の範囲表記（1始まり）。単一行は "N"、複数行は "N,M"。"""
     if end - start <= 1:
