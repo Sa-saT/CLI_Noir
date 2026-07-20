@@ -18,9 +18,10 @@
 - [x] state API 実装（取得のみ。`/api/missions/{id}/state/`。commits はメタのみ・snapshot 非返却）
 - [x] WebSocket エンドポイント実装（auth/hello/resume/exec/result/event。Pydantic 検証・5秒 auth タイムアウト・再接続 state 復元）
 - [x] evaluator 実装（denylist→allowlist→registry dispatch→state更新。純粋関数・実OS非依存）
-  - 実装済コマンド: ls/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history + **sort/uniq/wc/head/tail/cut**（2026-07-20 Level 5 追加）
+  - 実装済コマンド: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/echo(+`>``>>`)/grep(egrep/fgrep)/find/ssh/exit/sh/git/clear/history + **sort/uniq/wc/head/tail/cut**（2026-07-20 Level 5 追加）+ **chmod**（2026-07-20 P2-01 で追加）
   - **パイプ `|` 対応済**（2026-07-20。engine でステージ分割・stdin スレッド。リダイレクトは最終段のみ）
-  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/chmod/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
+  - **権限検査 対応済**（2026-07-20 P2-01。`fs.can_read`/`fs.can_exec`。読み取り系は `_read_input` に集約し owner 読みビット検査 + `Error: permission denied`。`sh` は実行ビット検査。デフォルト配置ファイル（immutable=True）は特例で実行可 — 制限したい Mission は immutable=False で配置）
+  - 未実装（allowlist にはあるが未登録 = `command not allowed`）: sed/awk/ps/kill/tar/md5sum/dig 等 Phase2 コマンド群。`2>`・変数展開・if/for も未対応（§ 0.5 の Phase2）
 - [x] 仮想FS モデル / JSON保存（MissionState.data JSON。パス解決は `app/evaluator/fs.py` に一元化。`_fs_stack` で ssh/exit の FS 退避）
 - [x] 疑似Git（`app/evaluator/git_ops.py`。commit=snapshot セーブ / push=case_checked 判定 / commits 上限30 / resume でセーブ選択）
 - [x] Mission 判定ロジック（`app/evaluator/judge.py`。case_file.sh が expected_script_patterns を command_log に AND 評価）

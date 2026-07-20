@@ -69,6 +69,21 @@ def is_file(node: dict | None) -> bool:
     return node is not None and node.get("type") == "file"
 
 
+def can_read(node: dict) -> bool:
+    """所有者の読み取りビット（mode[0]=='r'）を検査する。"""
+    return node.get("mode", "rw-r--r--")[0] == "r"
+
+
+def can_exec(node: dict) -> bool:
+    """実行ビットを検査する。デフォルト配置ファイル（immutable）は特例で常に許可
+    （Mission1〜4 の case_file.sh は mode に x を持たないため）。Mission 側で
+    この特例を外したい場合は immutable=False で配置する（例: Mission5）。
+    """
+    if node.get("immutable", False):
+        return True
+    return "x" in node.get("mode", "rw-r--r--")
+
+
 def new_file(content: str = "", *, immutable: bool = False) -> dict:
     return {
         "type": "file",

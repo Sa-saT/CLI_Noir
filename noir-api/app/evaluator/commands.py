@@ -8,6 +8,7 @@ deepcopy 済みを渡すので、その場で書き換えて返してよい。�
 import copy
 import fnmatch
 import re
+from datetime import datetime
 
 from app.evaluator import fs
 from app.evaluator.errors import CommandError
@@ -88,7 +89,11 @@ def _content_lines(node: dict) -> list[str]:
 
 
 def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
-    """ファイル引数があればその内容を連結、無ければ stdin を入力行として返す。"""
+    """ファイル引数があればその内容を連結、無ければ stdin を入力行として返す。
+
+    cat/grep/sort/uniq/wc/head/tail/cut のファイル読み取りをここに集約し、
+    権限検査（mode の所有者読み取りビット）も一箇所で行う。
+    """
     if not files:
         return list(stdin)
     lines: list[str] = []
@@ -96,6 +101,8 @@ def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
         node = fs.get_node(state, fs.normalize(state["current_path"], f))
         if not fs.is_file(node):
             raise CommandError("Error: file not found")
+        if not fs.can_read(node):
+            raise CommandError("Error: permission denied")
         lines.extend(_content_lines(node))
     return lines
 
@@ -114,17 +121,44 @@ def _operands(argv: list[str]) -> list[str]:
     return [a for a in argv[1:] if not a.startswith("-")]
 
 
+def _format_mtime(mtime: str) -> str:
+    try:
+        dt = datetime.fromisoformat(mtime.replace("Z", "+00:00"))
+    except ValueError:
+        return mtime
+    return dt.strftime("%b %d %H:%M")
+
+
+def _ls_long_line(name: str, node: dict) -> str:
+    is_dir = node.get("type") == "dir"
+    mode = node.get("mode", "rw-r--r--")
+    perm = ("d" if is_dir else "-") + mode
+    owner = node.get("owner", "detective")
+    size = 0 if is_dir else len(node.get("content", ""))
+    date = _format_mtime(node.get("mtime", "2026-01-01T00:00:00Z"))
+    return f"{perm} 1 {owner} {owner} {size:>6} {date} {name}"
+
+
 # --- ナビゲーション ---
 @command("ls")
 def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    target = argv[1] if len(argv) > 1 else state["current_path"]
+    flags = _flag_chars(argv)
+    long = "l" in flags
+    operands = _operands(argv)
+    target = operands[0] if operands else state["current_path"]
     abs_path = fs.normalize(state["current_path"], target)
     node = fs.get_node(state, abs_path)
     if node is None:
         raise CommandError("Error: path not found")
+
     if fs.is_file(node):
-        return [fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path], state
-    return sorted(node.get("children", {}).keys()), state
+        name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
+        return ([_ls_long_line(name, node)] if long else [name]), state
+
+    names = sorted(node.get("children", {}).keys())
+    if not long:
+        return names, state
+    return [_ls_long_line(n, node["children"][n]) for n in names], state
 
 
 @command("cd")
@@ -175,18 +209,63 @@ def cmd_mkdir(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
     return [], state
 
 
+def _mode_from_numeric(spec: str) -> str:
+    """`644` 等の数値モードを 9 文字の rwx 表現へ変換する。"""
+    bits = ""
+    for digit in spec:
+        n = int(digit)
+        bits += ("r" if n & 4 else "-") + ("w" if n & 2 else "-") + ("x" if n & 1 else "-")
+    return bits
+
+
+_CHMOD_CLASS_OFFSET = {"u": 0, "g": 3, "o": 6}
+
+
+def _apply_symbolic_mode(mode: str, spec: str) -> str:
+    """`+r` / `u+x` / `-w` 等のシンボリックモードを既存 mode に適用する。
+
+    クラス接頭辞（u/g/o）省略時は全クラス（設計: Mission参照ファイルの
+    「u/g/o 接頭辞は省略可=全クラス」に対応）。
+    """
+    m = re.fullmatch(r"([ugoa]*)([+-])([rwx]+)", spec)
+    if not m:
+        raise CommandError("Error: invalid input")
+    classes, op, perms = m.groups()
+    target_classes = {"u", "g", "o"} if not classes or "a" in classes else set(classes)
+
+    mode_chars = list(mode)
+    for cls in target_classes:
+        offset = _CHMOD_CLASS_OFFSET[cls]
+        for i, p in enumerate("rwx"):
+            if p in perms:
+                mode_chars[offset + i] = p if op == "+" else "-"
+    return "".join(mode_chars)
+
+
+@command("chmod")
+def cmd_chmod(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = argv[1:]
+    if len(operands) < 2:
+        raise CommandError("Error: invalid input")
+
+    spec, *paths = operands
+    for path in paths:
+        abs_path = fs.normalize(state["current_path"], path)
+        node = fs.get_node(state, abs_path)
+        if node is None:
+            raise CommandError("Error: path not found")
+        current_mode = node.get("mode", "rw-r--r--")
+        if re.fullmatch(r"[0-7]{3}", spec):
+            node["mode"] = _mode_from_numeric(spec)
+        else:
+            node["mode"] = _apply_symbolic_mode(current_mode, spec)
+    return [], state
+
+
 @command("cat", "less")
 def cmd_cat(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    files = [a for a in argv[1:] if not a.startswith("-")]
-    if not files:
-        return stdin, state
-    out: list[str] = []
-    for f in files:
-        node = fs.get_node(state, fs.normalize(state["current_path"], f))
-        if not fs.is_file(node):
-            raise CommandError("Error: file not found")
-        out.extend(_content_lines(node))
-    return out, state
+    files = _operands(argv)
+    return _read_input(state, files, stdin), state
 
 
 @command("echo")
@@ -228,15 +307,7 @@ def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     except re.error as exc:
         raise CommandError("Error: invalid pattern") from exc
 
-    if files:
-        lines: list[str] = []
-        for f in files:
-            node = fs.get_node(state, fs.normalize(state["current_path"], f))
-            if not fs.is_file(node):
-                raise CommandError("Error: file not found")
-            lines.extend(_content_lines(node))
-    else:
-        lines = stdin
+    lines = _read_input(state, files, stdin)
 
     matched = [ln for ln in lines if bool(regex.search(ln)) != invert]
     return warning + matched, state
@@ -496,6 +567,8 @@ def cmd_sh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     node = fs.get_node(state, abs_path)
     if not fs.is_file(node):
         raise CommandError("Error: file not found")
+    if not fs.can_exec(node):
+        raise CommandError("Error: permission denied")
 
     basename = fs.segments(abs_path)[-1]
     if basename == "case_file.sh":
