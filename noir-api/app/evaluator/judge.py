@@ -245,6 +245,33 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+_MISSION16_CODE = "CODE: 4821-VESPER"
+
+
+def _judge_mission16(state: dict) -> tuple[list[str], dict]:
+    """Mission16: 数字 glob の使用 + 引用符付きファイルの cat 成功 + コード報告
+    の3点を検査する。command_log には成功したコマンドの原文がそのまま残るため、
+    未引用の "top secret.txt" 参照は失敗して記録されない＝quote 使用の証明になる。
+    """
+    log = state.get("command_log", [])
+    used_digit_glob = any(re.search(r"\[0-9\]", line) for line in log)
+    read_secret = any(re.search(r"\bcat\b.*top secret\.txt", line) for line in log)
+    reported_code = any(_MISSION16_CODE in line for line in log)
+
+    if not used_digit_glob:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: narrow the search with a glob pattern"], state
+    if not read_secret:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: the warrant does not cover an unopened file"], state
+    if not reported_code:
+        state["mission_flags"]["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+
+    state["mission_flags"]["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -254,6 +281,7 @@ _CUSTOM_JUDGES = {
     12: _judge_mission12,
     14: _judge_mission14,
     15: _judge_mission15,
+    16: _judge_mission16,
 }
 
 

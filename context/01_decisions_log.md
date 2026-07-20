@@ -5,13 +5,15 @@
 
 ---
 
-## Phase2 バックエンド実装: Mission5〜12（2026-07-20 進行中、Sonnet で実装）
+## Phase2 バックエンド実装: Mission5〜16（2026-07-20 進行中、Sonnet で実装）
 
-タスク #21〜#29（P2-01〜P2-09）。1 task = 1 commit + push で進行。全 159 tests green / ruff clean（#29 時点）。
+タスク #21〜#33（P2-01〜P2-13）。1 task = 1 commit + push で進行。全 198 tests green / ruff clean（#33 時点）。
 
 - **ghost.example を確定**（Mission12。§ 5 で予約のみだった SSH 接続先）: `initial_path=/den`、`/den/evidence/orders.txt`（"BOSS: Selene Vance"）+ デコイ + case_file.sh。`dig`/`ping` が返す IP "10.66.6.6" でも `ssh` 接続可能にするため `SSH_HOSTS["10.66.6.6"]` を同一辞書への別名として登録
 - `corp_server`・`archive_node` は引き続き Phase3 以降の拡張用に未割当のまま予約
 - Mission12 の判定は「dig→ping→ssh の**出現順序**」を command_log のインデックス比較で検査する専用 judge（§ 12「調べてから踏み込む」を機械的に担保。他 Mission には無い順序制約パターン）
+- **shlex.split → 自作 `_tokenize` に置換**（Mission16 の glob 対応。engine.py）。標準の `shlex.split` は各トークンが元々引用符で囲まれていたかの情報を破棄するため、`find -name "*.txt"` のような「引用符付きだから glob 展開させない」判定ができない。自作トークナイザは `(token, was_quoted)` のペアを返し、`_expand_globs` が「引用符なし・glob文字（`*?[`）を含む・カレントディレクトリで実際にマッチする」の3条件を満たすトークンだけを実在エントリへ展開する（bash の nullglob 無効と同じくマッチ0件はリテラルのまま）。バックスラッシュエスケープは未対応（ゲーム内コマンドで使用しないため簡略化）。既存の引用符処理・パイプ・リダイレクト挙動に回帰なし（198 tests green で確認）
+- `cmd_ls` を複数ターゲット対応に拡張（`ls case_*` の展開結果を1コマンドで表示するため必須）
 
 ---
 

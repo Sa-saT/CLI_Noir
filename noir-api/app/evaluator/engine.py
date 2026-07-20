@@ -1,7 +1,7 @@
 """コマンド評価エンジン。
 
 パイプライン（設計指示書 § 0.5 / § 8）:
-  入力行 → shlex トークナイズ → パイプ `|` でステージ分割
+  入力行 → トークナイズ（引用符情報を保持）→ glob 展開 → パイプ `|` でステージ分割
         → 最終ステージのリダイレクト分解（`>` `>>`）
         → 各ステージ: denylist → allowlist → registry の実装を実行
           （前段 stdout を次段 stdin へ渡す）
@@ -12,7 +12,7 @@
 """
 
 import copy
-import shlex
+import fnmatch
 
 from app.evaluator import commands as _commands  # noqa: F401  registry 登録のため import
 from app.evaluator import fs
@@ -22,6 +22,89 @@ from app.evaluator.errors import CommandError
 from app.evaluator.registry import get_command
 
 _REDIRECTS = (">", ">>")
+_GLOB_CHARS = "*?["
+
+
+def _tokenize(command_line: str) -> list[tuple[str, bool]]:
+    """shlex.split 相当のトークナイズ + 各トークンが引用符で囲まれていたかを返す。
+
+    glob 展開の判定（引用符付きトークンはリテラル維持=展開しない）に使う。
+    バックスラッシュエスケープは未対応（本ゲームのコマンドでは使用しない）。
+    未終端の引用符は ValueError（呼び出し側で「Error: invalid input」に変換）。
+    """
+    tokens: list[tuple[str, bool]] = []
+    i, n = 0, len(command_line)
+    while i < n:
+        while i < n and command_line[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        buf: list[str] = []
+        quoted = False
+        while i < n and not command_line[i].isspace():
+            ch = command_line[i]
+            if ch in "'\"":
+                quoted = True
+                quote_char = ch
+                i += 1
+                start = i
+                while i < n and command_line[i] != quote_char:
+                    i += 1
+                if i >= n:
+                    raise ValueError("unterminated quote")
+                buf.append(command_line[start:i])
+                i += 1
+            else:
+                buf.append(ch)
+                i += 1
+        tokens.append(("".join(buf), quoted))
+    return tokens
+
+
+def _glob_matches(pattern: str, state: dict) -> list[str] | None:
+    """パターンに一致する名前一覧を返す（マッチ無しは None）。"""
+    if "/" in pattern:
+        dir_part, _, name_pattern = pattern.rpartition("/")
+    else:
+        dir_part, name_pattern = "", pattern
+
+    abs_dir = fs.normalize(state["current_path"], dir_part or ".")
+    dir_node = fs.get_node(state, abs_dir)
+    if not fs.is_dir(dir_node):
+        return None
+
+    names = sorted(dir_node.get("children", {}).keys())
+    matches = [n for n in names if fnmatch.fnmatch(n, name_pattern)]
+    if not matches:
+        return None
+    if dir_part:
+        return [f"{dir_part}/{n}" for n in matches]
+    return matches
+
+
+def _expand_globs(tok_pairs: list[tuple[str, bool]], state: dict) -> list[str]:
+    """引用符なしトークンのうち glob 文字を含むものを実在エントリへ展開する
+    （bash の既定＝nullglob 無効と同じく、マッチが無ければリテラルのまま渡す）。
+    コマンド名（各ステージの第1トークン）には適用しない。
+    """
+    result: list[str] = []
+    at_command_position = True
+    for tok, quoted in tok_pairs:
+        if tok == "|" and not quoted:
+            result.append(tok)
+            at_command_position = True
+            continue
+        if at_command_position:
+            result.append(tok)
+            at_command_position = False
+            continue
+        if not quoted and any(ch in tok for ch in _GLOB_CHARS):
+            matches = _glob_matches(tok, state)
+            if matches is not None:
+                result.extend(matches)
+                continue
+        result.append(tok)
+    return result
 
 
 def _split_pipeline(tokens: list[str]) -> list[list[str]]:
@@ -101,11 +184,13 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     working = copy.deepcopy(state)
 
     try:
-        tokens = shlex.split(command_line)
+        tok_pairs = _tokenize(command_line)
     except ValueError:
         return ["Error: invalid input"], state  # 引用符が閉じていない等
-    if not tokens:
+    if not tok_pairs:
         return [], state
+
+    tokens = _expand_globs(tok_pairs, working)
 
     stages = _split_pipeline(tokens)
     # 空ステージ（`| foo` / `foo |` / `foo || bar`）はパイプ不正。

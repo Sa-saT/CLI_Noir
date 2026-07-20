@@ -185,20 +185,26 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     flags = _flag_chars(argv)
     long = "l" in flags
     operands = _operands(argv)
-    target = operands[0] if operands else state["current_path"]
-    abs_path = fs.normalize(state["current_path"], target)
-    node = fs.get_node(state, abs_path)
-    if node is None:
-        raise CommandError("Error: path not found")
+    # 複数ターゲット対応（glob 展開で `ls case_*` が複数ファイル名になるため）。
+    targets = operands if operands else [state["current_path"]]
 
-    if fs.is_file(node) or fs.is_link(node):
-        name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
-        return ([_ls_long_line(name, node)] if long else [name]), state
+    out: list[str] = []
+    for target in targets:
+        abs_path = fs.normalize(state["current_path"], target)
+        node = fs.get_node(state, abs_path)
+        if node is None:
+            raise CommandError("Error: path not found")
 
-    names = sorted(node.get("children", {}).keys())
-    if not long:
-        return names, state
-    return [_ls_long_line(n, node["children"][n]) for n in names], state
+        if fs.is_file(node) or fs.is_link(node):
+            name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
+            out.append(_ls_long_line(name, node) if long else name)
+        else:
+            names = sorted(node.get("children", {}).keys())
+            if long:
+                out.extend(_ls_long_line(n, node["children"][n]) for n in names)
+            else:
+                out.extend(names)
+    return out, state
 
 
 @command("cd")

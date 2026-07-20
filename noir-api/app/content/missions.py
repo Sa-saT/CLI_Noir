@@ -420,6 +420,35 @@ _MISSION15_FS = {
 }
 
 
+# Mission16 の初期 FS: warehouse/ に case_1〜case_42.txt を大量配置し、
+# glob で絞り込む必要性を体感させる。空白入りファイル名は引用符が必須。
+def _mission16_warehouse_children() -> dict:
+    children = {
+        f"case_{i}.txt": _file(f"routine case file #{i}", immutable=True)
+        for i in range(1, 43)
+    }
+    children["top secret.txt"] = _file("CODE: 4821-VESPER", immutable=True)
+    return children
+
+
+_MISSION16_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "warehouse": {
+                "type": "dir",
+                "children": {
+                    **_mission16_warehouse_children(),
+                    "case_file.sh": _file(
+                        "# 事件ファイル: sh case_file.sh で判定する\n", immutable=True
+                    ),
+                },
+            },
+        },
+    }
+}
+
+
 @dataclass(frozen=True)
 class MissionDef:
     id: int
@@ -608,6 +637,10 @@ _DEFS: list[MissionDef] = [
         16, "The Great Sweep", "一斉捜索令状",
         "glob と引用符で対象を絞り込み、空白入りファイル名も開封する。",
         ["find", "grep"],
+        # 判定は judge.py の Mission16 専用ロジック（数字 glob 使用 + 引用符付き
+        # cat 成功 + コード報告）で行うため expected_script_patterns は空。
+        initial_filesystem=_MISSION16_FS,
+        initial_current_path="/root/warehouse",
     ),
     MissionDef(
         17, "Fingerprint", "指紋は嘘をつかない",
