@@ -312,3 +312,67 @@ DoD: 一度 `git commit` してから再接続し、セーブ選択→復元が�
   5. `nuxt typecheck` / `nuxt build` は全 FE タスクで都度グリーン
 
 DoD: Mission1〜3 が実ブラウザでノーエラーにクリアできる ✅
+
+---
+
+# Part 3: ヒント機能（仮実装。2026-08-12 着手）
+
+Goal: 設計指示書 § 11 ゲーム機能4「相棒キャラクター: 3段階ヒントの語り手」・Mission参照ファイル § 1-D「ヒント: 3段階」が
+文言はMission1のみ確定・配線が一切無い状態だったため、**Mission1〜3の範囲で最小限つなぐ**（バックエンド hints フィールド
++ API 拡張 + フロント簡易UI）。UI/UX の作り込み（自動表示かボタンか・相棒キャラの見た目・失敗時トリガーの具体仕様）は
+**今回はやらない**。次回の実装セッションで AskUserQuestion 等を使い先に仕様を詰めてから着手すること。
+
+## HINT-01 Mission1〜3 ヒント3段階の配線（仮実装）
+- [ ] 未着手
+
+### 背景
+- Mission1 のヒント3段階は `docs/Mission参照ファイル.md` § 2 に確定済み（そのまま使う）
+- Mission2/3 はヒント文言自体が未確定だった。今回 Opus が AUTHORING_GUIDE.md § 4「ヒント3段階の書き分け」
+  （1:方向性=コマンド名なし / 2:具体=コマンド名あり・使い方なし / 3:ほぼ答え=コピペ一歩手前）に沿って新規に起草した
+  （下記「使用する文言」）。**この文言は仮**。ノワール文体としてMission1（説明書口調寄り）と若干トーンが異なる点も含め、
+  次回ユーザー確認・調整の対象
+- Mission4〜22 のヒントは未確定のまま（対象外。バックエンドは `hints` が空配列なら該当 Mission として扱う）
+
+### 使用する文言（そのまま実装に使うこと。書き換えない）
+
+**Mission1**（`docs/Mission参照ファイル.md` § 2 と同一。動かさない）:
+1. `まず机(desk)を調べ、名刺ファイルの場所を確認しよう。`
+2. `名刺にはあなたのユーザー名を書き込む必要があります。`
+3. `編集後は git add -> git commit -m -> git push の順で進めよう。`
+
+**Mission2**（新規・仮）:
+1. `公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。`
+2. `find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。`
+3. `find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。`
+
+**Mission3**（新規・仮）:
+1. `遊園地の門の向こうに、答えはある。だがここからじゃ届かない。回線を繋げ。`
+2. `ssh amusement_park で門(gate)まで踏み込め。中の設備を一つずつ find と cat で洗え。`
+3. `ssh amusement_park のあと find . -type f で3つの手がかりを探し、cat で読んだ Code / Wire / Height を echo で報告書に書き出せ。`
+
+### 実装手順
+1. **バックエンド**: `noir-api/app/content/missions.py` の `MissionDef` に `hints: list[str] = field(default_factory=list)` を追加。
+   Mission1/2/3 の `MissionDef(...)` 呼び出しに上記文言を設定（他 Mission は未指定のまま=空配列でよい）
+2. `noir-api/app/api/missions.py` の `MissionDetail` に `hints: list[str]` を追加し、`mission_detail()` のレスポンスに含める
+   （`MissionSummary`/一覧APIには不要。詳細APIのみ）
+3. テスト: 既存の Mission1系テスト（`tests/test_evaluator.py` 等、詳細API を叩いている箇所）に hints 件数 or 内容の assertion を
+   1件追加。無ければ `tests/test_missions_api.py` のような新規テストを追加してよい。pytest 全緑・ruff clean を維持
+4. **ドキュメント**: 変更前に `old_files/Mission参照ファイル_004.md` へバックアップしてから、
+   `docs/Mission参照ファイル.md` の Mission2/Mission3 節に上記文言を「ヒント:」として追記する
+   （Mission1 と同じ書式。§ 5 見出し直下、確定情報の末尾に追加）
+5. **フロントエンド（最小限。凝った演出は作らない）**: `noir-client/app/pages/missions/[id].vue` に
+   `mission.hints`（配列。0件ならUI自体を非表示）を使った簡易UI: 「ヒントを見る (n/3)」ボタン1つ。クリックのたびに
+   revealed カウントを+1し、それまでに開放した段階のヒントをテキストで上から順に表示する。サーバー側に状態は持たせない
+   （ページ離脱でリセットで良い。ペナルティ無し=AUTHORING_GUIDE.md § 1 原則2）。既存コンポーネントに大きく手を入れず、
+   ページ内の素朴な実装でよい（専用の「相棒キャラ」コンポーネント化は次回のUX設計後）
+6. DoD: `nuxt typecheck` / `nuxt build` / バックエンド pytest 全緑。ブラウザで Mission1〜3 それぞれ「ヒントを見る」を
+   3回クリックして3段階すべて表示されることを確認。Mission4〜22（hints 空）ではボタンが出ないことも確認
+7. 完了後 `context/03_pending_items.md` を更新: 「ヒント3段階のフロント表示文言のみ未着手」の記述を
+   「Mission1〜3は仮実装済み・Mission4〜22は文言未確定のまま・UI/UXは次回設計」に更新する
+8. 1 commit + push（このタスク単体で1コミットでよい）。コミットメッセージ末尾に `Co-Authored-By:` トレーラを付ける
+
+### 次回に持ち越す事項（今回は着手しない）
+- ヒント表示の具体的トリガー（自動 or ボタン。失敗検知との連動）
+- 相棒キャラクターの見た目・演出（設計指示書 § 11 機能4）
+- Mission2/3 の仮ヒント文言のレビュー・確定（トーンをMission1と揃えるか、AUTHORING_GUIDE寄りに寄せるか）
+- Mission4〜22 のヒント文言の起草
