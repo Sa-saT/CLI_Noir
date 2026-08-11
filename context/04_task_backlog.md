@@ -275,7 +275,7 @@ DoD: ブラウザの開発者ツールで WS 接続 → auth → hello → 簡�
 DoD: ブラウザで Mission1 を実際に `cat`→`echo`→`sh case_file.sh`→`git add/commit/push` まで通しプレイできることを確認（最重要 DoD）。
 
 ## FE-05 コマンド一覧パネルの Mission 連動
-- [ ] 未着手
+- [x] 完了（2026-08-12）。新設 `app/utils/commandCatalog.ts`（`buildCommandEntries`/`commandDetailFor`/`rankLabelFor`）を `app/pages/missions/[id].vue` に配線。Mission 詳細の `allowed_commands` から `CommandPanel` の表示エントリを生成し（`git` は 4 サブコマンドに展開して highlight）、クリックで `CommandDetail` をフェード表示する既存 UX はそのまま維持。ヘッダーの探偵ランク表示も allowed_commands ベースで算出。Mission ごとに一覧が変わることをブラウザで確認済み
 
 1. `CommandPanel.vue`/`CommandDetail.vue` を Mission 詳細 API の `allowed_commands`（バックエンド `MissionDef.allowed_commands` 相当。`GET /api/missions/{id}/` のレスポンスに含まれるか確認）に連動させる
 2. コマンドクリックで入力欄に挿入する等、既存コンポーネントの UX を壊さない範囲で配線

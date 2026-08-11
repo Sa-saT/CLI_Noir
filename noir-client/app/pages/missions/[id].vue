@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { CommandEntry } from '~/components/CommandPanel.vue'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
@@ -32,6 +33,14 @@ const missionId = computed(() => Number(route.params.id))
 const mission = ref<MissionDetail | null>(null)
 const loadError = ref('')
 const started = ref(false)
+const selectedCommand = ref('')
+
+const commands = computed<CommandEntry[]>(() => buildCommandEntries(mission.value?.allowed_commands ?? []))
+const detail = computed(() => {
+  if (!selectedCommand.value) return null
+  return { name: selectedCommand.value, ...commandDetailFor(selectedCommand.value) }
+})
+const rank = computed(() => (mission.value ? rankLabelFor(mission.value.allowed_commands) : ''))
 
 async function loadMission(id: number) {
   loadError.value = ''
@@ -60,6 +69,10 @@ function start() {
   socket.connect(missionId.value)
 }
 
+function onSelectCommand(name: string) {
+  selectedCommand.value = name
+}
+
 function onNext() {
   const next = store.nextMissionId
   store.missionCleared = false
@@ -77,6 +90,7 @@ function onNext() {
       :tag="`Mission ${mission.id}`"
       :title="mission.title"
       :subtitle="mission.title_ja"
+      :rank="rank"
     />
     <SceneOverlay
       class="briefing-scene"
@@ -101,6 +115,7 @@ function onNext() {
       :tag="`Mission ${mission.id}`"
       :title="mission.title"
       :subtitle="mission.title_ja"
+      :rank="rank"
     />
 
     <div class="ga-scene scene-col">
@@ -109,7 +124,14 @@ function onNext() {
     </div>
 
     <aside class="ga-rail rail">
-      <CommandPanel />
+      <CommandPanel :commands="commands" @select="onSelectCommand" />
+      <CommandDetail
+        v-if="detail"
+        :name="detail.name"
+        :syntax="detail.syntax"
+        :real="detail.real"
+        :in-game="detail.inGame"
+      />
     </aside>
 
     <section class="ga-term term">
