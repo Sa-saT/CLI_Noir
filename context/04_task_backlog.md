@@ -240,7 +240,7 @@ FE-01 → FE-02 → FE-03 → FE-04 → FE-05 → FE-06 → FE-07 → FE-08（�
 DoD: `pnpm dev` でログイン→トークン取得→保護ページに遷移できることをブラウザで確認。
 
 ## FE-02 Mission一覧・詳細ページ
-- [ ] 未着手
+- [x] 完了（2026-08-11）。`app/pages/missions/index.vue`（`GET /api/missions/` を status ごとにカード表示、locked はクリック不可）+ `app/pages/missions/[id].vue`（`GET /api/missions/{id}/` のブリーフィング + 「捜査を開始する」導線。ターミナル本体は FE-03/04 で追加）。認証付き fetch は新設 `app/composables/useApi.ts` に集約（401 で自動ログアウト+/login へ）。一覧→詳細→開始の導線をブラウザで確認済み
 
 参照: 設計指示書 § 6 エンドポイント一覧（`GET /api/missions/`, `GET /api/missions/{id}/`）
 
