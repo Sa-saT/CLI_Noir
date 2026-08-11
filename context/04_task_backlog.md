@@ -262,7 +262,8 @@ DoD: ブラウザで一覧→詳細→開始の導線が繋がることを確認
 DoD: ブラウザの開発者ツールで WS 接続 → auth → hello → 簡単な exec が通ることを確認（コンソールログ等で可、UI 未接続でも可）。
 
 ## FE-04 TerminalView を WS 連携に置換（モック evaluator 撤去）
-- [ ] 未着手
+- [x] 完了（2026-08-11）。`app/pages/missions/[id].vue` の「捜査を開始する」以降で `useTerminalSocket`/Pinia store に接続し `TerminalView` へ実データを流す。`app/pages/index.vue` のモック evaluator を撤去（`/` は認証状態に応じて `/missions` or `/login` へ redirect するだけのエントリポイントに変更）。`mission_clear` イベント受信で `ClearEffect` を発火し次 Mission へ導線。Tab 補完はバックエンドに `complete` フレームの実装が無いため本タスクではスキップ（別タスク化を検討。設計指示書 § 7 に定義はあるが `noir-api/app/ws/terminal.py` 未実装）。
+  **最重要 DoD 達成**: Mission1 を実ブラウザ（Playwright 経由の実 Chromium。claude-in-chrome 等の対話ツールは本セッションで利用不可だったため代替手段として使用）で `cat`→`echo`→`sh case_file.sh`→`git add`→`git commit`→`git push` まで通しプレイし "Mission Complete!" 演出まで確認。console error 0 件。あわせて `noir-api` 実サーバーに対する Python websockets クライアントでのプロトコル検証、`nuxt typecheck`/`nuxt build` の通過も確認済み
 
 参照: `docs/DESIGN.md` § 10「TerminalView 実装仕様」（アーキテクチャ・入力ライン編集・出力レンダリング・Tab補完プロトコル・プロンプト表示の品質基準）
 

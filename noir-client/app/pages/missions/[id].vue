@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 /*
- * Mission 詳細 + 開始導線（FE-02）。設計指示書 § 3 ルーティング `/missions/{id}`。
- * ターミナル本体の WS 接続（FE-03/04）は後続タスクでこの続き（「捜査を開始する」の先）
- * に配線する。
+ * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
+ * 未着手時は Mission 詳細（ブリーフィング）を表示し、「捜査を開始する」で
+ * WebSocket 接続 → 実ターミナルへ遷移する（FE-02 の詳細+開始導線と、
+ * 設計指示書 § 3 の固定ルーティングを両立させるため、ページ内 state で切替える）。
+ *
+ * FE-04: TerminalView を useTerminalSocket/Pinia store に接続し、モック evaluator
+ * を撤去（旧実装は app/pages/index.vue にあった）。コマンド一覧の Mission 連動
+ * （FE-05）・場面画像の current_path 連動（FE-06）・セーブ選択（FE-07）は後続タスク。
  */
 definePageMeta({ middleware: 'auth' })
 
@@ -18,7 +23,10 @@ interface MissionDetail {
 }
 
 const route = useRoute()
+const router = useRouter()
 const { apiFetch } = useApi()
+const store = useTerminalStore()
+const socket = useTerminalSocket()
 
 const missionId = computed(() => Number(route.params.id))
 const mission = ref<MissionDetail | null>(null)
@@ -36,14 +44,27 @@ async function loadMission(id: number) {
 }
 
 onMounted(() => loadMission(missionId.value))
+
+// 次 Mission への遷移など、同一コンポーネントのまま id だけ変わるケースに対応
 watch(missionId, (id) => {
+  socket.disconnect()
   started.value = false
   loadMission(id)
 })
 
+onBeforeUnmount(() => socket.disconnect())
+
 function start() {
   if (!mission.value || mission.value.status === 'locked') return
   started.value = true
+  socket.connect(missionId.value)
+}
+
+function onNext() {
+  const next = store.nextMissionId
+  store.missionCleared = false
+  if (next) router.push(`/missions/${next}`)
+  else router.push('/missions')
 }
 </script>
 
@@ -74,9 +95,31 @@ function start() {
     </SceneOverlay>
   </div>
 
-  <!-- ターミナル本体は WS 接続基盤（FE-03/04）で配線する -->
-  <div v-else class="center hint">
-    捜査記録を準備中…（ターミナル接続は次のタスクで実装）
+  <div v-else class="screen">
+    <MissionHeader
+      class="ga-header"
+      :tag="`Mission ${mission.id}`"
+      :title="mission.title"
+      :subtitle="mission.title_ja"
+    />
+
+    <div class="ga-scene scene-col">
+      <SceneOverlay badge="Scène" />
+      <ClearEffect v-if="store.missionCleared" class="clear-overlay" @next="onNext" />
+    </div>
+
+    <aside class="ga-rail rail">
+      <CommandPanel />
+    </aside>
+
+    <section class="ga-term term">
+      <TerminalView
+        :lines="store.lines"
+        :prompt="store.promptState"
+        :connected="store.connected"
+        @command="socket.exec"
+      />
+    </section>
   </div>
 </template>
 
@@ -104,5 +147,77 @@ function start() {
 .briefing-scene {
   flex: 1;
   margin: var(--space-6);
+}
+.screen {
+  display: grid;
+  grid-template-columns: 1fr var(--rail-command-w);
+  grid-template-rows: auto 1fr var(--terminal-h);
+  grid-template-areas:
+    "header header"
+    "scene  rail"
+    "term   rail";
+  height: 100vh;
+  min-height: 640px;
+  background: var(--bg-app-deep);
+  overflow: hidden;
+}
+.ga-header {
+  grid-area: header;
+}
+.ga-scene {
+  grid-area: scene;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+.ga-scene :deep(.scene) {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.clear-overlay {
+  position: absolute;
+  inset: 0;
+}
+.ga-rail {
+  grid-area: rail;
+  border-left: 1px solid var(--brass-600);
+  box-shadow: var(--bezel-brass);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.ga-rail :deep(.panel) {
+  width: 100%;
+}
+.ga-rail :deep(.detail) {
+  width: 100%;
+}
+.ga-term {
+  grid-area: term;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--brass-600);
+}
+
+@media (max-width: 720px) {
+  .screen {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+  .ga-scene {
+    min-height: var(--scene-min-h);
+  }
+  .ga-rail {
+    border-left: none;
+  }
+  .ga-term {
+    height: var(--terminal-h);
+    min-height: 260px;
+  }
 }
 </style>

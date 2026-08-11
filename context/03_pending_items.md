@@ -69,8 +69,8 @@
 ### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
 - [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）
 - [x] Nuxt ルーティング（/missions, /missions/{id}）。Mission 一覧 `app/pages/missions/index.vue` + 詳細/開始導線 `app/pages/missions/[id].vue`（ターミナル本体は FE-03/04 で追加配線）。FE-02
-- [ ] UI 3領域レイアウト
-- [ ] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂）
+- [x] UI 3領域レイアウト（`app/pages/missions/[id].vue` で MissionHeader/SceneOverlay/CommandPanel/TerminalView を実配線。FE-04）
+- [x] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂。実 WS state（Pinia store）に接続し、`app/pages/index.vue` のモック evaluator は撤去。FE-04。Mission1 を cat→echo→sh case_file.sh→git add/commit/push までブラウザ（Playwright 実 Chromium）で通しプレイ確認済み・console error 0 件）
 - [x] WebSocket 接続基盤（初回 `auth` フレーム認証 + `hello`/`exec`/`result`/`event`/`resume` プロトコル。設計指示書 § 7。`app/composables/useTerminalSocket.ts` + Pinia store `app/stores/terminal.ts`（DESIGN.md § 10-1 の単方向データフロー）+ 型定義 `app/types/ws.ts`。指数バックオフ再接続対応。FE-03。まだどのページからも呼ばれていない状態で Python の websockets クライアントでプロトコルの往復を検証済み — UI 配線は FE-04）
 - [ ] コマンド一覧パネル
 - [ ] 場面画像のカレントディレクトリ紐付け（`scene_images` 最長一致解決は noir-client で実装済み。WS の state 連動と cd/ssh/exit フェードの結合は未）
