@@ -148,7 +148,7 @@ watch(() => props.lines.length, () => {
   font-style: italic;
 }
 .ln.success {
-  color: #6ee7b7;
+  color: var(--term-success);
 }
 .ln.emphasis {
   color: var(--term-warn);

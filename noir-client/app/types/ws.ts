@@ -1,6 +1,11 @@
 /*
  * WebSocket フレーム型（設計指示書 § 7）。
- * `noir-api/app/ws/frames.py` の Pydantic モデルと 1:1 を保つ（技術スタック § 2）。
+ * クライアント→サーバー（AuthFrame/ExecFrame/ResumeFrame）は `noir-api/app/ws/frames.py` の
+ * Pydantic モデルと 1:1（技術スタック § 2）。
+ * サーバー→クライアントは `noir-api/app/ws/terminal.py` が実際に送るのは hello / result /
+ * event(name="mission_clear") のみ（2026-08-12 時点）。StreamFrame と RankUpEvent は
+ * バックエンド未実装の先行型（探偵ランク制度＝設計指示書 § 11 ゲーム機能1。実装され次第
+ * 検証すること。それまではこのパスは未到達＝テスト不能）。
  */
 
 export type Style = 'normal' | 'error' | 'warning' | 'emphasis' | 'success'

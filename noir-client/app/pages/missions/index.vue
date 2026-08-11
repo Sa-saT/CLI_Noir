@@ -29,7 +29,7 @@ onMounted(async () => {
   try {
     missions.value = await apiFetch<MissionSummary[]>('/api/missions/')
   } catch {
-    error.value = 'Error: mission not found'
+    error.value = 'Error: failed to load missions'
   } finally {
     loading.value = false
   }
@@ -170,8 +170,8 @@ h2 {
   color: var(--text-faint);
 }
 .status.cleared {
-  color: #6ee7b7;
-  border-color: #6ee7b7;
+  color: var(--term-success);
+  border-color: var(--term-success);
 }
 .status.open {
   color: var(--accent-quiet);

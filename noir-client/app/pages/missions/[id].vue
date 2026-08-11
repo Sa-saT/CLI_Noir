@@ -48,8 +48,9 @@ async function loadMission(id: number) {
   mission.value = null
   try {
     mission.value = await apiFetch<MissionDetail>(`/api/missions/${id}/`)
-  } catch {
-    loadError.value = 'Error: mission not found'
+  } catch (err) {
+    const statusCode = (err as { statusCode?: number })?.statusCode
+    loadError.value = statusCode === 404 ? 'Error: mission not found' : 'Error: failed to load mission'
   }
 }
 
@@ -111,8 +112,7 @@ function resolveScene(host: string, path: string): string {
   }
   return img
 }
-const sceneHost = computed(() => (store.remoteMode ? (store.sshHost ?? 'remote') : 'office'))
-const sceneImage = computed(() => resolveScene(sceneHost.value, store.currentPath))
+const sceneImage = computed(() => resolveScene(store.displayHost, store.currentPath))
 
 function onNext() {
   const next = store.nextMissionId

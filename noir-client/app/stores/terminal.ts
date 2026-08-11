@@ -39,11 +39,19 @@ export const useTerminalStore = defineStore('terminal', {
     _nextLineId: 1,
   }),
   getters: {
+    /**
+     * 「今どのホストにいるか」の単一ソース。プロンプト表示（promptState.host）と
+     * 場面画像解決（missions/[id].vue の scene_images 最長一致キー）の両方がここを参照する。
+     * 別々に再実装すると、一方だけ変更した際に表示とシーンがズレるため統合済み。
+     */
+    displayHost(state): string {
+      return state.remoteMode ? (state.sshHost ?? 'remote') : 'office'
+    },
     /** DESIGN.md § 4「プロンプト表記は状態を反映する」。su は未対応（Mission1〜3 の範囲外）。 */
     promptState(state): PromptState {
       return {
         user: 'detective',
-        host: state.remoteMode ? (state.sshHost ?? 'remote') : 'office',
+        host: this.displayHost,
         path: state.currentPath,
         hostType: state.remoteMode ? 'remote' : 'local',
       }

@@ -10,10 +10,12 @@ import type { EventFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } fr
 
 const RECONNECT_MIN_MS = 1000
 const RECONNECT_MAX_MS = 30000
+/** noir-api/app/ws/terminal.py が auth フレーム欠落・不正/失効トークンで送る close code。 */
+const WS_CODE_UNAUTHORIZED = 4401
 
 export function useTerminalSocket() {
   const store = useTerminalStore()
-  const { getToken } = useAuth()
+  const { getToken, logout } = useAuth()
   const config = useRuntimeConfig()
 
   let ws: WebSocket | null = null
@@ -53,12 +55,25 @@ export function useTerminalSocket() {
         // 不正な JSON は無視（サーバー側は Pydantic で検証済みのはずだが防御的に）
       }
     })
-    socket.addEventListener('close', () => {
+    socket.addEventListener('close', (ev) => {
       if (ws !== socket) return // 既に張り替え済みの古い socket
       ws = null
       store.connected = false
       store.connecting = false
       if (manualClose) return
+      if (ev.code === WS_CODE_UNAUTHORIZED) {
+        // トークン欠落/不正/失効。再接続しても同じトークンで同じ結果になるだけなので、
+        // useApi.ts の 401 ハンドリング（ログアウト + /login 遷移）と同じ扱いにする。
+        manualClose = true
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer)
+          reconnectTimer = null
+        }
+        store.pushLine('error', 'Error: unauthorized（再ログインが必要です）')
+        logout()
+        navigateTo('/login')
+        return
+      }
       store.pushLine('warn', '-- connection lost, reconnecting... --')
       scheduleReconnect()
     })
@@ -115,6 +130,8 @@ export function useTerminalSocket() {
       store.missionCleared = true
       store.nextMissionId = frame.next_mission_id
     } else if (frame.name === 'rank_up') {
+      // バックエンド未実装（types/ws.ts 冒頭コメント参照）。実装され次第、テキスト表示ではなく
+      // RankUpEffect.vue（未接続）へ繋ぎ直すこと。
       store.pushLine('system', `-- ランクアップ: Level ${frame.level}（新規解放: ${frame.unlocked.join(', ')}） --`)
     }
   }
