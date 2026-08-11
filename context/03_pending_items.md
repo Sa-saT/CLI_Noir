@@ -75,7 +75,7 @@
 - [x] コマンド一覧パネル（`app/utils/commandCatalog.ts` で Mission 詳細 API の `allowed_commands` → `CommandPanel`/`CommandDetail` へ変換。`git` は git status/add/commit/push の4件に展開して highlight 表示。ヘッダーの探偵ランクも allowed_commands から算出。FE-05）
 - [x] 場面画像のカレントディレクトリ紐付け（`app/pages/missions/[id].vue` で WS state（Pinia store の `currentPath`/`remoteMode`/`sshHost`）から `host:パス接頭辞` の最長一致解決 → `SceneOverlay` へ。`cd`/`ssh`/`exit` の画像切替は `SceneOverlay` 側の 0.8s クロスフェードが自動追従。FE-06。ssh amusement_park:/gate 用画像は未制作のためプレースホルダ表示 — 下記「場所別画像アセットの制作」で追跡）
 - [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）
-- [ ] セーブ選択 UI（再ログイン時の commit 一覧）
+- [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
 
 ### テスト
 - [ ] コマンドカテゴリごとの正常系/異常系

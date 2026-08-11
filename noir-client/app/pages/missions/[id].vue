@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
+import type { SaveEntry } from '~/components/SaveSelectModal.vue'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
@@ -71,6 +72,22 @@ function start() {
 
 function onSelectCommand(name: string) {
   selectedCommand.value = name
+}
+
+// --- FE-07: セーブ選択（再ログイン時の commit 一覧） ---
+const saves = computed<SaveEntry[]>(() => store.commits.map((c, idx) => ({
+  hash: `#${c.id}`,
+  message: c.message || '(無題のセーブ)',
+  when: c.created_at ?? '',
+  latest: idx === store.commits.length - 1,
+})))
+
+function onResume(hash: string) {
+  const id = Number(hash.replace('#', ''))
+  socket.resume(id)
+}
+function onStartOver() {
+  socket.skipResume()
 }
 
 // --- FE-06: 場面画像の current_path 連動（DESIGN.md § 1。前方一致の最長一致） ---
@@ -145,6 +162,15 @@ function onNext() {
 
     <div class="ga-scene scene-col">
       <SceneOverlay :image="sceneImage" badge="Scène" />
+      <div v-if="store.pendingResume" class="resume-overlay">
+        <SaveSelectModal
+          title="セーブを選んで再開"
+          :subtitle="`Mission ${mission.id} — 記録された commit から選択してください`"
+          :saves="saves"
+          @resume="onResume"
+          @start-over="onStartOver"
+        />
+      </div>
       <ClearEffect v-if="store.missionCleared" class="clear-overlay" @next="onNext" />
     </div>
 
@@ -225,6 +251,18 @@ function onNext() {
 .clear-overlay {
   position: absolute;
   inset: 0;
+}
+.resume-overlay {
+  /* fixed: 画面全体を覆い、選択が済むまでターミナル操作をさせない（scene 領域内の
+     absolute overlay だと下部ターミナルの入力がそのまま操作できてしまうため） */
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 6, 0.72);
+  backdrop-filter: blur(2px);
 }
 .ga-rail {
   grid-area: rail;

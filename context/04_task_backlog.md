@@ -293,7 +293,8 @@ DoD: Mission ごとに異なるコマンド一覧が表示されることを確�
 DoD: `cd`/`ssh`/`exit` でシーン画像が切り替わる（フェード込み）ことを確認。
 
 ## FE-07 セーブ選択 UI（再ログイン時の commit 一覧）
-- [ ] 未着手
+- [x] 完了（2026-08-12）。`SaveSelectModal.vue` を `app/pages/missions/[id].vue` に接続。`useTerminalSocket` の `hello` フレームで `commits` が1件以上あれば Pinia store の `pendingResume` を立て、画面全体を覆う固定オーバーレイ（`.resume-overlay`）としてモーダルを表示（scene 領域内の absolute overlay だとターミナル入力が素通りしてしまうため fixed に変更）。「このセーブで再開」で `resume` フレーム送信 → 応答の `hello` を「セーブから再開しました」システム行として表示（再接続時の「reconnected」文言と区別）。「最初から」は現在の live state のまま続行（`pendingResume` を倒すだけ）。
+  commit 済みの Mission を再訪 → セーブ選択モーダル表示 → 「このセーブで再開」/「最初から」の双方をブラウザ（Playwright 実 Chromium）で確認済み
 
 参照: 設計指示書 § 10「セーブ仕様」・§ 7 の `resume` フレーム。バックエンド `noir-api/app/ws/terminal.py` の `_handle_resume`・`GET /api/missions/{id}/state/` を参照
 
