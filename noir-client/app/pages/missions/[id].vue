@@ -22,6 +22,7 @@ interface MissionDetail {
   description: string
   allowed_commands: string[]
   status: 'cleared' | 'open' | 'locked'
+  hints: string[]
 }
 
 const route = useRoute()
@@ -35,6 +36,13 @@ const mission = ref<MissionDetail | null>(null)
 const loadError = ref('')
 const started = ref(false)
 const selectedCommand = ref('')
+
+// --- HINT-01: 3段階ヒントの仮UI（サーバー側に状態は持たせない。ページ離脱でリセット） ---
+const revealedHints = ref(0)
+function revealNextHint() {
+  if (!mission.value) return
+  revealedHints.value = Math.min(revealedHints.value + 1, mission.value.hints.length)
+}
 
 const commands = computed<CommandEntry[]>(() => buildCommandEntries(mission.value?.allowed_commands ?? []))
 const detail = computed(() => {
@@ -60,6 +68,7 @@ onMounted(() => loadMission(missionId.value))
 watch(missionId, (id) => {
   socket.disconnect()
   started.value = false
+  revealedHints.value = 0
   loadMission(id)
 })
 
@@ -183,6 +192,18 @@ function onNext() {
         :real="detail.real"
         :in-game="detail.inGame"
       />
+      <div v-if="mission.hints.length" class="hint-box">
+        <NoirButton
+          variant="secondary"
+          :disabled="revealedHints >= mission.hints.length"
+          @click="revealNextHint"
+        >
+          ヒントを見る ({{ revealedHints }}/{{ mission.hints.length }})
+        </NoirButton>
+        <ol v-if="revealedHints > 0" class="hint-list">
+          <li v-for="(h, i) in mission.hints.slice(0, revealedHints)" :key="i">{{ h }}</li>
+        </ol>
+      </div>
     </aside>
 
     <section class="ga-term term">
@@ -279,6 +300,25 @@ function onNext() {
 }
 .ga-rail :deep(.detail) {
   width: 100%;
+}
+.hint-box {
+  width: var(--rail-command-w);
+  max-width: 100%;
+  background: linear-gradient(180deg, var(--gray-800), var(--gray-900));
+  border: 1px solid var(--brass-600);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card), var(--bezel-brass);
+  padding: var(--space-3);
+  font-family: var(--font-ui);
+}
+.hint-list {
+  margin: var(--space-3) 0 0;
+  padding-left: 1.2em;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .ga-term {
   grid-area: term;

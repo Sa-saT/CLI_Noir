@@ -723,6 +723,9 @@ class MissionDef:
     informant_history: list[str] | None = None
     # 初期環境変数（PATH 汚染等）。None はデフォルト（正常な PATH）。
     initial_env_vars: dict[str, str] | None = None
+    # 3段階ヒント（相棒キャラクターの語り。設計指示書 § 11 機能4 / Mission参照 § 1-D）。
+    # 空 = 未配線（Mission4〜22 は今回対象外。フロントはボタン自体を非表示にする）。
+    hints: list[str] = field(default_factory=list)
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -745,6 +748,11 @@ _DEFS: list[MissionDef] = [
             r"^echo\s+.+\s*>\s+/root/desk/businesscard\.txt$",
         ],
         initial_filesystem=_MISSION1_FS,
+        hints=[
+            "まず机(desk)を調べ、名刺ファイルの場所を確認しよう。",
+            "名刺にはあなたのユーザー名を書き込む必要があります。",
+            "編集後は git add -> git commit -m -> git push の順で進めよう。",
+        ],
     ),
     MissionDef(
         2, "Park Cat Search", "公園の猫を探せ",
@@ -754,6 +762,11 @@ _DEFS: list[MissionDef] = [
         # 行うため expected_script_patterns は空にする（誤答メッセージを個別化するため）。
         initial_filesystem=_MISSION2_FS,
         initial_current_path="/root/park",
+        hints=[
+            "公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。",
+            "find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。",
+            "find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。",
+        ],
     ),
     MissionDef(
         3, "Amusement Park Bomb", "遊園地の爆弾",
@@ -765,6 +778,11 @@ _DEFS: list[MissionDef] = [
             r"Code: [A-Z0-9]{4,}",
             r"Wire: (red|blue|yellow)",
             r"Height: [0-9]+",
+        ],
+        hints=[
+            "遊園地の門の向こうに、答えはある。だがここからじゃ届かない。回線を繋げ。",
+            "ssh amusement_park で門(gate)まで踏み込め。中の設備を一つずつ find と cat で洗え。",
+            "ssh amusement_park のあと find . -type f で3つの手がかりを探し、cat で読んだ Code / Wire / Height を echo で報告書に書き出せ。",
         ],
     ),
     MissionDef(

@@ -31,6 +31,7 @@ class MissionDetail(BaseModel):
     description: str
     allowed_commands: list[str]
     status: str
+    hints: list[str]
 
 
 def _completed_ids(session: Session, user_id: int) -> set[int]:
@@ -93,4 +94,5 @@ def mission_detail(
         description=mission.description,
         allowed_commands=mission.allowed_commands,
         status=_status_for(mission.id, completed),
+        hints=mission.hints,
     )

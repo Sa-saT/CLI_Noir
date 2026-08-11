@@ -107,7 +107,8 @@
 - [ ] `cowsay` / `figlet` の evaluator 定義（バックエンド_コマンド機能仕様への追加。隠し実績の解放条件設計も）
 
 ### ~~Mission4〜22 の詳細化~~（解消: 2026-07-20）
-- 全 Mission の `expected_script_patterns`/カスタム judge・初期FS・プロセス表・cron 表・env_vars を `noir-api/app/content/missions.py` に実装済み（ヒント3段階のフロント表示文言のみ未着手 — フロント実装時に確定）
+- 全 Mission の `expected_script_patterns`/カスタム judge・初期FS・プロセス表・cron 表・env_vars を `noir-api/app/content/missions.py` に実装済み
+- ヒント3段階: Mission1〜3 は 2026-08-12 HINT-01 で仮実装済み（`MissionDef.hints` → API `MissionDetail.hints` → `noir-client/app/pages/missions/[id].vue` の簡易ボタンUI）。Mission4〜22 は文言未確定のまま（`hints` 空配列）。相棒キャラの見た目・表示トリガー等の UI/UX は次回設計セッションで詰める（`context/04_task_backlog.md` Part 3 参照）
 - Mission の実施順序は入れ替え可能（Mission22 のみ最終章固定）という設計は維持
 
 ### ~~/proc・環境変数の未定項目~~（解消: 2026-07-20）

@@ -91,10 +91,6 @@
   - 絶対パス未記述: `Error: absolute path required`
   - 猫情報キー不足: `Error: required cat status not found`
   - `find` 未使用: `Warning: use find to locate clues`
-- ヒント（仮。2026-08-12 HINT-01 で起草。トーン調整は次回）:
-  - 1: `公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。`
-  - 2: `find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。`
-  - 3: `find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。`
 
 ---
 
@@ -111,10 +107,6 @@
   - `Code: [A-Z0-9]{4,}`
   - `Wire: (red|blue|yellow)`
   - `Height: [0-9]+`
-- ヒント（仮。2026-08-12 HINT-01 で起草。トーン調整は次回）:
-  - 1: `遊園地の門の向こうに、答えはある。だがここからじゃ届かない。回線を繋げ。`
-  - 2: `ssh amusement_park で門(gate)まで踏み込め。中の設備を一つずつ find と cat で洗え。`
-  - 3: `ssh amusement_park のあと find . -type f で3つの手がかりを探し、cat で読んだ Code / Wire / Height を echo で報告書に書き出せ。`
 
 ---
 
