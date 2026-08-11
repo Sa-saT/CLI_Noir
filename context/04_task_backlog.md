@@ -228,7 +228,7 @@ FE-01 → FE-02 → FE-03 → FE-04 → FE-05 → FE-06 → FE-07 → FE-08（�
 ---
 
 ## FE-01 認証UI（ログイン画面 + JWTトークン保存）
-- [ ] 未着手
+- [x] 完了（2026-08-11）。`app/pages/login.vue` / `app/composables/useAuth.ts` / `app/middleware/auth.ts`。トークンは localStorage 保存。あわせて Pinia（`@pinia/nuxt`）・typescript/vue-tsc（`nuxt typecheck` 用）を devDependency 追加（後続 FE-03 以降で使用する前提インフラ）。実バックエンド（`POST /api/auth/login/`）に対しログイン→ `/missions` 遷移をブラウザで確認済み
 
 参照: 設計指示書 § 6「認証」（`POST /api/auth/login/` → access/refresh トークン）
 

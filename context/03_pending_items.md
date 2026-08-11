@@ -66,14 +66,15 @@
 
 **バックエンド Phase2 完了（2026-07-20）**: タスク #21〜#39（P2-01〜P2-19）を1 task = 1 commit + push で完遂。241 tests green / ruff clean。残る主な未着手は Frontend（下記）と、下記「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）。
 
-### Frontend
+### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
+- [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）
 - [ ] Nuxt ルーティング（/missions, /missions/{id}）
 - [ ] UI 3領域レイアウト
 - [ ] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂）
 - [ ] WebSocket 接続（初回 `auth` フレーム認証 + `exec`/`result` プロトコル。設計指示書 § 7）
 - [ ] コマンド一覧パネル
 - [ ] 場面画像のカレントディレクトリ紐付け（`scene_images` 最長一致解決は noir-client で実装済み。WS の state 連動と cd/ssh/exit フェードの結合は未）
-- [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ）
+- [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）
 - [ ] セーブ選択 UI（再ログイン時の commit 一覧）
 
 ### テスト
