@@ -71,7 +71,7 @@
 - [x] Nuxt ルーティング（/missions, /missions/{id}）。Mission 一覧 `app/pages/missions/index.vue` + 詳細/開始導線 `app/pages/missions/[id].vue`（ターミナル本体は FE-03/04 で追加配線）。FE-02
 - [ ] UI 3領域レイアウト
 - [ ] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂）
-- [ ] WebSocket 接続（初回 `auth` フレーム認証 + `exec`/`result` プロトコル。設計指示書 § 7）
+- [x] WebSocket 接続基盤（初回 `auth` フレーム認証 + `hello`/`exec`/`result`/`event`/`resume` プロトコル。設計指示書 § 7。`app/composables/useTerminalSocket.ts` + Pinia store `app/stores/terminal.ts`（DESIGN.md § 10-1 の単方向データフロー）+ 型定義 `app/types/ws.ts`。指数バックオフ再接続対応。FE-03。まだどのページからも呼ばれていない状態で Python の websockets クライアントでプロトコルの往復を検証済み — UI 配線は FE-04）
 - [ ] コマンド一覧パネル
 - [ ] 場面画像のカレントディレクトリ紐付け（`scene_images` 最長一致解決は noir-client で実装済み。WS の state 連動と cd/ssh/exit フェードの結合は未）
 - [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）

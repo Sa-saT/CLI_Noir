@@ -251,7 +251,7 @@ DoD: `pnpm dev` でログイン→トークン取得→保護ページに遷移�
 DoD: ブラウザで一覧→詳細→開始の導線が繋がることを確認。
 
 ## FE-03 WebSocket 接続基盤（composable）
-- [ ] 未着手
+- [x] 完了（2026-08-11）。`app/composables/useTerminalSocket.ts`（`auth`→`hello`→`exec`/`result`/`event`/`resume` を実装。切断時は 1s→2s→4s…最大30s の指数バックオフで再接続。DESIGN.md § 10-7）。state/scrollback の単一ソースとして Pinia store `app/stores/terminal.ts` を新設（DESIGN.md § 5・§ 10-1 の指示どおり）。WS フレーム型は `app/types/ws.ts` に集約し `noir-api/app/ws/frames.py` と 1:1（設計指示書 § 2）。DoD どおりまだ UI 未配線の状態で、Python websockets クライアントで `noir-api` 実サーバーに対し auth/hello/exec/result/resume の往復を確認済み（UI 配線は FE-04）
 
 参照: 設計指示書 § 7「WebSocket 仕様」（接続 `/ws/terminal?mission_id=<id>` → 初回 `auth` フレーム → `hello` → `exec`/`result`）。バックエンド実装は `noir-api/app/ws/terminal.py`・`app/ws/frames.py` を参照（フレーム形式の正）
 
