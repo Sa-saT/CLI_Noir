@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-07-20（バックエンド Mission1〜22 全実装完了・Phase2 コマンド大半実装を反映）
+更新日: 2026-08-12（フロントエンド実バックエンド接続 FE-01〜08 完了を反映。バックエンド部分は 2026-07-20 時点のまま）
 
 ---
 
@@ -11,7 +11,7 @@ CLI_Noir/
 ├ CLAUDE.md          … Claude Code 用ガイド（参照優先順位・運用ルールの要約）
 ├ docs/              … 全設計ドキュメント（+ design-system/ = デザイン local ミラー）
 ├ context/           … 本フォルダ（AI コンテキスト復元用。04_task_backlog.md も参照）
-├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手・evaluator はモックのまま）
+├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手、2026-08-12 実バックエンド接続完了。Mission1〜3 通しプレイ可）
 ├ noir-api/          … FastAPI バックエンド（2026-07-13 骨格〜MVP、2026-07-20 Mission1〜22 全実装。241 tests green）
 ├ moc/               … UI モック（参考用）
 └ old_files/         … 過去バージョンのバックアップ（参照不要）
@@ -43,12 +43,22 @@ CLI_Noir/
 
 ## 実装・デザインシステム（2026-07-07 追加）
 
-### `noir-client/`（Nuxt 4 SPA / ssr:false）
+### `noir-client/`（Nuxt 4 SPA / ssr:false。2026-08-12 実バックエンド接続完了・FE-01〜08）
 - `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
-- `app/pages/index.vue` … Mission1 合成画面（**モック evaluator**。本番は WS evaluator へ置換予定）。場面画像は `sceneImages`（`ホスト:パス接頭辞` の最長一致）で **current_path に紐付け**（2026-07-07 確定・DESIGN.md § 1）
+- `app/pages/index.vue` … `/` へのアクセスを認証状態に応じて `/missions` or `/login` へ redirect するだけのエントリポイント（旧モック evaluator は撤去済み）
+- `app/pages/login.vue` … ログイン画面（`POST /api/auth/login/`）
+- `app/pages/missions/index.vue` … Mission 一覧（`GET /api/missions/`。cleared/open/locked カード表示）
+- `app/pages/missions/[id].vue` … ゲーム画面本体。ブリーフィング（Mission詳細+開始ボタン）→ `useTerminalSocket` で WS 接続 → TerminalView/CommandPanel/SceneOverlay/SaveSelectModal/ClearEffect を実データで駆動
 - `app/pages/design.vue` … コンポーネントギャラリー
+- `app/composables/useAuth.ts` / `useApi.ts` / `useTerminalSocket.ts` … 認証・認証付きfetch・WS接続（`auth`→`hello`→`exec`/`result`/`event`/`resume`、指数バックオフ再接続）
+- `app/stores/terminal.ts` … Pinia store（`@pinia/nuxt`導入）。WS state/scrollback の単一ソース（DESIGN.md § 10-1）
+- `app/types/ws.ts` … WS フレーム型（`noir-api/app/ws/frames.py` と1:1）
+- `app/utils/commandCatalog.ts` … `allowed_commands` → CommandPanel/CommandDetail 変換 + 探偵ランク算出
+- `app/middleware/auth.ts` … 未ログインガード
+- 場面画像は `host:パス接頭辞` の最長一致で **current_path に紐付け**（2026-07-07 確定・DESIGN.md § 1。実装は `missions/[id].vue` 内、WS state 連動）
+- 未実装: Tab補完（バックエンド `complete` フレーム未実装のため）、`TerminalView` の残りキーマップ（履歴/Ctrl+R等）、`RankUpEffect.vue` の実配線、自動テスト（Vitest/Playwright 未導入）
 - `app/assets/css/tokens/*.css` + `main.css` … デザイントークン（`docs/design-system` のコピー）
-- `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来）
+- `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来。他の場所は未制作でプレースホルダ表示）
 
 ### `docs/design-system/`（デザインの local ミラー）
 - claude.ai/design プロジェクト「CLI_Noir Design System」の**最小ミラー**（`styles.css` + `tokens/` + `ui_kits/detective-terminal/index.html`）。2026-07-07 に `components/*.jsx` の複製を廃止（Vue SFC と重複・ビルド未使用のため。React 実ソースは ClaudeDesign 側にあり `DesignSync get_file` で都度参照）

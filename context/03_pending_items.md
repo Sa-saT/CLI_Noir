@@ -64,7 +64,9 @@
   - 補足: case_file.sh は「捜査タスクの証跡」を判定し、git add/commit/push は git コマンド側で構造的に強制（§ 10 判定フローとの整合。Mission参照の Mission1 5patterns のうち git 3件は regex ではなく構造で担保）
   - テスト: `tests/test_mission2_3.py`（9件）追加
 
-**バックエンド Phase2 完了（2026-07-20）**: タスク #21〜#39（P2-01〜P2-19）を1 task = 1 commit + push で完遂。241 tests green / ruff clean。残る主な未着手は Frontend（下記）と、下記「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）。
+**バックエンド Phase2 完了（2026-07-20）**: タスク #21〜#39（P2-01〜P2-19）を1 task = 1 commit + push で完遂。241 tests green / ruff clean。
+
+**フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
 
 ### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
 - [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）
@@ -76,11 +78,14 @@
 - [x] 場面画像のカレントディレクトリ紐付け（`app/pages/missions/[id].vue` で WS state（Pinia store の `currentPath`/`remoteMode`/`sshHost`）から `host:パス接頭辞` の最長一致解決 → `SceneOverlay` へ。`cd`/`ssh`/`exit` の画像切替は `SceneOverlay` 側の 0.8s クロスフェードが自動追従。FE-06。ssh amusement_park:/gate 用画像は未制作のためプレースホルダ表示 — 下記「場所別画像アセットの制作」で追跡）
 - [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）
 - [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
+- [ ] Tab 補完（設計指示書 § 7 の `complete`/`completions` フレームが `noir-api/app/ws/terminal.py` に未実装のためフロント側も未着手。バックエンド側の実装が前提）
+- [ ] `TerminalView.vue` の残りキーマップ（`↑↓` 履歴 / `Ctrl+R` 逆検索 / `Ctrl+C` / `Ctrl+L` / `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。現状は Enter 送信のみ実装済み）
+- [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
 
 ### テスト
-- [ ] コマンドカテゴリごとの正常系/異常系
-- [ ] Mission1〜3 のE2Eシナリオ
-- [ ] 再ログイン時の state 復元テスト
+- [x] Mission1〜3 のE2Eシナリオ（FE-08。Playwright 経由の実 Chromium ブラウザで、ログイン → Mission1（cat/echo/sh case_file.sh/git add・commit・push）→ Mission2（find/grep/sh/git）→ Mission3（ssh amusement_park/exit を含む）まで通しプレイし、3件とも "Mission Complete!" とコンソールエラー 0 件を確認。加えてセーブ選択（再訪 → resume/start-over 両方）も確認。自動テストコード自体はリポジトリに未追加— 手動 E2E 確認の記録として残す。恒久的な自動化が必要なら Vitest/Playwright を `noir-client` に導入する別タスクとして検討）
+- [ ] コマンドカテゴリごとの正常系/異常系（Vitest 等の自動テストが `noir-client` に未導入。上記 E2E は手動確認）
+- [ ] 再ログイン時の state 復元テスト（FE-07 で手動確認済みだが自動テスト化は未）
 
 ---
 

@@ -6,12 +6,12 @@
 > 新セッションでタスクリストが空の場合、本ファイルから TaskCreate で復元してから着手する。
 > 完了したらここのチェックボックスも [x] にする（タスクリストと二重管理だが、リスト消失対策として必須）。
 
-## 進捗サマリ（2026-07-20 時点）
+## 進捗サマリ（2026-08-12 時点）
 
 - **Part 1: バックエンド Phase2（P2-01〜P2-19）— 完了 ✅**（タスク #21〜#39。Mission1〜22 全実装・241 tests green / ruff clean）
-- **Part 2: フロントエンド（FE-01〜FE-08）— 次回着手（未着手）**。Goal: **noir-client を実バックエンドに接続し、Mission1〜3 がブラウザで通しプレイ可能な状態にする**
+- **Part 2: フロントエンド（FE-01〜FE-08）— 完了 ✅**。Goal 達成: **noir-client を実バックエンドに接続し、Mission1〜3 がブラウザで通しプレイ可能な状態にする**
 
-**次回セッションの入り方**: 「context/04_task_backlog.md の FE-01 から実装して」と指示するか、このファイルを読んで FE-01 から TaskCreate で復元して着手する。
+**次回セッションの入り方**: Part1/2 とも完了。残作業は `context/03_pending_items.md` の Frontend 節下部（Tab補完・残りキーマップ・RankUpEffect 配線・場所別画像アセット）と、`noir-client` への自動テスト（Vitest/Playwright）導入。新規タスクとして着手時はまずそちらを本ファイルに Part3 として追記してから始める。
 
 ---
 
@@ -304,10 +304,11 @@ DoD: `cd`/`ssh`/`exit` でシーン画像が切り替わる（フェード込み
 DoD: 一度 `git commit` してから再接続し、セーブ選択→復元が動くことを確認。
 
 ## FE-08 手動 E2E 確認（Mission1〜3 通しプレイ）
-- [ ] 未着手
+- [x] 完了（2026-08-12）。`run`/`verify`/`claude-in-chrome` は本セッションで利用不可だったため、代替として Playwright（実 Chromium、headless）で自動操作する E2E スクリプトを作成し確認した（スクリプト自体はリポジトリには追加していない一時検証コード。恒久的な自動テストが要るなら別タスクで `noir-client` に Vitest/Playwright を導入する）。
+  1. ログイン → `/missions` → Mission1 開始 → `cat`/`echo` リダイレクト → `sh case_file.sh` → `git add`/`commit`/`push` → "Mission Complete!" → 次 Mission 導線、を確認。console error 0 件
+  2. 同じ流れで Mission2（`find`/`grep`/`sh`/`git`）、Mission3（`ssh amusement_park` で `/gate` に接続 → プロンプトが remote 配色に切替 → ヒント3件を `cat`/`echo` → `sh`/`git`）を最後まで確認。ssh 接続中のプロンプト・シーンのリモート表示、`exit` での local 復帰も確認
+  3. 追加でセーブ選択（一度 commit 済みの Mission に再訪 → モーダル表示 → 「このセーブで再開」/「最初から」の両方）も確認
+  4. 発見した不具合: 実装中に `useTerminalSocket` の `resume` 応答を「reconnected」と誤表示する問題を自己発見・その場で修正（`awaitingResumeHello` フラグを追加して区別。FE-07 コミットに含む）。それ以外はブラウザ確認で不具合なし
+  5. `nuxt typecheck` / `nuxt build` は全 FE タスクで都度グリーン
 
-1. `run`/`verify` skill を使い、ログイン→Mission1→Mission2→Mission3 まで実ブラウザで通しプレイし、詰まる箇所・エラーを洗い出して修正
-2. Mission3 の ssh/exit・remote 表示が正しくフェードすることも確認
-3. 発見した不具合はその場で直すか、新規タスクとして本ファイルに追記する
-
-DoD: Mission1〜3 が実ブラウザでノーエラーにクリアできる。
+DoD: Mission1〜3 が実ブラウザでノーエラーにクリアできる ✅
