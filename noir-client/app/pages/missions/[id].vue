@@ -73,6 +73,30 @@ function onSelectCommand(name: string) {
   selectedCommand.value = name
 }
 
+// --- FE-06: 場面画像の current_path 連動（DESIGN.md § 1。前方一致の最長一致） ---
+const SCENE_IMAGES: Record<string, string> = {
+  'office:/root': '/images/office.png',
+  // 'amusement_park:/gate': '/images/amusement_park_gate.png', // Mission3 用画像の到着時に追加
+}
+function resolveScene(host: string, path: string): string {
+  let bestPrefix = ''
+  let img = ''
+  for (const [key, val] of Object.entries(SCENE_IMAGES)) {
+    const sep = key.indexOf(':')
+    const h = key.slice(0, sep)
+    const prefix = key.slice(sep + 1)
+    if (h !== host) continue
+    if (path !== prefix && !path.startsWith(`${prefix}/`)) continue
+    if (prefix.length > bestPrefix.length) {
+      bestPrefix = prefix
+      img = val
+    }
+  }
+  return img
+}
+const sceneHost = computed(() => (store.remoteMode ? (store.sshHost ?? 'remote') : 'office'))
+const sceneImage = computed(() => resolveScene(sceneHost.value, store.currentPath))
+
 function onNext() {
   const next = store.nextMissionId
   store.missionCleared = false
@@ -94,6 +118,7 @@ function onNext() {
     />
     <SceneOverlay
       class="briefing-scene"
+      :image="sceneImage"
       badge="Case File"
       :card-title="mission.title_ja"
       :card-body="mission.description"
@@ -119,7 +144,7 @@ function onNext() {
     />
 
     <div class="ga-scene scene-col">
-      <SceneOverlay badge="Scène" />
+      <SceneOverlay :image="sceneImage" badge="Scène" />
       <ClearEffect v-if="store.missionCleared" class="clear-overlay" @next="onNext" />
     </div>
 

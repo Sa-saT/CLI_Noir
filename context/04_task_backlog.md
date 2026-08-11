@@ -283,7 +283,7 @@ DoD: ブラウザで Mission1 を実際に `cat`→`echo`→`sh case_file.sh`→
 DoD: Mission ごとに異なるコマンド一覧が表示されることを確認。
 
 ## FE-06 場面画像の state 連動（cd/ssh/exit フェード）
-- [ ] 未着手
+- [x] 完了（2026-08-12）。`app/pages/missions/[id].vue` に `host:パス接頭辞 → 画像` の辞書と最長一致解決（DESIGN.md § 1）を実装し、Pinia store の `currentPath`/`remoteMode`/`sshHost`（WS `state` 由来）から `SceneOverlay` の `:image` を算出。フェード自体は既存の `SceneOverlay.vue` の 0.8s クロスフェードにそのまま乗る。画像アセットは `office.png` 1枚のみのため他の場所はプレースホルダ表示（許容範囲。素材制作は別タスク）。`cd`/`ssh`/`exit` でシーンが切り替わることをブラウザで確認済み（Mission3 で ssh amusement_park 接続時にプロンプトが remote 色に変わることも確認）
 
 参照: `docs/DESIGN.md` § 1「場面画像とカレントディレクトリの紐付け」（`scene_images` 最長一致解決は実装済み・呼び出し元が未配線）
 
