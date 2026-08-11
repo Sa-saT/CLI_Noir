@@ -10,8 +10,12 @@
 
 - **Part 1: バックエンド Phase2（P2-01〜P2-19）— 完了 ✅**（タスク #21〜#39。Mission1〜22 全実装・241 tests green / ruff clean）
 - **Part 2: フロントエンド（FE-01〜FE-08）— 完了 ✅**。Goal 達成: **noir-client を実バックエンドに接続し、Mission1〜3 がブラウザで通しプレイ可能な状態にする**
+- **Part 3: ヒント機能（HINT-01）— 完了 ✅（仮実装）**。Mission1〜3 のみ配線済み。UI/UX の作り込みは未設計のまま
+- **Part 4: 疑似ターミナルのバグ修正 — 次回着手**。ユーザーが実プレイで発見した2件の既知バグ + 追加バグ探索
 
-**次回セッションの入り方**: Part1/2 とも完了。残作業は `context/03_pending_items.md` の Frontend 節下部（Tab補完・残りキーマップ・RankUpEffect 配線・場所別画像アセット）と、`noir-client` への自動テスト（Vitest/Playwright）導入。新規タスクとして着手時はまずそちらを本ファイルに Part3 として追記してから始める。
+**次回セッションの入り方**: 「context/04_task_backlog.md の Part4 から着手して」と指示するか、このファイルの Part4 を読んで
+TaskCreate で復元してから着手する。branch `worktree-agent-a6ce2d8545e17a627`（未マージ・最新 commit `cf85f96`）の続きとして
+作業すること（新規branchを切らない）。
 
 ---
 
@@ -376,3 +380,79 @@ Goal: 設計指示書 § 11 ゲーム機能4「相棒キャラクター: 3段階
 - 相棒キャラクターの見た目・演出（設計指示書 § 11 機能4）
 - Mission2/3 の仮ヒント文言のレビュー・確定（トーンをMission1と揃えるか、AUTHORING_GUIDE寄りに寄せるか）
 - Mission4〜22 のヒント文言の起草
+
+---
+
+# Part 4: 疑似ターミナルのバグ修正（2026-08-12 発見・次回着手）
+
+Goal: ユーザーが実プレイ（Mission1）で発見した2件の既知バグを直し、同じ手法で他コマンドの
+「ゲーム操作 ≠ 実PC操作」のズレが無いか一通り洗い出して直す。**最重要設計原則**（CLAUDE.md「ゲーム操作 = 実PC操作の
+意味一致」）の遵守チェックが今回のテーマ。
+
+## 経緯（次回セッション向けの要約）
+Mission1 を `cd desk` → 相対パスで `echo`/`git add` → `git push` と実プレイしたところ `Error: mission requirements not met`
+になった。調査の結果:
+1. `sh case_file.sh` を実行し忘れていたことが直接原因（`git_ops.py` の `_push` は直前 commit の
+   `mission_flags.case_checked` を見るだけで、これは `sh case_file.sh` の判定成功でしか立たない）
+2. **たとえ `sh case_file.sh` を実行していても、相対パスのままでは判定にパスしない**設計ギャップが判明（下記 BUG-01）
+3. `case_file.sh` の配置場所（`/root/` 直下。`/root/desk/` ではない）を知らずに `desk/` から相対 `sh case_file.sh` を
+   叩いて `Error: file not found` になった（これは仕様通りだが、ヒント文言等で誘導が弱い可能性はある）
+4. 引数無し `cd` が実 bash の `$HOME` 遷移を持たず即エラーになる設計ギャップが判明（下記 BUG-02）
+5. `cd /root` → `sh case_file.sh` で再現したところ `Warning: pattern mismatch`（BUG-01 の再現。echo が相対パスのまま
+   command_log に残っていたため）
+
+## BUG-01: AND-regex 判定が相対パスを解決しない【影響大・要設計判断】
+- 症状: `judge.py` の汎用 AND-regex 評価（`re.match(pattern, line)`）は `command_log` の生テキストにそのままマッチさせる。
+  `command_log` は入力どおりの生テキストを保存する仕様（P2-18 の env 展開時の決定を踏襲）ため、`cd desk` してから
+  相対パス `businesscard.txt` で操作しても、絶対パスを要求する `expected_script_patterns`（例:
+  `r"^echo\s+.+\s*>\s+/root/desk/businesscard\.txt$"`）には一致しない
+- 実PCでは `cd desk && echo x > businesscard.txt` と `echo x > /root/desk/businesscard.txt` は完全に同じ結果になるため、
+  現状は最重要設計原則に反する
+- 影響範囲: 汎用 AND-regex 判定を使う全 Mission（Mission1, 3, 4, 9, 10, 11, 13, 17, 18 ほか。専用 judge（Mission2/6/7/8/12/14/15/16/19/20/21/22）は
+  command_log の別要素（存在確認・順序等）を見ているものもあり影響有無は個別確認が必要）
+- **要設計判断**（次回最初に決めること。実装より先に方針決定）:
+  - 案A: `command_log` に記録する際、コマンド中のパス的トークンを実行時の `current_path` で絶対パス解決してから保存する
+    （real bashの `history` は生テキストのままなので、ここは意図的にゲーム内部処理用のログとして解決する形になる。
+    案B/Cとの互換のため command_log 自体は生テキストのまま保持し、判定専用に「解決済みコピー」を別途持たせる手も検討）
+  - 案B: 判定側（`judge.py`）でパターンマッチ前に command_log の各行をトークナイズしてパス部分だけ正規化してからマッチする
+    （判定ロジックが複雑化するリスク）
+  - 案C: 各 Mission の `expected_script_patterns` 側でパスを絶対/相対どちらでも許容する正規表現に緩める
+    （Mission定義側の変更量が多い・将来 Mission追加のたびに同じ配慮が要る）
+  - 案Aが一番「意味一致」に忠実（実行時に実際に読み書きしたファイルの絶対パスを記録するため、そもそも相対/絶対の違いを
+    吸収できる）だが、engine.py の command_log 記録ロジックとの整合が要る。方針は次回ユーザーと相談してから着手すること
+
+## BUG-02: 引数無し `cd` が `$HOME` に遷移しない
+- 症状: `noir-api/app/evaluator/commands.py` の `cmd_cd`（214行目付近）は `len(argv) < 2` で即 `Error: invalid input`。
+  実 bash の `cd`（引数無し）は `$HOME`（root ユーザーなら `/root`）に移動するが、その挙動が無い
+- `docs/バックエンド_コマンド機能仕様.md`「`cd <path>`」の記法が元々「引数必須」前提で書かれており、この抜けは
+  設計時の見落としと思われる（意図的な制限ではない）
+- 修正方針（次回そのまま着手可。設計判断不要な軽微な修正）:
+  1. `cmd_cd`: `len(argv) < 2` の場合は `state.get("env_vars", {}).get("HOME", "/root")` へ移動する（`env_vars.HOME` は
+     P2-18 で導入済み。無ければ `/root` にフォールバック）
+  2. `docs/バックエンド_コマンド機能仕様.md`「`cd <path>`」の項を「`cd [path]`」に直し、`path` 省略時は `$HOME` に
+     移動する旨を追記（変更前に `old_files/` へバックアップ）
+  3. 既存 `tests/test_evaluator.py` 等に `cd`（引数無し）のテストケースを追加。ssh 中（remote FS）で引数無し `cd` を
+     打った場合の挙動もあわせて確認（remote 側にも `env_vars.HOME` があるか要確認。無ければ remote 中は `/` 等への
+     フォールバックを決める）
+  4. pytest 全緑 / ruff clean
+
+## BUG-HUNT-01: 他コマンドの意味不一致の洗い出し
+- Goal: BUG-01/02 と同種の「実 bash なら通る操作がゲームでは弾かれる」パターンを allowlist 内の主要コマンドで
+  一通り確認する。**ゲームの正解ルートが通ることの確認ではなく、正解ルート以外の妥当な操作が誤って拒否されないか**
+  の観点で見ること
+- 確認候補（実プレイ or ユニットテストで）:
+  - `ls`/`cat`/`grep` 等の相対パス vs 絶対パス（BUG-01 と根が同じなら一括で直る可能性が高い）
+  - `cd ~`（チルダ展開。bash なら $HOME 相当）
+  - `cd -`（直前のディレクトリに戻る。bash の一般的な挙動。未実装なら未実装と明記するだけでも良い＝全部直す必要はない）
+  - パイプ/リダイレクトの空白有無のバリエーション（`>file` / `> file` / `>  file` 等）
+  - `git commit -m"msg"`（クォート隣接、スペース無し）等、bash的には通る細かい書式差異
+  - grep/findの `-r`/`-l` 等オプションの短縮形・組み合わせ順序
+- 優先度: BUG-01/02 ほど致命的ではないため、時間が無ければ「見つけたが直さない」も可。ただし見つけたものは
+  `context/03_pending_items.md` に記録すること（無かったことにしない）
+
+## 進め方（次回セッション）
+1. BUG-01 の方針（案A/B/C）をユーザーに確認してから着手（設計判断が要るため、いきなり実装しない）
+2. BUG-02 は方針確認不要なので先に直してよい（軽微・影響小）
+3. BUG-HUNT-01 は BUG-01/02 の修正後、余裕があれば着手
+4. 各修正は 1 task = 1 commit + push。DoD: pytest全緑/ruff clean、フロントも影響あれば typecheck/build
+5. 完了ごとに本ファイルと `context/03_pending_items.md` を更新
