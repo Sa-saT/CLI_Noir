@@ -403,7 +403,21 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ## Phase B: ワールドFSと仮想機構
 
 ### P3-03 `_WORLD_FS`構築: 22Mission統合 + 裸置きファイルの移設 + vault加算マージ
-- [ ] 未着手
+- [x] 完了（2026-08-14）。`app/content/missions.py::_build_world_fs()`新設（既存`_MISSIONn_FS`/
+  `MissionDef.initial_filesystem`/`build_initial_state()`は無変更。呼び出しごとに独立dictを返す）。
+  `case_file.sh`は深さ問わず全Missionから再帰除外（Mission2は`park/case_file.sh`、Mission5は
+  `vault/inner/case_file.sh`など配置深さがMissionごとに違うため、トップレベルキー名だけの除外では
+  漏れることをテストで発見・修正済み）。7Mission分の裸置きファイルを確定案どおり移設（M4 tape.log →
+  wiretap_room/、M9 evidence.dat → evidence_locker/、M10 original.txt+submitted.txt → will_office/、
+  M13 hint.txt → crontab_room/、M15 journal.log → informant_trail/、M19 sample.sh+evidence.txt →
+  precinct_desk/、M21 hint.txt → toolbox_room/）。vaultはMission5/22の加算マージ（`_ADDITIVE_MERGE_DIRS`
+  明示テーブル、キー衝突時は例外）。Mission20のetc/var/tmp/binは常時公開・home/mr_blackのみゲート。
+  `/etc/hosts`のghost.example行は初期状態から除去（`GHOST_HOSTS_LINE`定数。P3-05のMission12解放時に
+  追記予定）。`MissionDef.owned_paths`フィールドをここで追加（P3-05が新設する予定だったが、P3-03の
+  初期ロック状態計算にも同じマッピングが要るため二重管理を避けてここで前倒し導入。18 Mission分に設定、
+  M3/6/7/12はFSを持たないため空リスト）。各区画の初期mode/owner設定（Mission1=desk と常時公開FHSは
+  open、他は"---------"/"system"でlocked）。検証: `tests/test_world_fs.py`（新規、11テスト）+
+  `grep -n '"/root/'`によるパスリテラル洗い出し（judge.py側の追随はP3-08のスコープ、今回は未着手）。
 
 `app/content/missions.py`に`_build_world_fs()`を新設:
 1. 各`_MISSIONn_FS["root"]["children"]`を1つの`world["root"]["children"]`へ統合。**`case_file.sh`は全除外**

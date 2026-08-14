@@ -3,8 +3,15 @@
 出典: docs/Mission参照ファイル.md。title は英語名、title_ja は画面表示名。
 allowed_commands は各 Mission の必須コマンド + 共通の基本操作（ls/cd/cat/pwd/echo/git）。
 詳細正規表現・初期FS は実装時に本 MissionDef を拡張する（設計指示書 § 11 / § 5）。
+
+`_build_world_fs()`（Part5 P3-03）は 22 Mission分の `_MISSIONn_FS` を1つの永続統合
+ワールド filesystem へ合成する。既存の `MissionDef.initial_filesystem` は
+Mission 単位の旧フロー（`app/ws/terminal.py::build_initial_state`）が P3-09/P3-10の
+カットオーバーまで引き続き使うため、一切変更しない（合成は新規に別領域を組み立てるだけ。
+`context/04_task_backlog.md` Part5 参照）。
 """
 
+import copy
 from dataclasses import dataclass, field
 
 # 全 Mission 共通で使える基本操作（ナビゲーション + 疑似 Git ワークフロー）。
@@ -726,6 +733,11 @@ class MissionDef:
     # 3段階ヒント（相棒キャラクターの語り。設計指示書 § 11 機能4 / Mission参照 § 1-D）。
     # 空 = 未配線（Mission4〜22 は今回対象外。フロントはボタン自体を非表示にする）。
     hints: list[str] = field(default_factory=list)
+    # 統合ワールド（Part5）でこの Mission が所有する絶対パス（ディレクトリ）。
+    # 未解放時はこのディレクトリの mode が "---------"/owner "system" になり、
+    # 直前 Mission クリアで解放される（`app/evaluator/progress.py::advance_mission`）。
+    # 空 = FS を持たない Mission（remote 限定・process テーブルのみ等）。
+    owned_paths: list[str] = field(default_factory=list)
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -753,6 +765,7 @@ _DEFS: list[MissionDef] = [
             "名刺にはあなたのユーザー名を書き込む必要があります。",
             "編集後は git add -> git commit -m -> git push の順で進めよう。",
         ],
+        owned_paths=["/root/desk"],
     ),
     MissionDef(
         2, "Park Cat Search", "公園の猫を探せ",
@@ -767,6 +780,7 @@ _DEFS: list[MissionDef] = [
             "find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。",
             "find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。",
         ],
+        owned_paths=["/root/park"],
     ),
     MissionDef(
         3, "Amusement Park Bomb", "遊園地の爆弾",
@@ -795,6 +809,7 @@ _DEFS: list[MissionDef] = [
             rf"TEL: {_MISSION4_ANSWER}",
         ],
         initial_filesystem=_MISSION4_FS,
+        owned_paths=["/root/wiretap_room"],
     ),
     MissionDef(
         5, "The Locked Vault", "開かずの資料室",
@@ -807,6 +822,7 @@ _DEFS: list[MissionDef] = [
             r"chmod\s+\+?x",
         ],
         initial_filesystem=_MISSION5_FS,
+        owned_paths=["/root/vault"],
     ),
     MissionDef(
         6, "Shadow Process", "盗聴器を止めろ",
@@ -833,6 +849,7 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission8 専用ロジック（su barman・whoami・秘密ファイル
         # 閲覧・detective への復帰の4点）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION8_FS,
+        owned_paths=["/root/bar"],
     ),
     MissionDef(
         9, "Sealed Evidence", "封印された証拠品",
@@ -845,6 +862,7 @@ _DEFS: list[MissionDef] = [
             r"CODE: NOIR-1948",
         ],
         initial_filesystem=_MISSION9_FS,
+        owned_paths=["/root/evidence_locker"],
     ),
     MissionDef(
         10, "The Forged Letter", "改ざんされた遺言状",
@@ -853,6 +871,7 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission10 専用ロジック（diff 実行 + submitted.txt が
         # original.txt と完全一致）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION10_FS,
+        owned_paths=["/root/will_office"],
     ),
     MissionDef(
         11, "Torn Note", "切り裂かれた脅迫状",
@@ -865,6 +884,7 @@ _DEFS: list[MissionDef] = [
             r"MIDNIGHT AT THE OLD PIER BRING THE LEDGER ALONE",
         ],
         initial_filesystem=_MISSION11_FS,
+        owned_paths=["/root/scraps"],
     ),
     MissionDef(
         12, "Ghost Line", "幽霊回線を追え",
@@ -885,6 +905,7 @@ _DEFS: list[MissionDef] = [
         ],
         initial_filesystem=_MISSION13_FS,
         initial_cron_jobs=_MISSION13_CRON_JOBS,
+        owned_paths=["/root/crontab_room"],
     ),
     MissionDef(
         14, "Hall of Mirrors", "鏡の館",
@@ -893,6 +914,7 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission14 専用ロジック（report の echo 行に実体の
         # 絶対パスがあるか。リンクパスのみの報告は不合格）で行う。
         initial_filesystem=_MISSION14_FS,
+        owned_paths=["/root/mirror_hall"],
     ),
     MissionDef(
         15, "The Informant's Trail", "情報屋の足取り",
@@ -902,6 +924,7 @@ _DEFS: list[MissionDef] = [
         # 行き先の報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION15_FS,
         informant_history=_MISSION15_HISTORY,
+        owned_paths=["/root/informant_trail"],
     ),
     MissionDef(
         16, "The Great Sweep", "一斉捜索令状",
@@ -911,6 +934,7 @@ _DEFS: list[MissionDef] = [
         # cat 成功 + コード報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION16_FS,
         initial_current_path="/root/warehouse",
+        owned_paths=["/root/warehouse"],
     ),
     MissionDef(
         17, "Fingerprint", "指紋は嘘をつかない",
@@ -922,6 +946,7 @@ _DEFS: list[MissionDef] = [
             r"copy_4",
         ],
         initial_filesystem=_MISSION17_FS,
+        owned_paths=["/root/contracts"],
     ),
     MissionDef(
         18, "Silence in the Static", "雑音の中の声",
@@ -933,6 +958,7 @@ _DEFS: list[MissionDef] = [
             r"PLATE: NX-4471",
         ],
         initial_filesystem=_MISSION18_FS,
+        owned_paths=["/root/archive"],
     ),
     MissionDef(
         19, "The Detective's Playbook", "捜査手順書を書け",
@@ -941,6 +967,7 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission19 専用ロジック（patrol.sh 実行 + FOUND 出力 +
         # 自作スクリプトに変数定義と if を含む）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION19_FS,
+        owned_paths=["/root/precinct_desk"],
     ),
     MissionDef(
         20, "Map of the City", "この街の地図",
@@ -949,6 +976,7 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission20 専用ロジック（/etc・/var/log・/tmp・/home の
         # 4区画探索 + 黒幕名報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION20_FS,
+        owned_paths=["/home/mr_black"],
     ),
     MissionDef(
         21, "The Missing Toolbox", "消えた道具箱",
@@ -959,6 +987,7 @@ _DEFS: list[MissionDef] = [
         # expected_script_patterns は空。
         initial_filesystem=_MISSION21_FS,
         initial_env_vars=_MISSION21_ENV_VARS,
+        owned_paths=["/root/toolbox_room"],
     ),
     MissionDef(
         22, "Case Closed", "最終事件 — すべてを繋げろ",
@@ -968,6 +997,7 @@ _DEFS: list[MissionDef] = [
         # "Warning: checkpoint <n> incomplete" で示す）で行うため
         # expected_script_patterns は空。
         initial_filesystem=_MISSION22_FS,
+        owned_paths=["/root/clues", "/root/logs"],
     ),
 ]
 
@@ -980,3 +1010,218 @@ def get_mission(mission_id: int) -> MissionDef | None:
 
 def all_missions() -> list[MissionDef]:
     return [MISSIONS[i] for i in sorted(MISSIONS)]
+
+
+# --- 永続統合ワールド FS（Part5 P3-03）---
+# 裸置きだった約7Mission分のファイルを専用サブディレクトリへ移設する（命名は
+# context/04_task_backlog.md Part5 P3-03 で確定した案）。
+_WORLD_RELOCATIONS: dict[int, dict[str, list[str]]] = {
+    4: {"tape.log": ["wiretap_room", "tape.log"]},
+    9: {"evidence.dat": ["evidence_locker", "evidence.dat"]},
+    10: {
+        "original.txt": ["will_office", "original.txt"],
+        "submitted.txt": ["will_office", "submitted.txt"],
+    },
+    13: {"hint.txt": ["crontab_room", "hint.txt"]},
+    15: {"journal.log": ["informant_trail", "journal.log"]},
+    19: {
+        "sample.sh": ["precinct_desk", "sample.sh"],
+        "evidence.txt": ["precinct_desk", "evidence.txt"],
+    },
+    21: {"hint.txt": ["toolbox_room", "hint.txt"]},
+}
+
+# root 直下で複数 Mission が同じディレクトリ名を意図的に共有し、上書きではなく
+# 加算マージするディレクトリ（vault = Mission5 の元祖 + Mission22 のコールバック）。
+# 汎用衝突解決アルゴリズムにはしない（意図しない衝突を握りつぶさないため）。ここに
+# 無い名前が root 直下で複数 Mission から定義されたら `_merge_root_children` が
+# ValueError を送出する。
+_ADDITIVE_MERGE_DIRS: dict[str, set[int]] = {"vault": {5, 22}}
+
+# 常時公開の FHS システムディレクトリ（Mission20 が定義するが、この4つは Mission20
+# 未解放でも常に traverse 可能。`/home/mr_black` だけ Mission20 専用にゲートする。
+# Mission20の矛盾解消: 設計指示書 § 5 / Part5 背景節を参照）。
+_PUBLIC_FHS_DIRS = ("etc", "var", "tmp", "bin")
+
+_LOCKED_MODE = "---------"
+_LOCKED_OWNER = "system"
+_OPEN_MODE = "rwxr-xr-x"
+_OPEN_OWNER = "detective"
+
+
+def _merge_children_additive(dest: dict, name: str, src_children: dict) -> None:
+    """dest[name] のディレクトリ children に src_children を加算マージする。
+
+    キーが衝突したら例外を送出する（意図しない上書きを握りつぶさないため）。
+    """
+    node = dest.setdefault(name, {"type": "dir", "children": {}})
+    for key, value in src_children.items():
+        if key in node["children"]:
+            raise ValueError(
+                f"world FS additive merge collision: '{name}/{key}' defined twice"
+            )
+        node["children"][key] = value
+
+
+def _place_relocated(dest: dict, dest_segments: list[str], node: dict) -> None:
+    """dest（world root children）に dest_segments で示すサブパスへ node を配置する。"""
+    cur = dest
+    for seg in dest_segments[:-1]:
+        cur = cur.setdefault(seg, {"type": "dir", "children": {}})["children"]
+    leaf = dest_segments[-1]
+    if leaf in cur:
+        raise ValueError(f"world FS relocation collision at {'/'.join(dest_segments)}")
+    cur[leaf] = node
+
+
+def _strip_case_file_sh(node: dict) -> None:
+    """node 配下から `case_file.sh` を再帰的に除去する（in-place）。
+
+    Mission によって `case_file.sh` の配置深さが異なる（例: Mission1 は
+    `/root/case_file.sh` 直下、Mission2 は `/root/park/case_file.sh`、Mission5 は
+    `/root/vault/inner/case_file.sh`）ため、トップレベルのキー名だけでは除外し切れない。
+    P3-04 が `/root/case_file.sh` をアクティブ Mission から動的生成する方式に
+    置き換えるため、静的マージからは深さを問わず全除外する（/proc と同じ扱い）。
+    """
+    if node.get("type") != "dir":
+        return
+    children = node.get("children", {})
+    children.pop("case_file.sh", None)
+    for child in children.values():
+        _strip_case_file_sh(child)
+
+
+def _merge_root_children(world_root_children: dict, mission: MissionDef) -> None:
+    """mission の initial_filesystem["root"]["children"] を world の /root 直下へ合成する。
+
+    `case_file.sh` は深さを問わず全 Mission で除外する（`_strip_case_file_sh` 参照）。
+    """
+    fs_dict = mission.initial_filesystem
+    if fs_dict is None:
+        return
+    root_children = fs_dict.get("root", {}).get("children", {})
+    relocations = _WORLD_RELOCATIONS.get(mission.id, {})
+    for name, raw_node in root_children.items():
+        if name == "case_file.sh":
+            continue
+        node = copy.deepcopy(raw_node)
+        _strip_case_file_sh(node)
+        if name in relocations:
+            _place_relocated(world_root_children, relocations[name], node)
+            continue
+        if name in _ADDITIVE_MERGE_DIRS:
+            if mission.id not in _ADDITIVE_MERGE_DIRS[name]:
+                raise ValueError(
+                    f"Mission{mission.id} defines additive-merge dir '{name}' but is "
+                    "not listed in _ADDITIVE_MERGE_DIRS — add it explicitly if this "
+                    "shared directory is intentional."
+                )
+            _merge_children_additive(world_root_children, name, node.get("children", {}))
+            continue
+        if name in world_root_children:
+            raise ValueError(
+                f"world FS root collision: '{name}' defined by more than one Mission "
+                f"(latest: Mission{mission.id}). Add it to _WORLD_RELOCATIONS or "
+                "_ADDITIVE_MERGE_DIRS if this is intentional."
+            )
+        world_root_children[name] = node
+
+
+def _merge_top_level(world: dict, mission: MissionDef) -> None:
+    """root 以外のトップレベルキー（Mission20 の FHS: etc/var/tmp/home/bin）を合成する。"""
+    fs_dict = mission.initial_filesystem
+    if fs_dict is None:
+        return
+    for top_key, top_node in fs_dict.items():
+        if top_key == "root":
+            continue
+        if top_node.get("type") != "dir":
+            raise ValueError(f"unexpected non-dir top-level FS key '{top_key}'")
+        node = copy.deepcopy(top_node)
+        _strip_case_file_sh(node)
+        _merge_children_additive(world, top_key, node.get("children", {}))
+
+
+def _resolve_world_node(world: dict, abs_path: str) -> dict:
+    """world（filesystem 形式の dict）から絶対パスのノードを取得する。
+
+    `app/evaluator/fs.py` の `get_node` と同じ「先頭セグメントが / 直下のトップレベル
+    キー」規約（`root_node` 参照）だが、権限ゲート機構（P3-04）より前に world 構築時点
+    で使う軽量版のため fs.py には依存しない。
+    """
+    segs = [p for p in abs_path.split("/") if p]
+    if not segs:
+        raise ValueError("owned_paths: empty path")
+    node = world.get(segs[0])
+    if node is None:
+        raise ValueError(f"owned_paths references missing top-level node: {abs_path}")
+    for seg in segs[1:]:
+        node = node.get("children", {}).get(seg)
+        if node is None:
+            raise ValueError(f"owned_paths references missing node: {abs_path}")
+    return node
+
+
+# Mission20 の /etc/hosts は最初から ghost.example 行を持たない（Mission12 の dig
+# 発見体験を守るため。Part5 背景節「Mission20(FHS)の矛盾」）。Mission12 解放時に
+# `app/evaluator/progress.py::advance_mission`（P3-05）がこの行を追記する。
+GHOST_HOSTS_LINE = "10.66.6.6 ghost.example"
+
+
+def _hide_ghost_hosts_line(world: dict) -> None:
+    etc = world.get("etc")
+    if etc is None:
+        return
+    hosts = etc.get("children", {}).get("hosts")
+    if hosts is None:
+        return
+    lines = [ln for ln in hosts["content"].split("\n") if ln != GHOST_HOSTS_LINE]
+    hosts["content"] = "\n".join(lines)
+
+
+def _apply_initial_lock_state(world: dict) -> None:
+    """各 Mission 区画の初期 mode/owner を設定する（Part5 P3-03 項目5）。
+
+    デフォルトは未解放（locked: mode="---------" owner="system"）。Mission1 の区画と
+    常時公開 FHS システムディレクトリだけ最初から open。以降の Mission 解放時の
+    書き換えは `app/evaluator/progress.py::advance_mission`（P3-05）が行う。
+    """
+    for mission in all_missions():
+        for path in mission.owned_paths:
+            node = _resolve_world_node(world, path)
+            is_open_from_start = mission.id == 1
+            node["mode"] = _OPEN_MODE if is_open_from_start else _LOCKED_MODE
+            node["owner"] = _OPEN_OWNER if is_open_from_start else _LOCKED_OWNER
+
+    for fhs_key in _PUBLIC_FHS_DIRS:
+        if fhs_key in world:
+            world[fhs_key]["mode"] = _OPEN_MODE
+            world[fhs_key]["owner"] = _OPEN_OWNER
+    if "home" in world:
+        world["home"]["mode"] = _OPEN_MODE
+        world["home"]["owner"] = _OPEN_OWNER
+    # /root 自体は全 Mission 共通の拠点として常時公開する。
+    world["root"]["mode"] = _OPEN_MODE
+    world["root"]["owner"] = _OPEN_OWNER
+
+
+def _build_world_fs() -> dict:
+    """22 Mission分の初期FSを1つの永続統合ワールド filesystem へ合成する。
+
+    既存の `MissionDef.initial_filesystem`／`_MISSIONn_FS` は変更しない
+    （Mission単位の旧フローが P3-09/P3-10 のカットオーバーまで使い続けるため）。
+    呼び出しごとに独立した dict を返す（呼び出し側で書き換えても他へ影響しない）。
+    """
+    world: dict = {"root": {"type": "dir", "children": {}}}
+    for mission in all_missions():
+        _merge_root_children(world["root"]["children"], mission)
+        _merge_top_level(world, mission)
+    _hide_ghost_hosts_line(world)
+    _apply_initial_lock_state(world)
+    return world
+
+
+# インポート時に一度構築し、リロケーション漏れ・意図しない衝突を即座に検出する
+# （fail-fast。Part5 P3-03 検証項目）。呼び出し側は都度 `_build_world_fs()` を
+# 呼んで独立した dict を得る。
+_build_world_fs()
