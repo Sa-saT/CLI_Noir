@@ -7,6 +7,7 @@
 
 import copy
 
+from app.evaluator import progress
 from app.evaluator.errors import CommandError
 from app.evaluator.fs import now_iso
 from app.evaluator.registry import command
@@ -93,4 +94,19 @@ def _push(state: dict) -> tuple[list[str], dict]:
 
     git["pushed"] = True
     state["mission_flags"]["completed"] = True
+    # 永続統合ワールド（Part5）専用の解放処理。旧 Mission 単位フロー（build_initial_state
+    # が state["mission_id"] を特定の Mission に固定する）とこの関数を共有しているため、
+    # mission_id が設定されている（＝旧フロー）場合は advance_mission を呼ばない
+    # （旧フローの state には次 Mission 分の区画・processes 等がそもそも存在せず、
+    # mission_progress.completed も1つの state 内で複数 Mission をまたいで蓄積される
+    # 概念ではないため、実行しても無意味なばかりか誤った"次 Mission"を解放しかねない）。
+    # 永続統合ワールド（P3-10 でカットオーバー）は mission_id を持たないためここを通る。
+    if state.get("mission_id") is None:
+        mission_progress = state.setdefault(
+            "mission_progress",
+            {"completed": [], "active_mission_id": 1, "case_checked": False},
+        )
+        cleared_id = progress.active_mission_id(mission_progress)
+        if cleared_id is not None:
+            progress.advance_mission(state, cleared_id)
     return ["Mission Complete! Next mission unlocked."], state

@@ -5,6 +5,7 @@ Mission1 のゴールデントランスクリプト（設計指示書 § 10 の�
 
 import pytest
 
+from app.content.missions import _build_world_fs
 from app.evaluator import evaluate
 from app.models import default_state
 
@@ -67,6 +68,10 @@ def test_mission1_golden_transcript(mission1_state: dict) -> None:
     assert out == ["Mission Complete! Next mission unlocked."]
     assert s["git_state"]["pushed"] is True
     assert s["mission_flags"]["completed"] is True
+    # 旧 Mission 単位フロー（state["mission_id"] が特定 Mission に固定）は
+    # advance_mission（Part5 P3-05。永続統合ワールド専用）の対象外。
+    assert s["mission_progress"]["completed"] == []
+    assert s["mission_progress"]["active_mission_id"] == 1
 
 
 def test_case_file_mismatch_does_not_check(mission1_state: dict) -> None:
@@ -108,3 +113,32 @@ def test_git_status_progression(mission1_state: dict) -> None:
     assert _run(s, "git status")[0] == ["Nothing to commit"]
     _, s = _run(s, "git add .")
     assert _run(s, "git status")[0] == ["Changes staged"]
+
+
+# --- 永続統合ワールド（Part5）フローでの push: advance_mission 連動 ---
+def test_world_flow_push_advances_mission_progress() -> None:
+    """state["mission_id"] が None（永続統合ワールド）の場合、push で
+    advance_mission が呼ばれ、次 Mission の区画が解放されることを確認する。
+
+    注: `judge.run_case_file` は `state["mission_id"]` を見て判定 Mission を選ぶ
+    実装のままで、永続統合ワールド（mission_id=None）にはまだ対応していない
+    （`mission_progress.active_mission_id` を見るようにする改修は Part5 P3-08/P3-11
+    の judge.py 改修範囲。本タスク P3-05 のファイル一覧には judge.py が無いため
+    ここでは着手しない）。そのため本テストは `sh case_file.sh` の実判定を経由せず、
+    push 直前の唯一の前提条件（`mission_flags.case_checked`）を直接立てて、
+    git_ops._push -> advance_mission の配線だけを検証する。
+    """
+    s = default_state()
+    s["filesystem"] = _build_world_fs()
+    assert s["mission_id"] is None
+    assert s["filesystem"]["root"]["children"]["park"]["mode"] == "---------"
+
+    s["mission_flags"]["case_checked"] = True
+    _, s = _run(s, "git add .")
+    _, s = _run(s, 'git commit -m "solved"')
+    out, s = _run(s, "git push")
+    assert out == ["Mission Complete! Next mission unlocked."]
+
+    assert s["mission_progress"]["completed"] == [1]
+    assert s["mission_progress"]["active_mission_id"] == 2
+    assert s["filesystem"]["root"]["children"]["park"]["mode"] == "rwxr-xr-x"

@@ -477,7 +477,26 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/evaluator/fs.py`, `app/evaluator/commands.py`（5箇所）, `app/evaluator/engine.py`
 
 ### P3-05 Mission解放遷移: 権限反映・ssh到達性・`/etc/hosts`追記・processes/cron解放
-- [ ] 未着手
+- [x] 完了（ssh到達性ゲート=P3-06は別Milestone。2026-08-14）。`app/evaluator/progress.py::advance_mission
+  (state, cleared_mission_id)`新設: 1) `mission_progress.completed`に記録し`active_mission_id`を
+  再計算・保存（新アクティブMissionの`case_checked`はFalseへリセット）、2) 新アクティブMissionの
+  `owned_paths`（P3-03で前倒し導入済みのため本タスクでは新規追加せず利用のみ）のディレクトリmodeを
+  open化、3) 新アクティブMissionがMission12なら`/etc/hosts`に`GHOST_HOSTS_LINE`を追記、4) 新アクティブ
+  Missionの`initial_processes`/`initial_cron_jobs`を`owning_mission_id`タグ付きで`state["processes"]`/
+  `state["cron_jobs"]`へ追加（`ps`/`crontab -l`側の追加フィルタは不要と判断——未解放Missionのエントリは
+  そもそもこの時点まで追加されないため、既存の「stateをそのまま返す」実装で自動的に「解放済みMissionの
+  分だけ表示」が成立する）。`git_ops.py::_push`から呼び出し。**注記（設計判断）**: 仕様文面は無条件で
+  呼ぶ想定だったが、`_push`は旧Mission単位フロー（`build_initial_state`が`state["mission_id"]`を固定
+  Missionに設定）と共有されており、無条件に呼ぶと旧フローの1Mission分の孤立stateに対して誤った
+  「次Mission」解放処理が走ってしまう（旧フローのmission_progressは他Missionの完了履歴を持たないため）。
+  `state.get("mission_id") is None`（永続統合ワールドは元々mission_idを使わない）をガードとして追加し、
+  P3-01の「追加→カットオーバー方式」を守った。全263件の既存テストは無変更で緑。新規: `advance_mission`
+  単体テスト12件（`tests/test_progress.py`）+ 旧フロー無変更確認・新フロー配線確認2件
+  （`tests/test_git_and_judge.py`）。**判明した副次課題（本タスクのファイル一覧外につき未着手）**:
+  `judge.py::run_case_file`は`state["mission_id"]`（旧フロー専用）を見て判定Missionを選ぶ実装のままで、
+  永続統合ワールド（mission_id=None）では`mission_progress.active_mission_id`を見るよう改修しないと
+  `sh case_file.sh`が機能しない。judge.pyはP3-05のファイル一覧に無く、P3-08（BUG-01の判定側改修）か
+  P3-11（API層）でのjudge.py改修時に併せて対応する必要がある。
 
 `app/evaluator/progress.py::advance_mission(state, cleared_mission_id)`を新設。`git_ops._push`が
 `mission_flags.completed=True`を立てていた箇所から呼ぶ:

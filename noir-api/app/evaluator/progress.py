@@ -17,7 +17,12 @@
 Part5 P3-05）のみとする。
 """
 
-from app.content.missions import all_missions
+from app.content.missions import GHOST_HOSTS_LINE, all_missions, get_mission
+from app.evaluator import fs
+
+_MISSION12_ID = 12
+_OPEN_MODE = "rwxr-xr-x"
+_OPEN_OWNER = "detective"
 
 
 def completed_ids(mission_progress: dict) -> set[int]:
@@ -51,3 +56,88 @@ def active_mission_id(mission_progress: dict) -> int | None:
         if mission.id not in completed:
             return mission.id
     return None
+
+
+def _unlock_directories(state: dict, mission_id: int) -> None:
+    """mission_id が所有する区画（`MissionDef.owned_paths`）の mode を解放する。
+
+    `fs.get_node` は経路上の未解放ディレクトリだけを None 扱いする（末端ノード
+    自身の lock 状態はチェックしない。Part5 P3-04）ため、まだ閉じている区画自身の
+    ノードもここで取得できる。owned_paths の親（/root・/home）は常時公開なので、
+    経路上でブロックされることもない。
+    """
+    mission = get_mission(mission_id)
+    if mission is None:
+        return
+    for path in mission.owned_paths:
+        node = fs.get_node(state, path)
+        if node is None:
+            continue
+        node["mode"] = _OPEN_MODE
+        node["owner"] = _OPEN_OWNER
+
+
+def _append_ghost_hosts_line(state: dict) -> None:
+    """Mission12 解放時に /etc/hosts へ ghost.example 行を追記する（Part5 P3-03/P3-05）。"""
+    hosts = fs.get_node(state, "/etc/hosts")
+    if hosts is None or hosts.get("type") != "file":
+        return
+    lines = hosts.get("content", "").split("\n") if hosts.get("content") else []
+    if GHOST_HOSTS_LINE not in lines:
+        lines.append(GHOST_HOSTS_LINE)
+        hosts["content"] = "\n".join(lines)
+
+
+def _release_processes_and_cron(state: dict, mission_id: int) -> None:
+    """mission_id の initial_processes/initial_cron_jobs を state へ追加する。
+
+    各エントリに owning_mission_id タグを付ける。`ps`/`crontab -l` は
+    state["processes"]/state["cron_jobs"] をそのまま返すだけで良い —
+    未解放 Mission のエントリはそもそもここで追加されるまで存在しないため、
+    実質的に「解放済み Mission の分だけ表示される」が自動的に成り立つ
+    （コマンド側に追加のフィルタは不要）。
+    """
+    mission = get_mission(mission_id)
+    if mission is None:
+        return
+    if mission.initial_processes:
+        processes = state.setdefault("processes", [])
+        for p in mission.initial_processes:
+            entry = dict(p)
+            entry["owning_mission_id"] = mission_id
+            processes.append(entry)
+    if mission.initial_cron_jobs:
+        cron_jobs = state.setdefault("cron_jobs", [])
+        for c in mission.initial_cron_jobs:
+            entry = dict(c)
+            entry["owning_mission_id"] = mission_id
+            cron_jobs.append(entry)
+
+
+def advance_mission(state: dict, cleared_mission_id: int) -> dict:
+    """cleared_mission_id のクリアを記録し、次に解放される Mission を開放する。
+
+    Mission 解放/クリアに伴う world state 書き換えの唯一の書き込み箇所
+    （Part5 P3-05）。`app/evaluator/git_ops.py::_push` から呼ぶ。state を
+    その場で書き換えて返す（engine の deepcopy 済み state を前提とする、
+    他の evaluator 関数と同じ規約）。
+    """
+    mission_progress = state.setdefault(
+        "mission_progress", {"completed": [], "active_mission_id": 1, "case_checked": False}
+    )
+    completed = completed_ids(mission_progress)
+    completed.add(cleared_mission_id)
+    mission_progress["completed"] = sorted(completed)
+    # 新しくアクティブになる Mission はまだ判定していない。
+    mission_progress["case_checked"] = False
+
+    new_active = active_mission_id(mission_progress)
+    mission_progress["active_mission_id"] = new_active
+
+    if new_active is not None:
+        _unlock_directories(state, new_active)
+        if new_active == _MISSION12_ID:
+            _append_ghost_hosts_line(state)
+        _release_processes_and_cron(state, new_active)
+
+    return state
