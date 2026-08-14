@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 
 from app.content.missions import get_mission
-from app.evaluator import fs, script
+from app.evaluator import fs, progress, script
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
@@ -37,6 +37,9 @@ def _rfile(content: str) -> dict:
 SSH_HOSTS: dict[str, dict] = {
     "amusement_park": {
         "initial_path": "/gate",
+        # ssh到達性ゲート（Part5 P3-06）: 永続統合ワールドではこの Mission が
+        # locked の間、未登録ホストと同じ "Host not found" を返す。
+        "required_mission_id": 3,
         "filesystem": {
             "gate": {
                 "type": "dir",
@@ -87,6 +90,7 @@ SSH_HOSTS: dict[str, dict] = {
     # 接続できるよう別名登録する。
     "ghost.example": {
         "initial_path": "/den",
+        "required_mission_id": 12,
         "filesystem": {
             "den": {
                 "type": "dir",
@@ -1108,6 +1112,16 @@ def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     info = SSH_HOSTS.get(host)
     if info is None:
         raise CommandError("Host not found")
+    # ssh到達性ゲート（Part5 P3-06）: 永続統合ワールド（state["mission_id"] を持たない）
+    # でのみ検査する。旧 Mission 単位フロー（build_initial_state が state["mission_id"]
+    # を固定 Mission に設定）は mission_progress を蓄積しない孤立 state のため、これで
+    # 判定すると常に "locked" 扱いになり Mission3/12 の既存テストが軒並み壊れる
+    # （P3-05 の advance_mission ガードと同じ理由）。
+    required = info.get("required_mission_id")
+    if required is not None and state.get("mission_id") is None:
+        mission_progress = state.get("mission_progress", {})
+        if progress.status_for(required, mission_progress) == "locked":
+            raise CommandError("Host not found")
     # 現在（local または上位 remote）の FS とパスを退避してから remote FS を載せる。
     stack = state.setdefault("_fs_stack", [])
     stack.append(

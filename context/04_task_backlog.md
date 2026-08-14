@@ -511,7 +511,18 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 `app/content/missions.py`（`MissionDef.owned_paths`追加）
 
 ### P3-06 SSH到達性ゲート
-- [ ] 未着手
+- [x] 完了（2026-08-14）。`SSH_HOSTS["amusement_park"]["required_mission_id"]=3`・
+  `SSH_HOSTS["ghost.example"]["required_mission_id"]=12`を追加（`10.66.6.6`は同一dict参照のため自動追随）。
+  `cmd_ssh`: 未登録ホストチェックの直後に`progress.status_for(required, mission_progress) == "locked"`なら
+  同じ`Host not found`を返す。`dig`/`ping`/`host`は無変更（意図的に非ゲート）。**注記（P3-05と同種の設計
+  判断）**: 無条件適用だと`default_state()`由来の汎用stateやMission3/12自身の旧フローstateまで
+  `mission_progress`が空のため「常にlocked」になり既存テストが壊れるため、P3-05と同じ
+  `state.get("mission_id") is None`ガードを追加。`tests/test_evaluator.py`の
+  `test_ssh_and_exit_swaps_filesystem`は本来ssh/exitのFS入れ替え機構の検証が目的なので、
+  Mission3解放済み相当の`mission_progress`を明示的に与えるよう更新（フィクスチャが元々
+  `default_state()`直接使用でmission_id=Noneだったため、新ゲートの影響を受けていた）。新規テスト6件
+  （amusement_park/ghost.example各々の未解放拒否・解放後成功、旧フロー無影響、dig/ping/hostの非ゲート
+  確認）を`tests/test_evaluator.py`に追加。全286テスト緑。
 
 `SSH_HOSTS[host]`に`required_mission_id`を追加（`amusement_park`=3, `ghost.example`/`10.66.6.6`=12）。
 `cmd_ssh`: 既存の未登録ホストチェックに加え、該当Missionが`locked`なら同じ`Host not found`を返す。

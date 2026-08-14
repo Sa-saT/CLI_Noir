@@ -136,6 +136,10 @@ def test_find_name(state: dict) -> None:
 
 
 def test_ssh_and_exit_swaps_filesystem(state: dict) -> None:
+    # amusement_park は Mission3 専用（ssh 到達性ゲート。Part5 P3-06）。この
+    # テストは ssh/exit の FS 入れ替え機構そのものの検証が目的なので、
+    # Mission3 を解放済みとみなす progress を与える。
+    state["mission_progress"]["completed"] = [1, 2]
     out, s2 = evaluate("ssh amusement_park", state)
     assert out == ["Connected to amusement_park"]
     assert s2["remote_mode"] is True
@@ -156,6 +160,60 @@ def test_ssh_unknown_host(state: dict) -> None:
     out, new = evaluate("ssh nope", state)
     assert out == ["Host not found"]
     assert _without_exit_status(new) == _without_exit_status(state)
+
+
+# --- ssh到達性ゲート（Part5 P3-06） ---
+def test_ssh_amusement_park_locked_before_mission3() -> None:
+    """永続統合ワールドで Mission3 が未解放なら amusement_park は未登録ホストと同じ扱い。"""
+    s = default_state()
+    assert s["mission_id"] is None
+    out, new = evaluate("ssh amusement_park", s)
+    assert out == ["Host not found"]
+    assert new["remote_mode"] is False
+
+
+def test_ssh_amusement_park_open_once_mission3_active() -> None:
+    s = default_state()
+    s["mission_progress"]["completed"] = [1, 2]
+    out, _ = evaluate("ssh amusement_park", s)
+    assert out == ["Connected to amusement_park"]
+
+
+def test_ssh_ghost_example_locked_before_mission12() -> None:
+    s = default_state()
+    out, _ = evaluate("ssh ghost.example", s)
+    assert out == ["Host not found"]
+    # IP エイリアスも同様にゲートされる。
+    out2, _ = evaluate("ssh 10.66.6.6", s)
+    assert out2 == ["Host not found"]
+
+
+def test_ssh_ghost_example_open_once_mission12_active() -> None:
+    s = default_state()
+    s["mission_progress"]["completed"] = list(range(1, 12))
+    out, _ = evaluate("ssh ghost.example", s)
+    assert out == ["Connected to ghost.example"]
+
+
+def test_ssh_gate_does_not_apply_to_old_per_mission_flow() -> None:
+    """state["mission_id"] が固定されている旧フローは、mission_progress が
+    未クリア状態のままでも ssh がゲートされない（Part5 P3-01 の追加→カットオーバー方針）。
+    """
+    s = default_state()
+    s["mission_id"] = 3
+    out, _ = evaluate("ssh amusement_park", s)
+    assert out == ["Connected to amusement_park"]
+
+
+def test_dig_ping_host_are_not_gated_by_ssh_reachability() -> None:
+    """dig/ping/host は意図的にゲートしない（DNS解決自体は認可と無関係という理屈）。"""
+    s = default_state()
+    out, _ = evaluate("dig ghost.example", s)
+    assert out != ["Host not found"]
+    out2, _ = evaluate("ping ghost.example", s)
+    assert out2 != ["Host not found"]
+    out3, _ = evaluate("host ghost.example", s)
+    assert out3 != ["Host not found"]
 
 
 # --- パイプ ---
