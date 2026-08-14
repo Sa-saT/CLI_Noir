@@ -65,6 +65,16 @@ def test_cd_into_missing_dir(state: dict) -> None:
     assert _without_exit_status(new) == _without_exit_status(state)  # state 不変
 
 
+def test_cd_without_argument_goes_home(state: dict) -> None:
+    # 引数無し cd は $HOME へ遷移する（実 bash と同じ挙動。BUG-02。Part5 P3-07）。
+    out, s2 = evaluate("cd desk", state)
+    assert s2["current_path"] == "/root/desk"
+
+    out, s3 = evaluate("cd", s2)
+    assert out == []
+    assert s3["current_path"] == s2["env_vars"]["HOME"] == "/root"
+
+
 def test_cat_file_and_missing(state: dict) -> None:
     out, _ = evaluate("cat /root/desk/businesscard.txt", state)
     assert out == ["NAME: ???", "ROLE: detective"]

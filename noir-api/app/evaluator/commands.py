@@ -212,7 +212,13 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 @command("cd")
 def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
-        raise CommandError("Error: invalid input")
+        # 引数無し cd は $HOME へ遷移する（実 bash と同じ挙動。BUG-02。Part5 P3-07）。
+        home = state.get("env_vars", {}).get("HOME", "/root")
+        node = fs.get_node(state, home)
+        if not fs.is_dir(node):
+            raise CommandError("Error: directory not found")
+        state["current_path"] = home
+        return [], state
     abs_path = fs.normalize(state["current_path"], argv[1])
     node = fs.get_node(state, abs_path)
     if not fs.is_dir(node):

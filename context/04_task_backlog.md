@@ -477,7 +477,14 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ## Phase C: 判定バグ修正
 
 ### P3-07 BUG-02: 引数無し`cd`
-- [ ] 未着手
+- [x] 完了（2026-08-14）。`cmd_cd`: `len(argv) < 2`時に`state["env_vars"]["HOME"]`へ遷移するよう修正（`Error:
+  directory not found`は$HOME自体が存在しない異常時のみ）。**注記**: 原文は
+  `state["env_vars"][current_user]["HOME"]`（env_varsのユーザー別dict化前提）だったが、そのdict化を担う
+  タスクIDがPart5に見当たらなかった（P3-01は「data スキーマの目標」を書いているだけでファイル一覧に
+  `commands.py`/`missions.py`/`judge.py`が無く、他タスクにも記載なし。Mission21へのsuステップ追加という
+  内容変更を伴うため独断で実装せず。最終報告で要確認）。そのため現行の平坦な`state["env_vars"]["HOME"]`
+  を参照する形で実装（per-user dict化された際は参照箇所を1行差し替えるだけで追随可能）。
+  `tests/test_evaluator.py::test_cd_without_argument_goes_home`追加。
 
 `cmd_cd`: `len(argv) < 2`時に`Error: invalid input`ではなく`state["current_path"] = state["env_vars"][current_user]["HOME"]`
 （env_varsがユーザー別dictになる前提、P3-01/R4対応後）へ移動。既存テストに旧挙動を前提にしたものが無いか確認してから修正
