@@ -96,4 +96,12 @@ def default_state() -> dict:
             "case_checked": False,
             "completed": False,
         },
+        # Mission横断の進捗dict（Part5 P3-02。永続統合ワールドの `mission_flags` 後継）。
+        # 旧 MissionState フローは引き続き mission_flags を見るため、このフィールドは
+        # 追加のみ（既存挙動に影響なし）。`app/evaluator/progress.py` 参照。
+        "mission_progress": {
+            "completed": [],
+            "active_mission_id": 1,
+            "case_checked": False,
+        },
     }
