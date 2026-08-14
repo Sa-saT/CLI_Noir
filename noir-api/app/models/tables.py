@@ -1,8 +1,13 @@
-"""SQLModel テーブル定義（User / MissionState）。
+"""SQLModel テーブル定義（User / MissionState / PlayerState）。
 
-MissionState は user_id + mission_id 単位で 1 レコード。ゲーム state 全体
-（current_path / filesystem / remote_mode / ssh_host / env_vars / git_state /
-mission_flags）を `data` JSON カラムに永続化する（設計指示書 § 4）。
+MissionState は user_id + mission_id 単位で 1 レコード（旧方式）。Part5「永続統合
+ワールド化」（`context/04_task_backlog.md`）により PlayerState（user_id 単位で
+1 レコード = 永続的な統合ワールド）へ移行する。移行中も既存テストを常時緑に保つため
+MissionState は残したまま PlayerState を追加し、P3-09/P3-10 で API/WS 層を
+カットオーバーする（追加 → カットオーバー方式。MissionState の削除はカットオーバー後）。
+
+ゲーム state 全体（current_path / filesystem / remote_mode / ssh_host / env_vars /
+git_state / mission_flags 等）を `data` JSON カラムに永続化する（設計指示書 § 4）。
 """
 
 from datetime import datetime, timezone
@@ -31,6 +36,22 @@ class MissionState(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     mission_id: int = Field(index=True)
     # ゲーム state 全体（default_state() のスキーマ）を丸ごと保持する。
+    data: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class PlayerState(SQLModel, table=True):
+    """ユーザーごとに1つの永続的な統合ワールド state（Part5 P3-01）。
+
+    22 Mission 分の仮想FS・進捗・環境変数を丸ごと1レコードに保持する
+    （`app/evaluator/progress.py` の `mission_progress` ヘルパー・
+    `app/content/missions.py::_build_world_fs()` が対応する。P3-09/P3-10 で
+    `app/ws/terminal.py` / `app/api/*` をこのテーブルへカットオーバーする）。
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, index=True)
+    # ゲーム state 全体（default_world_state() のスキーマ）を丸ごと保持する。
     data: dict = Field(default_factory=dict, sa_column=Column(JSON))
     updated_at: datetime = Field(default_factory=_utcnow)
 

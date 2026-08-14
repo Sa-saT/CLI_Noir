@@ -371,7 +371,11 @@ P3-12 → P3-13 → P3-14（各バックエンドMilestone後に追随、P3-11�
 ## Phase A: データモデル基盤
 
 ### P3-01 DB移行: `MissionState`→`PlayerState`
-- [ ] 未着手
+- [x] 完了（2026-08-14）。`PlayerState(user_id UNIQUE, data JSON, updated_at)`を追加（`MissionState`は
+  P3-09/10カットオーバーまで残置）。Alembicリビジョン`a1b2c3d4e5f6`（`c300ce029dad`に連結、`playerstate`
+  作成のみ・`missionstate`は未drop）。`data`の新フィールド（`env_vars`ユーザー別dict化・
+  `resolved_command_log`・`mission_progress`）はP3-02/P3-03/P3-08で段階的に追加する（本タスクはテーブル
+  追加のみのスコープ）。`tests/test_player_state_table.py`（新規）で健全性を確認。
 
 `app/models/tables.py`に`PlayerState(user_id UNIQUE, data JSON, updated_at)`を新設。`data`は仮想世界全体
 （`current_path`/`filesystem`/`remote_mode`/`ssh_host`/`current_user`/`processes`/`cron_jobs`/
