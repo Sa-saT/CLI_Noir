@@ -5,6 +5,15 @@
 
 ---
 
+## 受け入れ基準・Mission設計見出しを Phase2 採用後の実態に合わせて修正（2026-08-11）
+
+`docs/設計指示書.md` § 13「受け入れ基準」が Phase2 採用（2026-07-06）後もずっと「Mission1〜3必須」のみの文言のまま
+据え置かれていた（Phase2 の Mission4〜22・ゲーム機能12項目が「アプリ完成のトータル Goal」に含まれることを反映していなかった）。
+「MVP必須」（達成済み）と「Phase2必須」（アプリ完成の必須要件。バックエンドは達成済み・フロント接続は進行中）の2段構成に修正し、
+テスト観点も Phase2 コマンド群まで拡張した。あわせて § 11 見出しも「Mission 設計（MVP）」→「Mission 設計（MVP + Phase2・全22 Mission 採用済み）」
+に修正（本文の Mission4〜22 一覧・ゲーム機能一覧はすでに正しかったが見出しだけ MVP のまま取り残されていた）。
+バックアップ: `old_files/設計指示書_010.md`。
+
 ## Phase2 バックエンド完了: Mission5〜22（2026-07-20 完了、Sonnet で実装）
 
 タスク #21〜#39（P2-01〜P2-19）**全完了**。1 task = 1 commit + push を最後まで厳守。**241 tests green / ruff clean**。バックエンドは Mission1〜22 すべて実プレイ可能な状態に到達（フロントエンドは未着手のまま）。
@@ -153,79 +162,9 @@ MVP（Mission1〜3）を実プレイ可能に。タスク #14〜#16 完了（Opu
 
 ---
 
----
+## 初版（2026-02-17）の決定事項について
 
-## 技術スタック
-- Frontend: Vue 3 + Nuxt（file-based routing）+ Tailwind CSS + xterm.js（※2026-07-06 改訂: xterm.js → 自作 TerminalView。上記「実装方式の改訂」参照）
-- Backend: Django + DRF + Django Channels + PyJWT（※2026-07-06 改訂: → FastAPI + SQLModel。上記「実装方式の改訂」参照）
-- volta / pnpm / brew / pyenv はインストール済み
-
-## 認証
-- HTTP API: Authorization Bearer ヘッダー
-- WebSocket: query parameter で JWT を渡す
-
-## 仮想FS
-- ユーザー × ミッション単位で1レコード（DB の JSON カラム）
-- 再ログイン時に復元する（カレントパス / FS / remote_mode / git_state / mission_flags）
-- 復元しない（入力途中文字列 / UIスクロール / 一時エラー / 通信中フラグ）
-
-## コマンド制御
-- allowlist 方式（設計指示書 § 8 に定義）
-- 判定順序: denylist → allowlist → 実行
-- `git` は第1トークンで判定後、サブコマンドを別途分岐
-- `rm` は全般禁止。`curl` は mock API 限定
-
-## 疑似 Git（重要：通常のGitワークフローとは異なる）
-- `git commit` = ゲームセーブ（1 Mission 中に何度でも可能）
-- `git push` = クリア判定（最新 commit の状態で合否判定）
-- 順序制約: add（必須）→ commit → push
-- add なしで commit → `Error: nothing to commit`
-- commit なしで push → `Error: push not allowed before commit`
-- push 時にクリア条件未達 → `Error: mission requirements not met`
-- 再ログイン時に commit 一覧から任意のセーブを選んで再開可能
-- 次 Mission 遷移時、前 Mission のクリア前 commit は全消去
-
-## Mission 判定
-- 正規表現ベース / 順不同許容 / 大小文字区別あり
-- 不正コマンド時: エラーメッセージ表示のみ（即失敗にしない）
-- `case_file.sh` の実行 → add → commit → push の流れでクリア
-
-## SSH
-- 疑似接続。接続先確定:
-  - `amusement_park`（MVP Mission3 必須、初期ディレクトリ `/gate`）
-  - `corp_server`, `archive_node`（将来拡張用）
-- エラー: `Host not found` / `Permission denied`
-- local に戻るには `exit` のみ（`cd` では不可）
-
-## Mission 設計
-- MVP: Mission1〜3（段階的に増やす前提）
-- Mission1: Edit Business Card（名刺編集。ls/cd/cat/echo/git）
-- Mission2: Park Cat Search（猫探し。find/grep/cat）
-- Mission3: Amusement Park Bomb（爆弾解除。ssh/find/grep/awk/正規表現）
-- Mission4/5: 将来拡張（パイプ・リダイレクト / 権限管理）
-
-## ゲームの趣旨
-- 「触りながら理解する」原体験の再現
-- 黒い画面アレルギーの克服
-- LPIC 学習の入り口（教科書挫折問題の解決）
-- PC の理論性・概念フローを遊びで体に染み込ませる
-- ゲーム操作と実 PC 操作の意味を一致させる（ゲーム限定の知識にしない）
-
-## ペルソナ
-- ターゲット: PC の根本に興味がある人（年齢・性別不問）
-- 副次: LPIC 受験予定者
-- 「まず触って確かめたい」タイプを中心に設計
-
-## ファイル構成の方針
-- 無駄にファイルを増やさない
-- 統合できるものは統合する（allowlist_denylist.md とタスクフロー.md は設計指示書に吸収済み）
-- 変更時は old_files/ に採番バックアップを取ってから更新
-- 設計指示書.md を最上位の正とし、他ファイルはそこを参照する
-
-## UI
-- 3 領域（上部: 背景+情報 / 右: コマンド一覧 / 下: ターミナル）
-- 日本語統一
-- ssh/exit 時に背景フェード遷移
-- コマンド説明はフェード表示
-- touch で作成したファイルは UI 削除ボタンで削除可能
-- デフォルト配置ファイルは削除不可
+初版で定めた技術スタック・認証方式・仮想FS・コマンド制御・疑似Git・Mission判定・SSH・Mission設計・ゲームの趣旨・
+ペルソナ・ファイル構成方針・UI は、その後の改訂（上記「実装方式の改訂」2026-07-06 ほか）を経て
+`docs/設計指示書.md` に統合・現状化済み。矛盾があれば設計指示書が正（例: WS 認証は query parameter ではなく
+初回 `auth` フレーム方式に訂正済み）。初版時点の生の文言はここでは保持しない（必要なら git 履歴を参照）。
