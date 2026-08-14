@@ -12,8 +12,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def normalize(current_path: str, path: str) -> str:
-    """current_path を基準に path（絶対/相対/`.`/`..`）を絶対パスへ正規化する。"""
+def _normalize_path(current_path: str, path: str) -> str:
+    """current_path を基準に path（絶対/相対/`.`/`..`）を絶対パスへ正規化する。
+
+    純粋な文字列処理のみ（state を持たない）。ユーザー入力の記録対象にしたくない
+    内部的なパス連結（例: ディレクトリ再帰列挙時の子パス組み立て）はこちらを直接使う。
+    """
     if path.startswith("/"):
         base: list[str] = []
     else:
@@ -27,6 +31,21 @@ def normalize(current_path: str, path: str) -> str:
         else:
             base.append(part)
     return "/" + "/".join(base)
+
+
+def normalize(state: dict, path: str) -> str:
+    """state["current_path"] を基準に path を絶対パスへ正規化する。
+
+    解決結果を `state["_resolved_this_command"]`（`_stderr` と同じ、evaluate 内でのみ
+    生成され戻り値には残さないスクラッチ領域の慣習）へ `(raw_token, resolved_abs_path)`
+    として積む（Part5 P3-08 BUG-01）。`engine.evaluate()` が command_log 追記と同じ
+    箇所でこのスクラッチ領域を `resolved_command_log` へスナップショットしクリアする。
+    ユーザーが入力したトークンの解決だけを記録する（ディレクトリ再帰列挙等の内部的な
+    パス連結は `_normalize_path` を直接使い、ここを経由させない）。
+    """
+    resolved = _normalize_path(state["current_path"], path)
+    state.setdefault("_resolved_this_command", []).append((path, resolved))
+    return resolved
 
 
 def segments(abs_path: str) -> list[str]:
@@ -47,9 +66,7 @@ PROC_MEM_USED_KB = 2_048_000
 PROC_UPTIME_SECONDS = 132345.67
 
 _PROC_CPUINFO = (
-    "processor\t: 0\n"
-    "vendor_id\t: NoirVirtual\n"
-    "model name\t: Virtual CPU @ 2.40GHz"
+    "processor\t: 0\nvendor_id\t: NoirVirtual\nmodel name\t: Virtual CPU @ 2.40GHz"
 )
 
 
@@ -75,7 +92,9 @@ def _proc_meminfo_text() -> str:
 
 def _proc_pid_dir(p: dict) -> dict:
     uid = 0 if p.get("user") == "root" else 1000
-    status = f"Name:\t{p['name']}\nState:\t{p.get('state', 'S')} (sleeping)\nUid:\t{uid}"
+    status = (
+        f"Name:\t{p['name']}\nState:\t{p.get('state', 'S')} (sleeping)\nUid:\t{uid}"
+    )
     return {
         "type": "dir",
         "children": {

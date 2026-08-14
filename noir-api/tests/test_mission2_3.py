@@ -48,13 +48,24 @@ def test_mission2_requires_find() -> None:
     assert s["mission_flags"]["case_checked"] is False
 
 
-def test_mission2_requires_absolute_path() -> None:
+def test_mission2_relative_path_resolves_to_absolute() -> None:
+    """BUG-01対応（Part5 P3-08）: `cd swing && grep STATUS catinfo.txt` は実PCでは
+    絶対パス指定と全く同じ結果になるため、こちらも通す（resolved_command_log 経由）。
+    """
     s = build_initial_state(2)
     _, s = _run(s, "find /root/park -name catinfo.txt")
     _, s = _run(s, "cd /root/park/swing")
-    # 相対パスで開くと絶対パス参照が記録されない。
     _, s = _run(s, "grep STATUS catinfo.txt")
     out, s = _run(s, "sh /root/park/case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
+def test_mission2_requires_catinfo_to_actually_be_touched() -> None:
+    """catinfo.txt に一切触れていなければ絶対パス参照は依然として不合格。"""
+    s = build_initial_state(2)
+    _, s = _run(s, "find /root/park -name catinfo.txt")
+    out, s = _run(s, "sh case_file.sh")
     assert out == ["Error: absolute path required"]
     assert s["mission_flags"]["case_checked"] is False
 

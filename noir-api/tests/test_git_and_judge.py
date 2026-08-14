@@ -74,6 +74,20 @@ def test_mission1_golden_transcript(mission1_state: dict) -> None:
     assert s["mission_progress"]["active_mission_id"] == 1
 
 
+def test_mission1_relative_path_satisfies_judge(mission1_state: dict) -> None:
+    """BUG-01対応（Part5 P3-08）: `cd desk` の後に相対パスで cat/echo しても、
+    実PCでは絶対パス指定と全く同じ結果になるため判定を通す。
+    """
+    s = mission1_state
+    _, s = _run(s, "cd /root/desk")
+    _, s = _run(s, "cat businesscard.txt")
+    _, s = _run(s, 'echo "NAME: Sam Spade" > businesscard.txt')
+
+    out, s = _run(s, "sh /root/case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_case_file_mismatch_does_not_check(mission1_state: dict) -> None:
     s = mission1_state
     # 名刺を編集せず case_file.sh を実行 → 不一致

@@ -87,6 +87,12 @@ def default_state() -> dict:
         },
         # 実行に成功したコマンド行の履歴（case_file.sh 判定・リプレイ台帳に使う）
         "command_log": [],
+        # command_log と並行して積む解決済みパスの記録（Part5 P3-08 BUG-01）。
+        # 各要素: {"line": <生テキスト>, "paths": [<絶対パス>, ...], "mission_id": <int|None>}。
+        # command_log は生テキストのまま維持し（リプレイ台帳・実 bash 風履歴のため）、
+        # 判定側（judge.py）はこちらも検索対象に含める。mission_id はリプレイ台帳の
+        # Mission別フィルタ用（Part5 P3-09）。
+        "resolved_command_log": [],
         "git_state": {
             "staged": [],
             "commits": [],

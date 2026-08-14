@@ -755,9 +755,14 @@ _DEFS: list[MissionDef] = [
         # git add/commit/push は case_file.sh の後に走る手順のため regex ではなく
         # git コマンド側で構造的に強制する（commit は staged 必須 / push は
         # case_checked 必須。設計指示書 § 10 の判定フロー）。
+        # BUG-01対応（Part5 P3-08）: judge.pyの汎用AND-regexは各行を「生テキスト+
+        # その行で解決された絶対パス」の結合文字列に対して評価する。`cd desk` の後
+        # `cat businesscard.txt`（相対パス）と `cat /root/desk/businesscard.txt`
+        # （絶対パス）は実PCでは完全に同じ結果になるため、両方を通す（末尾の`$`アンカーは
+        # 結合文字列だと意味が変わる＝解決済みパスの付加分で必ず不一致になるため外す）。
         expected_script_patterns=[
-            r"^cat\s+/root/desk/businesscard\.txt$",
-            r"^echo\s+.+\s*>\s+/root/desk/businesscard\.txt$",
+            r"^cat\b.*/root/desk/businesscard\.txt",
+            r"^echo\b.*>.*root/desk/businesscard\.txt",
         ],
         initial_filesystem=_MISSION1_FS,
         hints=[

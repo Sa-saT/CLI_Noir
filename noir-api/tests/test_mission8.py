@@ -65,6 +65,27 @@ def test_mission8_golden_transcript() -> None:
     assert s["mission_flags"]["completed"] is True
 
 
+def test_mission8_relative_path_ledger_read_satisfies_judge() -> None:
+    """BUG-01対応（Part5 P3-08）: cd してから相対パスで ledger.txt を読んでも、
+    実PCでは絶対パス指定と全く同じ結果になるため判定を通す。
+    """
+    s = build_initial_state(8)
+
+    _, s = _run(s, "cat /root/bar/hint.txt")
+    _, s = _run(s, "su barman")
+    _, s = _run(s, "whoami")
+    _, s = _run(s, "cd /root/bar/back")
+    out, s = _run(s, "cat ledger.txt")
+    assert out[0] == "SUSPECT: Nico Faro"
+    _, s = _run(s, "cd /root/bar")
+    _, s = _run(s, "exit")
+    assert s["current_user"] == "detective"
+
+    out, s = _run(s, "sh /root/bar/case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_mission8_fails_without_returning_home() -> None:
     s = build_initial_state(8)
     _, s = _run(s, "su barman")

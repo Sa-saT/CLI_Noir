@@ -33,12 +33,24 @@ _GLOB_CHARS = "*?["
 # シェル組み込み相当（実 bash と同じく PATH 解決の対象外。設計指示書 § 4）。
 # これが無いと Mission21 で PATH が壊れている間に echo $PATH すら打てなくなる。
 _BUILTINS = {
-    "cd", "pwd", "echo", "export", "unset", "printenv", "which", "type",
-    "history", "clear", "exit", "git",
+    "cd",
+    "pwd",
+    "echo",
+    "export",
+    "unset",
+    "printenv",
+    "which",
+    "type",
+    "history",
+    "clear",
+    "exit",
+    "git",
 }
 _PATH_BIN_DIRS = ("/bin", "/usr/bin", "/usr/local/bin")
 
-_VAR_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)|\$(\?)")
+_VAR_REF = re.compile(
+    r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)|\$(\?)"
+)
 
 
 def _expand_env_vars(command_line: str, env_vars: dict) -> str:
@@ -132,7 +144,7 @@ def _glob_matches(pattern: str, state: dict) -> list[str] | None:
     else:
         dir_part, name_pattern = "", pattern
 
-    abs_dir = fs.normalize(state["current_path"], dir_part or ".")
+    abs_dir = fs.normalize(state,dir_part or ".")
     dir_node = fs.get_node(state, abs_dir)
     if not fs.is_dir(dir_node):
         return None
@@ -262,7 +274,7 @@ def _split_redirect(
 
 
 def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
-    abs_path = fs.normalize(state["current_path"], path)
+    abs_path = fs.normalize(state,path)
     if fs.is_proc_path(abs_path):
         raise CommandError("Permission denied")
     node = fs.get_node(state, abs_path)
@@ -283,9 +295,29 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
 
 
 def _set_status(state: dict, code: str) -> dict:
-    """終了ステータスを env_vars["?"] に記録する（echo $? の最小実装。P2-15）。"""
+    """終了ステータスを env_vars["?"] に記録する（echo $? の最小実装。P2-15）。
+
+    `evaluate()` の全リターン経路で最後に呼ばれるため、`_resolved_this_command`
+    スクラッチ領域（Part5 P3-08。`fs.normalize` が積む）をここで確実に破棄する
+    安全網も兼ねる（成功パスは呼ぶ前に自分で pop 済みなので二重 pop は no-op）。
+    構文エラー等・途中で終わる経路でもここを必ず経由するため、`_stderr` と違い
+    明示的な初期化箇所を持たなくても取りこぼしなく後始末できる。
+    """
     state.setdefault("env_vars", {})["?"] = code
+    state.pop("_resolved_this_command", None)
     return state
+
+
+def _active_mission_tag(state: dict) -> int | None:
+    """resolved_command_log エントリに付ける mission_id タグ（Part5 P3-08）。
+
+    旧 Mission 単位フローは state["mission_id"] が特定 Mission に固定されている
+    のでそれをそのまま使う。永続統合ワールドは mission_progress.active_mission_id
+    （キャッシュ済みの値をそのまま読む。都度再計算は不要な補助情報のため）。
+    """
+    if state.get("mission_id") is not None:
+        return state["mission_id"]
+    return state.get("mission_progress", {}).get("active_mission_id")
 
 
 def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
@@ -297,7 +329,9 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     try:
         tok_pairs = _tokenize(expanded_line)
     except ValueError:
-        return ["Error: invalid input"], _set_status(working, "1")  # 引用符が閉じていない等
+        return ["Error: invalid input"], _set_status(
+            working, "1"
+        )  # 引用符が閉じていない等
     if not tok_pairs:
         # 空行の実行は bash と同じく $? を変更しない。
         return [], state
@@ -348,5 +382,17 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
         return [str(exc)], _set_status(st_state, "1")
 
     # 成功したコマンドを履歴に記録（case_file.sh 判定・リプレイ台帳用）。
+    # command_log は生テキストのまま維持する（リプレイ台帳・実 bash 風履歴のため）。
     st_state.setdefault("command_log", []).append(command_line)
+    # 並行して解決済みパスを resolved_command_log に記録する（Part5 P3-08 BUG-01）。
+    # judge.py の AND-regex 判定はこちらも検索対象に含めることで、相対パス/裸の
+    # ファイル名で打たれたコマンドも絶対パス要求パターンを満たせるようにする。
+    resolved_paths = st_state.pop("_resolved_this_command", [])
+    st_state.setdefault("resolved_command_log", []).append(
+        {
+            "line": command_line,
+            "paths": [resolved for _raw, resolved in resolved_paths],
+            "mission_id": _active_mission_tag(st_state),
+        }
+    )
     return out_lines, _set_status(st_state, "0")

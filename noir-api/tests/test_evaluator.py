@@ -260,3 +260,37 @@ def test_pipe_empty_stage_invalid(state: dict) -> None:
     assert evaluate("| grep x", state)[0] == ["Error: invalid input"]
     assert evaluate("echo x |", state)[0] == ["Error: invalid input"]
     assert evaluate("echo x | | grep y", state)[0] == ["Error: invalid input"]
+
+
+# --- resolved_command_log（Part5 P3-08 BUG-01） ---
+def test_resolved_command_log_records_resolved_paths(state: dict) -> None:
+    _, s2 = evaluate("cd desk", state)
+    _, s3 = evaluate("cat businesscard.txt", s2)
+    assert s3["resolved_command_log"][-1] == {
+        "line": "cat businesscard.txt",
+        "paths": ["/root/desk/businesscard.txt"],
+        # mission_id が未設定（永続統合ワールド）の間は mission_progress の
+        # active_mission_id キャッシュ（デフォルト 1）を読む。
+        "mission_id": 1,
+    }
+    # 生テキストの command_log は解決せずそのまま保持する。
+    assert s3["command_log"][-1] == "cat businesscard.txt"
+
+
+def test_resolved_command_log_uses_mission_id_when_old_flow(state: dict) -> None:
+    state["mission_id"] = 1
+    _, s2 = evaluate("cat /root/desk/businesscard.txt", state)
+    assert s2["resolved_command_log"][-1]["mission_id"] == 1
+
+
+def test_resolved_command_log_not_appended_on_error(state: dict) -> None:
+    before = len(state.get("resolved_command_log", []))
+    _, new = evaluate("cat /root/desk/nope.txt", state)
+    assert len(new["resolved_command_log"]) == before
+    assert "_resolved_this_command" not in new
+    assert "_stderr" not in new
+
+
+def test_resolved_command_log_no_leak_into_state_dict_keys(state: dict) -> None:
+    _, new = evaluate("cat /root/desk/businesscard.txt", state)
+    assert "_resolved_this_command" not in new

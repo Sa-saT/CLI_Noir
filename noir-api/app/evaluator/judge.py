@@ -7,7 +7,7 @@ match_policy: AND（全パターン一致必須）/ 順不同 / 大小文字区�
 
 import re
 
-from app.content.missions import get_mission
+from app.content.missions import MissionDef, get_mission
 from app.evaluator import fs
 
 # Mission ごとの専用判定（誤答メッセージを個別化する Mission だけ登録）。
@@ -15,12 +15,57 @@ from app.evaluator import fs
 _CATINFO_ABS = "/root/park/swing/catinfo.txt"
 
 
+def _resolve_active_mission(state: dict) -> MissionDef | None:
+    """判定対象の Mission を特定する（Part5 P3-08）。
+
+    旧 Mission 単位フロー（state["mission_id"] が特定 Mission に固定）と永続統合
+    ワールド（mission_id を持たず mission_progress.active_mission_id を見る）の
+    両方に対応する。P3-05 の advance_mission ガードと対になる判定側の対応。
+    """
+    mission_id = state.get("mission_id")
+    if mission_id is None:
+        mission_id = state.get("mission_progress", {}).get("active_mission_id")
+    return get_mission(mission_id) if mission_id else None
+
+
+def _set_case_checked(state: dict, value: bool) -> None:
+    """case_checked を旧 mission_flags と（永続統合ワールドでは）mission_progress の
+    両方に反映する。旧フローは mission_flags のみを見るため引き続き常に書く。
+    永続統合ワールド（state["mission_id"] が None）は mission_progress 側も更新し、
+    advance_mission（Part5 P3-05）が push 直前に読む値と一致させる。
+    """
+    state["mission_flags"]["case_checked"] = value
+    if state.get("mission_id") is None:
+        state.setdefault("mission_progress", {})["case_checked"] = value
+
+
+def _combined_lines(state: dict) -> list[str]:
+    """command_log の各行に、その行で解決されたパスを連結した検索対象文字列を返す
+    （Part5 P3-08 BUG-01）。
+
+    command_log は生テキストのまま維持する（リプレイ台帳・実 bash 風履歴のため）。
+    生テキストのみでは、相対パス/裸のファイル名で操作した行が絶対パス要求の判定に
+    一致しない（例: `cd desk` の後 `cat businesscard.txt` は、実 PC では
+    `cat /root/desk/businesscard.txt` と全く同じ結果になるが、生テキストにはその
+    絶対パスが含まれない）。resolved_command_log（engine.evaluate が command_log と
+    同じタイミングで積む。行順序が対応）から、その行で fs.normalize が解決した
+    絶対パス群を末尾に連結してから判定に使う。
+    """
+    resolved = state.get("resolved_command_log")
+    if resolved:
+        return [
+            f"{entry['line']} {' '.join(entry.get('paths', []))}".rstrip()
+            for entry in resolved
+        ]
+    return list(state.get("command_log", []))
+
+
 def _judge_mission2(state: dict) -> tuple[list[str], dict]:
     """Mission2: find 使用・catinfo 絶対パス参照・STATUS 抽出の 3 点を検査する。
 
     誤答メッセージは Mission参照ファイル § 3 の確定文言に一致させる。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     used_find = any(re.match(r"\s*find\b", line) for line in log)
     used_abs_path = any(_CATINFO_ABS in line for line in log)
     # STATUS 抽出: grep/echo 等で STATUS キーまたはその値 stray を含む行があるか。
@@ -29,16 +74,16 @@ def _judge_mission2(state: dict) -> tuple[list[str], dict]:
     )
 
     if not used_find:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: use find to locate clues"], state
     if not used_abs_path:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Error: absolute path required"], state
     if not read_status:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Error: required cat status not found"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -52,11 +97,11 @@ def _judge_mission6(state: dict) -> tuple[list[str], dict]:
     still_running = any(p.get("name") == "listener_x" for p in processes)
 
     if still_running:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         state["mission_flags"]["bug_removed"] = False
         return ["Warning: the bug is still running"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     state["mission_flags"]["bug_removed"] = True
     return ["case_file.sh: all checks passed"], state
 
@@ -69,23 +114,23 @@ def _judge_mission7(state: dict) -> tuple[list[str], dict]:
     """Mission7: /proc での裏取り（status/cmdline 閲覧）→ 偽装 cmdline の報告
     → 停止、の 3 段階を検査する。「名簿（ps）と持ち物検査（/proc）」の二段推理。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     pid = _MISSION7_IMPOSTOR_PID
     inspected = any(re.search(rf"/proc/{pid}/(status|cmdline)", line) for line in log)
     reported = any(_MISSION7_FAKE_CMDLINE in line for line in log)
     still_running = any(p.get("pid") == pid for p in state.get("processes", []))
 
     if not inspected:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: check /proc before you accuse anyone"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: report the impostor's real command"], state
     if still_running:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: the impostor is still running"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -96,26 +141,26 @@ def _judge_mission8(state: dict) -> tuple[list[str], dict]:
     """Mission8: su barman → whoami → 秘密ファイル閲覧 → 元ユーザーへの復帰、
     の 4 段階を検査する。exit で local に戻る Mission3 の ssh/exit と対になる構造。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     did_su = any(re.match(r"\s*su\s+barman\b", line) for line in log)
     did_whoami = any(re.match(r"\s*whoami\b", line) for line in log)
     read_secret = any(_MISSION8_SECRET_PATH in line for line in log)
     returned_home = state.get("current_user", "detective") == "detective"
 
     if not did_su:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: find a way to become barman"], state
     if not did_whoami:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: confirm who you are with whoami"], state
     if not read_secret:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: the ledger is still unread"], state
     if not returned_home:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: return to your own identity before reporting"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -127,22 +172,22 @@ def _judge_mission10(state: dict) -> tuple[list[str], dict]:
     """Mission10: diff 実行 + submitted.txt が original.txt と完全一致するまで
     sed で復元されているかを検査する（1文字差の改ざんを sed で正確に直す）。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     did_diff = any(re.match(r"\s*diff\b", line) for line in log)
     if not did_diff:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: run diff before you restore the will"], state
 
     original = fs.get_node(state, _MISSION10_ORIGINAL_PATH)
     submitted = fs.get_node(state, _MISSION10_SUBMITTED_PATH)
     if not (fs.is_file(original) and fs.is_file(submitted)):
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
     if original.get("content") != submitted.get("content"):
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: submitted.txt still does not match the original"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -162,7 +207,7 @@ def _judge_mission12(state: dict) -> tuple[list[str], dict]:
 
     「調べてから踏み込む」実務手順そのものを判定条件にする（Mission参照 § 12）。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     dig_idx = _first_index(log, r"\s*dig\b")
     ping_idx = _first_index(log, r"\s*ping\b")
     ssh_idx = _first_index(log, r"\s*ssh\b")
@@ -174,16 +219,16 @@ def _judge_mission12(state: dict) -> tuple[list[str], dict]:
         and dig_idx < ping_idx < ssh_idx
     )
     if not order_ok:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: investigate before you breach"], state
 
     read_evidence = any(_MISSION12_EVIDENCE_PATH in line for line in log)
     reported_boss = any(_MISSION12_BOSS in line for line in log)
     if not read_evidence or not reported_boss:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -201,20 +246,20 @@ def _judge_mission14(state: dict) -> tuple[list[str], dict]:
     探索中の cat/ls/file 呼び出しにはリンクパスが自然に出現するため、
     誤答判定は「report で使われた echo 行」に絞って行う（Mission参照 § 14）。
     """
-    echo_lines = [line for line in state.get("command_log", []) if re.match(r"\s*echo\b", line)]
+    echo_lines = [line for line in _combined_lines(state) if re.match(r"\s*echo\b", line)]
     reported_real = any(_MISSION14_REAL_PATH in line for line in echo_lines)
     reported_link_only = any(
         any(p in line for p in _MISSION14_LINK_PATHS) for line in echo_lines
     )
 
     if reported_real:
-        state["mission_flags"]["case_checked"] = True
+        _set_case_checked(state, True)
         return ["case_file.sh: all checks passed"], state
     if reported_link_only:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Error: that is only a mirror"], state
 
-    state["mission_flags"]["case_checked"] = False
+    _set_case_checked(state, False)
     return ["Warning: pattern mismatch"], state
 
 
@@ -225,23 +270,27 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     """Mission15: informant_history の各行を command_log 上でそのまま再現し、
     かつ行き先を report（echo）したかを検査する。
     """
-    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    mission = _resolve_active_mission(state)
     required = mission.informant_history if mission else []
     required = required or []
-    log = state.get("command_log", [])
-    reproduced = all(cmd in log for cmd in required)
+    log = _combined_lines(state)
+    # cmd は informant_history の絶対パス版の定型文（Mission参照 § 15）。
+    # combined lines は「生テキスト + 解決済み絶対パス」の連結のため、生テキストと
+    # 完全一致（旧: `cmd in log` の list membership）ではなく部分一致で見る
+    # （BUG-01。相対パスで同じ操作を再現した場合も許容する）。
+    reproduced = all(any(cmd in line for line in log) for cmd in required)
     reported = any(
         _MISSION15_DESTINATION in line for line in log if re.match(r"\s*echo\b", line)
     )
 
     if not reproduced:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: retrace the informant's exact steps"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -253,22 +302,22 @@ def _judge_mission16(state: dict) -> tuple[list[str], dict]:
     の3点を検査する。command_log には成功したコマンドの原文がそのまま残るため、
     未引用の "top secret.txt" 参照は失敗して記録されない＝quote 使用の証明になる。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     used_digit_glob = any(re.search(r"\[0-9\]", line) for line in log)
     read_secret = any(re.search(r"\bcat\b.*top secret\.txt", line) for line in log)
     reported_code = any(_MISSION16_CODE in line for line in log)
 
     if not used_digit_glob:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: narrow the search with a glob pattern"], state
     if not read_secret:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: the warrant does not cover an unopened file"], state
     if not reported_code:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -279,7 +328,7 @@ def _judge_mission19(state: dict) -> tuple[list[str], dict]:
     """Mission19: 自作 patrol.sh の実行 + FOUND 出力 + スクリプト自体が変数定義と
     if 文を含むこと（ハードコードした echo FOUND だけでの通過を防ぐ）を検査する。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     ran_script = any(re.search(r"\bsh\b.*patrol\.sh\b", line) for line in log)
     script_found = state.get("mission_flags", {}).get("script_found", False)
 
@@ -289,10 +338,10 @@ def _judge_mission19(state: dict) -> tuple[list[str], dict]:
     has_if = re.search(r"\bif\b", content) is not None
 
     if not (ran_script and script_found and has_var and has_if):
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -309,7 +358,7 @@ def _judge_mission20(state: dict) -> tuple[list[str], dict]:
     """Mission20: /etc・/var/log・/tmp・/home の4区画それぞれへの探索
     （ls/cat/tail/grep のいずれか）+ 黒幕名の報告を検査する。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     explored = {
         key: any(
             re.match(r"\s*(ls|cat|tail|grep)\b", line) and re.search(pattern, line)
@@ -322,13 +371,13 @@ def _judge_mission20(state: dict) -> tuple[list[str], dict]:
     )
 
     if not all(explored.values()):
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: the map is incomplete"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -342,7 +391,7 @@ def _judge_mission21(state: dict) -> tuple[list[str], dict]:
     command_log は成功したコマンドのみ記録されるため、PATH 未復旧では grep/find は
     そもそもログに残らない。ログに残っている＝復旧後に成功した証跡になる。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     path_restored = state.get("env_vars", {}).get("PATH") == _MISSION21_GOOD_PATH
     used_tool_after_restore = any(re.match(r"\s*(grep|find)\b", line) for line in log)
     reported_bad_path = any(
@@ -350,13 +399,13 @@ def _judge_mission21(state: dict) -> tuple[list[str], dict]:
     )
 
     if not path_restored:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: PATH is still broken"], state
     if not used_tool_after_restore or not reported_bad_path:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -413,13 +462,13 @@ def _judge_mission22(state: dict) -> tuple[list[str], dict]:
     """Mission22: これまでの全 Mission で学んだ技術を8関所として直列に検査する
     （find→ssh→chmod→パイプ集計→tar→md5sum→自作sh→報告）。
     """
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     for i, check in enumerate(_MISSION22_CHECKPOINTS, start=1):
         if not check(log, state):
-            state["mission_flags"]["case_checked"] = False
+            _set_case_checked(state, False)
             return [f"Warning: checkpoint {i} incomplete"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state
 
 
@@ -442,7 +491,7 @@ _CUSTOM_JUDGES = {
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:
     """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
-    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    mission = _resolve_active_mission(state)
 
     custom = _CUSTOM_JUDGES.get(mission.id) if mission else None
     if custom is not None:
@@ -452,10 +501,10 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
 
     if not patterns:
         # 判定パターン未設定の Mission（詳細未確定）。合格にしない。
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["case_file.sh: no checks configured for this mission"], state
 
-    log = state.get("command_log", [])
+    log = _combined_lines(state)
     try:
         unmatched = [
             p for p in patterns if not any(re.search(p, line) for line in log)
@@ -464,8 +513,8 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
         return ["Error: invalid pattern"], state
 
     if unmatched:
-        state["mission_flags"]["case_checked"] = False
+        _set_case_checked(state, False)
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    _set_case_checked(state, True)
     return ["case_file.sh: all checks passed"], state

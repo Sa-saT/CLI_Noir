@@ -46,6 +46,27 @@ def test_mission20_golden_transcript() -> None:
     assert s["mission_flags"]["completed"] is True
 
 
+def test_mission20_relative_path_exploration_satisfies_zones() -> None:
+    """BUG-01対応（Part5 P3-08）: cd してから相対パスで探索しても、実PCでは
+    絶対パス指定と全く同じ結果になるため4区画の判定を通す。
+    """
+    s = build_initial_state(20)
+
+    _, s = _run(s, "cd /etc")
+    _, s = _run(s, "cat hosts")
+    _, s = _run(s, "cd /var/log")
+    _, s = _run(s, "tail entry.log")
+    _, s = _run(s, "cd /tmp")
+    _, s = _run(s, "cat .forgotten")
+    _, s = _run(s, "cd /home/mr_black")
+    _, s = _run(s, "ls .")
+    _, s = _run(s, 'echo "mr_black" > /root/report.txt')
+
+    out, s = _run(s, "sh /root/case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_mission20_missing_zone_blocks_clear() -> None:
     s = build_initial_state(20)
     # /tmp を探索していない。

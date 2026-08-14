@@ -19,6 +19,7 @@ from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
 
+
 def _rfile(content: str) -> dict:
     """remote FS 用のファイルノード（読み取り専用ヒント）。"""
     return {
@@ -68,9 +69,7 @@ SSH_HOSTS: dict[str, dict] = {
                         "type": "dir",
                         "children": {
                             "notice.txt": _rfile(
-                                "SAFETY NOTICE\n"
-                                "Ride limit for this gate.\n"
-                                "Height: 180"
+                                "SAFETY NOTICE\nRide limit for this gate.\nHeight: 180"
                             ),
                         },
                     },
@@ -80,7 +79,9 @@ SSH_HOSTS: dict[str, dict] = {
                             "junk.txt": _rfile("popcorn receipts, nothing useful"),
                         },
                     },
-                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                    "case_file.sh": _rfile(
+                        "# 事件ファイル: sh case_file.sh で判定する\n"
+                    ),
                 },
             }
         },
@@ -105,7 +106,9 @@ SSH_HOSTS: dict[str, dict] = {
                             "decoy.txt": _rfile("routine chatter, nothing useful"),
                         },
                     },
-                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                    "case_file.sh": _rfile(
+                        "# 事件ファイル: sh case_file.sh で判定する\n"
+                    ),
                 },
             }
         },
@@ -133,7 +136,7 @@ def _read_input(state: dict, files: list[str], stdin: list[str]) -> list[str]:
     current_user = state.get("current_user", "detective")
     lines: list[str] = []
     for f in files:
-        node = fs.get_node(state, fs.normalize(state["current_path"], f))
+        node = fs.get_node(state, fs.normalize(state, f))
         if fs.is_link(node):
             node = fs.resolve_link(state, node)
         if not fs.is_file(node):
@@ -197,7 +200,7 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     current_user = state.get("current_user", "detective")
     out: list[str] = []
     for target in targets:
-        abs_path = fs.normalize(state["current_path"], target)
+        abs_path = fs.normalize(state, target)
         node = fs.get_node(state, abs_path)
         if node is None:
             raise CommandError("Error: path not found")
@@ -214,7 +217,8 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
             names = sorted(
                 n
                 for n in children
-                if not fs.is_dir(children[n]) or fs.can_traverse(children[n], current_user)
+                if not fs.is_dir(children[n])
+                or fs.can_traverse(children[n], current_user)
             )
             if long:
                 out.extend(_ls_long_line(n, children[n]) for n in names)
@@ -230,7 +234,7 @@ def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
         # 引数無し cd は $HOME へ遷移する（実 bash と同じ挙動。BUG-02。Part5 P3-07）。
         abs_path = state.get("env_vars", {}).get("HOME", "/root")
     else:
-        abs_path = fs.normalize(state["current_path"], argv[1])
+        abs_path = fs.normalize(state, argv[1])
     node = fs.get_node(state, abs_path)
     if not fs.is_dir(node):
         raise CommandError("Error: directory not found")
@@ -251,7 +255,7 @@ def cmd_pwd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
 def cmd_touch(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], argv[1])
+    abs_path = fs.normalize(state, argv[1])
     if fs.is_proc_path(abs_path):
         raise CommandError("Permission denied")
     node = fs.get_node(state, abs_path)
@@ -269,7 +273,7 @@ def cmd_touch(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 def cmd_mkdir(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], argv[1])
+    abs_path = fs.normalize(state, argv[1])
     if fs.is_proc_path(abs_path):
         raise CommandError("Permission denied")
     if fs.get_node(state, abs_path) is not None:
@@ -286,7 +290,9 @@ def _mode_from_numeric(spec: str) -> str:
     bits = ""
     for digit in spec:
         n = int(digit)
-        bits += ("r" if n & 4 else "-") + ("w" if n & 2 else "-") + ("x" if n & 1 else "-")
+        bits += (
+            ("r" if n & 4 else "-") + ("w" if n & 2 else "-") + ("x" if n & 1 else "-")
+        )
     return bits
 
 
@@ -322,7 +328,7 @@ def cmd_chmod(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 
     spec, *paths = operands
     for path in paths:
-        abs_path = fs.normalize(state["current_path"], path)
+        abs_path = fs.normalize(state, path)
         node = fs.get_node(state, abs_path)
         if node is None:
             raise CommandError("Error: path not found")
@@ -353,7 +359,9 @@ def cmd_clear(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 
 
 @command("history")
-def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_history(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     # 通常は自分の操作履歴（フロント側の責務）だが、Mission15 は「情報屋の履歴」を
     # 演出として見せるため MissionDef.informant_history があればそれを表示する。
     mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
@@ -376,7 +384,9 @@ def _walk_files(state: dict, abs_dir: str):
     if not fs.can_traverse(node, current_user):
         return
     for name in sorted(node.get("children", {}).keys()):
-        child_path = fs.normalize(abs_dir, name)
+        # 内部的なパス連結（ユーザー入力の再解決ではない）なので resolved_command_log
+        # を汚さない _normalize_path を直接使う（Part5 P3-08）。
+        child_path = fs._normalize_path(abs_dir, name)
         child = node["children"][name]
         if fs.is_dir(child):
             if not fs.can_traverse(child, current_user):
@@ -421,7 +431,7 @@ def cmd_grep(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
         matched: list[str] = []
         stderr = state.setdefault("_stderr", [])
         for target in targets:
-            abs_start = fs.normalize(state["current_path"], target)
+            abs_start = fs.normalize(state, target)
             for file_path in _walk_files(state, abs_start):
                 node = fs.get_node(state, file_path)
                 if fs.is_link(node):
@@ -459,7 +469,7 @@ def cmd_find(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
         if idx + 1 < len(argv):
             name_glob = argv[idx + 1]
 
-    abs_start = fs.normalize(state["current_path"], start)
+    abs_start = fs.normalize(state, start)
     node = fs.get_node(state, abs_start)
     if node is None:
         raise CommandError("Error: path not found")
@@ -506,7 +516,7 @@ def cmd_file(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     if not operands:
         raise CommandError("Error: invalid input")
     label = operands[0]
-    abs_path = fs.normalize(state["current_path"], label)
+    abs_path = fs.normalize(state, label)
     node = fs.get_node(state, abs_path)
     if node is None:
         raise CommandError("Error: path not found")
@@ -536,8 +546,8 @@ def cmd_ln(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
         raise CommandError("Error: invalid input")
 
     target, link_name = operands
-    abs_target = fs.normalize(state["current_path"], target)
-    abs_link = fs.normalize(state["current_path"], link_name)
+    abs_target = fs.normalize(state, target)
+    abs_link = fs.normalize(state, link_name)
     if fs.get_node(state, abs_link) is not None:
         raise CommandError("Error: path already exists")
     parent, name = fs.get_parent(state, abs_link)
@@ -557,7 +567,7 @@ def cmd_tar(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     if "x" not in flag_letters or "f" not in flag_letters:
         raise CommandError("Error: invalid input")
 
-    abs_path = fs.normalize(state["current_path"], operands[0])
+    abs_path = fs.normalize(state, operands[0])
     node = fs.get_node(state, abs_path)
     if not fs.is_file(node):
         raise CommandError("Error: file not found")
@@ -573,7 +583,7 @@ def cmd_unzip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
     operands = _operands(argv)
     if not operands:
         raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], operands[0])
+    abs_path = fs.normalize(state, operands[0])
     node = fs.get_node(state, abs_path)
     if not fs.is_file(node):
         raise CommandError("Error: file not found")
@@ -585,11 +595,13 @@ def cmd_unzip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 
 
 @command("gunzip")
-def cmd_gunzip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_gunzip(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     operands = _operands(argv)
     if not operands:
         raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], operands[0])
+    abs_path = fs.normalize(state, operands[0])
     node = fs.get_node(state, abs_path)
     if not fs.is_file(node):
         raise CommandError("Error: file not found")
@@ -612,7 +624,7 @@ def _hash_files(state: dict, files: list[str], algo: str) -> list[str]:
         raise CommandError("Error: invalid input")
     out: list[str] = []
     for f in files:
-        node = fs.get_node(state, fs.normalize(state["current_path"], f))
+        node = fs.get_node(state, fs.normalize(state, f))
         if fs.is_link(node):
             node = fs.resolve_link(state, node)
         if not fs.is_file(node):
@@ -623,12 +635,16 @@ def _hash_files(state: dict, files: list[str], algo: str) -> list[str]:
 
 
 @command("md5sum")
-def cmd_md5sum(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_md5sum(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     return _hash_files(state, _operands(argv), "md5"), state
 
 
 @command("sha256sum")
-def cmd_sha256sum(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_sha256sum(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     return _hash_files(state, _operands(argv), "sha256"), state
 
 
@@ -802,7 +818,9 @@ def cmd_cut(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
             else:
                 fields = ln.split(delim)
                 idxs = sorted({j for j in _parse_ranges(field_spec, len(fields))})
-                out.append(delim.join(fields[j - 1] for j in idxs if 1 <= j <= len(fields)))
+                out.append(
+                    delim.join(fields[j - 1] for j in idxs if 1 <= j <= len(fields))
+                )
     except ValueError as exc:
         raise CommandError("Error: invalid input") from exc
     return out, state
@@ -919,7 +937,9 @@ def cmd_ps(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     processes = state.get("processes", [])
     lines = ["USER       PID STAT COMMAND"]
     for p in processes:
-        lines.append(f"{p['user']:<10} {p['pid']:>3} {p.get('state', 'S'):<4} {p['cmdline']}")
+        lines.append(
+            f"{p['user']:<10} {p['pid']:>3} {p.get('state', 'S'):<4} {p['cmdline']}"
+        )
     return lines, state
 
 
@@ -958,7 +978,9 @@ def cmd_free(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
 
 
 @command("uptime")
-def cmd_uptime(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_uptime(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     seconds = fs.PROC_UPTIME_SECONDS
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
@@ -1033,7 +1055,9 @@ def cmd_ss(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 
 # --- 自動化（Level 10） ---
 @command("crontab")
-def cmd_crontab(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_crontab(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     # 閲覧のみ対応（rm 禁止と同じ方針で書き込み系は実装しない。解除は
     # judge 側で「正解ジョブの発動日時を報告」できたかどうかで判定する）。
     if "-l" not in argv[1:]:
@@ -1054,7 +1078,9 @@ _ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 
 
 @command("export")
-def cmd_export(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_export(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
     m = _ASSIGN.match(argv[1])
@@ -1073,7 +1099,9 @@ def cmd_unset(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 
 
 @command("printenv")
-def cmd_printenv(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_printenv(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     env_vars = state.get("env_vars", {})
     operands = _operands(argv)
     if not operands:
@@ -1175,7 +1203,9 @@ def cmd_su(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 
 
 @command("whoami")
-def cmd_whoami(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+def cmd_whoami(
+    state: dict, argv: list[str], stdin: list[str]
+) -> tuple[list[str], dict]:
     return [state.get("current_user", "detective")], state
 
 
@@ -1191,7 +1221,7 @@ def cmd_id(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 def cmd_sh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], argv[1])
+    abs_path = fs.normalize(state, argv[1])
     node = fs.get_node(state, abs_path)
     if not fs.is_file(node):
         raise CommandError("Error: file not found")

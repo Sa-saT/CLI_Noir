@@ -547,7 +547,29 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/evaluator/commands.py`
 
 ### P3-08 BUG-01: 解決済みパスの並行記録と判定側の対応
-- [ ] 未着手
+- [x] 完了（2026-08-15）。**記録側**: `fs.py::normalize`を`(current_path, path)`から`(state, path)`へ
+  変更（内部の純粋文字列処理は`_normalize_path`として分離・維持。ユーザー入力を伴わない内部パス連結
+  ——grep -rの再帰列挙——はこちらを直接呼び記録対象から除外）。呼ぶたびに
+  `state["_resolved_this_command"]`へ`(raw_token, resolved_abs_path)`を積む。`engine.evaluate()`の
+  成功パスで`command_log`追記と同じ箇所でスナップショットし`resolved_command_log`
+  （`{"line", "paths", "mission_id"}`）へ変換、スクラッチ領域は`_set_status`が全リターン経路で確実に
+  破棄（`_stderr`と違い明示初期化箇所が無くても取りこぼさない設計）。`mission_id`タグは旧フロー
+  （`state["mission_id"]`固定）と永続統合ワールド（`mission_progress.active_mission_id`キャッシュ）の
+  両対応。**判定側**: `judge.py`に`_combined_lines(state)`（生テキスト+解決済みパスの結合文字列を
+  返す）を新設し、汎用AND-regexマッチャーと13カスタムjudge全てに適用。Mission1の2パターンのみ
+  `^...$`完全一致だったため書き換え必須（他8Mission=3,4,5,9,11,13,17,18は元々アンカー無しで無改修）。
+  Mission15の`informant_history`再現チェックも`cmd in log`（list membership）から`any(cmd in line for
+  line in log)`（部分一致）に修正（同じBUG-01の派生問題）。`judge.py`に`_resolve_active_mission`
+  （旧mission_id/新active_mission_id両対応）と`_set_case_checked`（`mission_flags`+永続統合ワールドでは
+  `mission_progress.case_checked`も更新）を追加——**P3-05で判明していた「judge.pyがmission_id=Noneの
+  永続統合ワールドに対応していない」ギャップをここで解消**。`default_state()`に
+  `resolved_command_log: []`追加。**回帰確認**: 全294テスト緑（既存292本 + 新規: Mission1相対パス1件・
+  Mission2挙動修正1件+新規1件・Mission8相対パス1件・Mission15部分一致修正・Mission20相対パス1件・
+  resolved_command_log単体4件）。ruff clean。**未着手（次タスクへの申し送り）**: Mission19の
+  `_MISSION19_SCRIPT_PATH = "/root/patrol.sh"`はP3-03のprecinct_desk/移設に未追随（旧フローの
+  `test_mission19.py`が`/root/patrol.sh`を前提にしているため、他タスクと同様の理由で今回は変更せず）。
+  永続統合ワールドでの正しい設置先（`/root/precinct_desk/patrol.sh`）への追随は、パスリテラル更新を
+  担うP3-13でjudge.py側も合わせて更新すること。
 
 `command_log`は生テキストのまま維持（リプレイ台帳・実bash風履歴のため）。並行して`state["resolved_command_log"]`を追加。
 実装: `fs.normalize(current_path, path)`が呼ばれるたびに`state["_resolved_this_command"]`（`_stderr`と同じ、
