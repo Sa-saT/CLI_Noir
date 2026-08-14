@@ -1,6 +1,6 @@
 # 未完了・未確定の項目
 
-更新日: 2026-07-20（バックエンド Phase2 完了。Mission1〜22 全実装・241 tests green / ruff clean）
+更新日: 2026-08-12（バックエンド Phase2 完了 + フロントエンド実バックエンド接続 完了。Mission1〜3 がブラウザで通しプレイ可能）
 
 ---
 
@@ -17,22 +17,27 @@
 実装済みコマンド一覧・ファイル構成の要約は `context/02_current_state.md`「noir-api/」節、各 Mission の FS/判定の実装詳細は
 `noir-api/app/content/missions.py` + `app/evaluator/judge.py` + `tests/test_mission*.py`（コードが正）、タスク単位の記録は
 `context/04_task_backlog.md` Part 1、設計判断の経緯は `01_decisions_log.md`「Phase2 バックエンド完了」節を参照。
-残る未着手は Frontend（下記）と「Phase2 拡張の実装タスク」節に残る細目（awk 定義・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）のみ。
 
-### Frontend
-- [ ] Nuxt ルーティング（/missions, /missions/{id}）
-- [ ] UI 3領域レイアウト
-- [ ] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂）
-- [ ] WebSocket 接続（初回 `auth` フレーム認証 + `exec`/`result` プロトコル。設計指示書 § 7）
-- [ ] コマンド一覧パネル
-- [ ] 場面画像のカレントディレクトリ紐付け（`scene_images` 最長一致解決は noir-client で実装済み。WS の state 連動と cd/ssh/exit フェードの結合は未）
-- [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ）
-- [ ] セーブ選択 UI（再ログイン時の commit 一覧）
+**フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
+
+### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
+- [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）
+- [x] Nuxt ルーティング（/missions, /missions/{id}）。Mission 一覧 `app/pages/missions/index.vue` + 詳細/開始導線 `app/pages/missions/[id].vue`（ターミナル本体は FE-03/04 で追加配線）。FE-02
+- [x] UI 3領域レイアウト（`app/pages/missions/[id].vue` で MissionHeader/SceneOverlay/CommandPanel/TerminalView を実配線。FE-04）
+- [x] ターミナル UI 実装（自作 `TerminalView.vue`。xterm.js は不採用 — 2026-07-06 改訂。実 WS state（Pinia store）に接続し、`app/pages/index.vue` のモック evaluator は撤去。FE-04。Mission1 を cat→echo→sh case_file.sh→git add/commit/push までブラウザ（Playwright 実 Chromium）で通しプレイ確認済み・console error 0 件）
+- [x] WebSocket 接続基盤（初回 `auth` フレーム認証 + `hello`/`exec`/`result`/`event`/`resume` プロトコル。設計指示書 § 7。`app/composables/useTerminalSocket.ts` + Pinia store `app/stores/terminal.ts`（DESIGN.md § 10-1 の単方向データフロー）+ 型定義 `app/types/ws.ts`。指数バックオフ再接続対応。FE-03。まだどのページからも呼ばれていない状態で Python の websockets クライアントでプロトコルの往復を検証済み — UI 配線は FE-04）
+- [x] コマンド一覧パネル（`app/utils/commandCatalog.ts` で Mission 詳細 API の `allowed_commands` → `CommandPanel`/`CommandDetail` へ変換。`git` は git status/add/commit/push の4件に展開して highlight 表示。ヘッダーの探偵ランクも allowed_commands から算出。FE-05）
+- [x] 場面画像のカレントディレクトリ紐付け（`app/pages/missions/[id].vue` で WS state（Pinia store の `currentPath`/`remoteMode`/`sshHost`）から `host:パス接頭辞` の最長一致解決 → `SceneOverlay` へ。`cd`/`ssh`/`exit` の画像切替は `SceneOverlay` 側の 0.8s クロスフェードが自動追従。FE-06。ssh amusement_park:/gate 用画像は未制作のためプレースホルダ表示 — 下記「場所別画像アセットの制作」で追跡）
+- [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）
+- [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
+- [ ] Tab 補完（設計指示書 § 7 の `complete`/`completions` フレームが `noir-api/app/ws/terminal.py` に未実装のためフロント側も未着手。バックエンド側の実装が前提）
+- [ ] `TerminalView.vue` の残りキーマップ（`↑↓` 履歴 / `Ctrl+R` 逆検索 / `Ctrl+C` / `Ctrl+L` / `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。現状は Enter 送信のみ実装済み）
+- [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
 
 ### テスト
-- [ ] コマンドカテゴリごとの正常系/異常系
-- [ ] Mission1〜3 のE2Eシナリオ
-- [ ] 再ログイン時の state 復元テスト
+- [x] Mission1〜3 のE2Eシナリオ（FE-08。Playwright 経由の実 Chromium ブラウザで、ログイン → Mission1（cat/echo/sh case_file.sh/git add・commit・push）→ Mission2（find/grep/sh/git）→ Mission3（ssh amusement_park/exit を含む）まで通しプレイし、3件とも "Mission Complete!" とコンソールエラー 0 件を確認。加えてセーブ選択（再訪 → resume/start-over 両方）も確認。自動テストコード自体はリポジトリに未追加— 手動 E2E 確認の記録として残す。恒久的な自動化が必要なら Vitest/Playwright を `noir-client` に導入する別タスクとして検討）
+- [ ] コマンドカテゴリごとの正常系/異常系（Vitest 等の自動テストが `noir-client` に未導入。上記 E2E は手動確認）
+- [ ] 再ログイン時の state 復元テスト（FE-07 で手動確認済みだが自動テスト化は未）
 
 ---
 
@@ -51,6 +56,9 @@
 ### 解消済みの旧課題
 - Mission4〜22 の詳細化・/proc・環境変数(PATH)・SSH接続先(ghost.example)・Mission4/5の詳細・cp/mvコマンド・case_file.shの中身は
   いずれも 2026-07-20 までに実装・確定済み（`noir-api/app/content/missions.py` 等が正）。経緯は `01_decisions_log.md` 参照
+- ヒント3段階: Mission1〜3 は 2026-08-12 HINT-01 で仮実装済み（`MissionDef.hints` → API `MissionDetail.hints` →
+  `noir-client/app/pages/missions/[id].vue` の簡易ボタンUI）。Mission4〜22 は文言未確定のまま（`hints` 空配列）。
+  相棒キャラの見た目・表示トリガー等の UI/UX は次回設計セッションで詰める（`context/04_task_backlog.md` Part 3 参照）
 
 ### ゲーム機能 9〜12 の未定項目（2026-07-07 採用に伴う）
 - やらかし体験室の解放トリガー（案: denylist コマンドを初めて打って拒否された直後に相棒が誘う。未確定）

@@ -2,7 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import type { PromptState } from './PromptLabel.vue'
 
-export type LineSource = 'input' | 'out' | 'error' | 'warn' | 'system'
+export type LineSource = 'input' | 'out' | 'error' | 'warn' | 'system' | 'success' | 'emphasis'
 export interface TerminalLine {
   id: number
   source: LineSource
@@ -146,6 +146,13 @@ watch(() => props.lines.length, () => {
 .ln.system {
   color: var(--gray-500);
   font-style: italic;
+}
+.ln.success {
+  color: var(--term-success);
+}
+.ln.emphasis {
+  color: var(--term-warn);
+  font-weight: var(--weight-bold);
 }
 .input-row {
   display: flex;

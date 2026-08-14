@@ -74,6 +74,7 @@
   --term-prompt: var(--cyan-400);
   --term-warn: var(--yellow-300);
   --term-error: var(--red-400);
+  --term-success: #6ee7b7;
 
   --cmd-locked: var(--gray-600);      /* greyed-out, not yet unlocked */
   --cmd-unlocked: var(--green-400);
