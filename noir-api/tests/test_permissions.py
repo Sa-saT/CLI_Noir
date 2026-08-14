@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.evaluator import evaluate
+from app.evaluator import evaluate, fs
 from app.models import default_state
 
 
@@ -164,3 +164,113 @@ def test_sh_chmod_x_allows_execution() -> None:
     _, s2 = evaluate("chmod +x /root/script.sh", s)
     out, _ = evaluate("sh /root/script.sh", s2)
     assert out != ["Error: permission denied"]
+
+
+# --- ディレクトリ通過権限（can_traverse・Part5 P3-04） ---
+def _with_locked_dir(*, name: str = "vault") -> dict:
+    s = default_state()
+    s["filesystem"]["root"]["children"][name] = {
+        "type": "dir",
+        "mode": "---------",
+        "owner": "system",
+        "children": {
+            "secret.txt": {
+                "type": "file",
+                "content": "classified",
+                "mode": "rw-r--r--",
+                "owner": "detective",
+                "mtime": "2026-01-01T00:00:00Z",
+                "immutable": True,
+            }
+        },
+    }
+    return s
+
+
+def test_default_open_policy_dirs_without_mode_are_always_traversable() -> None:
+    """既存 22 Mission分のディレクトリノードは mode 未設定 = 常に通過可能
+
+    （デフォルト開放ポリシー。P3-04 完了時に明示確認するテスト）。
+    """
+    node = {"type": "dir", "children": {}}
+    assert fs.can_traverse(node) is True
+    assert fs.can_traverse(node, "nobody-in-particular") is True
+
+
+def test_locked_dir_hidden_from_ls_listing() -> None:
+    s = _with_locked_dir()
+    out, _ = evaluate("ls /root", s)
+    assert "vault" not in out
+
+
+def test_locked_dir_as_direct_ls_target_reports_not_found() -> None:
+    s = _with_locked_dir()
+    out, _ = evaluate("ls /root/vault", s)
+    assert out == ["Error: path not found"]
+
+
+def test_locked_dir_cd_reports_directory_not_found() -> None:
+    s = _with_locked_dir()
+    out, new = evaluate("cd /root/vault", s)
+    assert out == ["Error: directory not found"]
+    assert new["current_path"] == s["current_path"]  # 遷移しない
+
+
+def test_locked_dir_contents_unreachable_through_path() -> None:
+    s = _with_locked_dir()
+    out, _ = evaluate("cat /root/vault/secret.txt", s)
+    assert out == ["Error: file not found"]
+
+
+def test_locked_dir_hidden_from_find() -> None:
+    s = _with_locked_dir()
+    out, _ = evaluate("find /root -name secret.txt", s)
+    assert out == []
+
+
+def test_locked_dir_hidden_from_recursive_grep() -> None:
+    s = _with_locked_dir()
+    out, _ = evaluate("grep -r classified /root", s)
+    assert out == []
+
+
+def test_locked_dir_excluded_from_glob_expansion() -> None:
+    s = _with_locked_dir()
+    # "va*" は展開先が無い（vault は候補から除外される）ので glob 文字を含む
+    # リテラルのまま渡り、そのままの名前のパスとして「無い」扱いになる。
+    out, _ = evaluate("ls va*", s)
+    assert out == ["Error: path not found"]
+
+
+def test_locked_dir_becomes_visible_once_mode_opens() -> None:
+    """Mission 解放（P3-05 の advance_mission）を模して mode を書き換えた場合の確認。"""
+    s = _with_locked_dir()
+    s["filesystem"]["root"]["children"]["vault"]["mode"] = "rwxr-xr-x"
+    s["filesystem"]["root"]["children"]["vault"]["owner"] = "detective"
+
+    out, _ = evaluate("ls /root", s)
+    assert "vault" in out
+    out2, new2 = evaluate("cd /root/vault", s)
+    assert out2 == []
+    assert new2["current_path"] == "/root/vault"
+
+
+# --- 動的 case_file.sh（Part5 P3-03/P3-04） ---
+def test_dynamic_case_file_sh_exists_when_not_in_filesystem() -> None:
+    """統合ワールドの静的マージが除外した /root/case_file.sh を /proc と同じ方式で
+    動的生成すること（filesystem JSON には実ノードが無い状態）。
+    """
+    s = default_state()
+    assert "case_file.sh" not in s["filesystem"]["root"]["children"]
+    out, _ = evaluate("sh case_file.sh", s)
+    # mission_id 未設定なので判定は失敗するが、file not found にはならない
+    # （＝動的ノードとして存在し、実行権限も通っている）。
+    assert out != ["Error: file not found"]
+    assert out != ["Error: permission denied"]
+
+
+def test_dynamic_case_file_sh_only_at_canonical_root_path() -> None:
+    """`/root/case_file.sh` 以外の場所では動的生成しない（統合ワールドの正規1本化）。"""
+    s = default_state()
+    out, _ = evaluate("sh /root/desk/case_file.sh", s)
+    assert out == ["Error: file not found"]

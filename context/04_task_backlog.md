@@ -445,7 +445,18 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/content/missions.py`（最大の差分）
 
 ### P3-04 ディレクトリ権限ゲート機構（新規サブシステム）
-- [ ] 未着手
+- [x] 完了（2026-08-14）。`fs.py::can_traverse(node, current_user)`新設（modeが未設定なら常にTrue。
+  設定時は実行ビットをowner/otherの二値で判定）。`_walk`/`get_node`/`get_parent`が経路上の未解放
+  ディレクトリで`None`を返すよう修正（末端ノード自身はここではチェックしない — cd/ls/find等の
+  呼び出し側が個別に検査。get_parentは書き込み系コマンドがここ1箇所しか経由しないため親ディレクトリ
+  自身もチェック）。5箇所（`cmd_cd`/`cmd_ls`/`cmd_find`/`engine._glob_matches`/`commands._walk_files`
+  ＝grep -r用）を個別修正。全て「Error: path not found」「Error: directory not found」等の既存の
+  「存在しない」文言を再利用（Permission deniedは使わない）。**追加実装（Part5背景節item3が要求して
+  いたがP3-03/P3-04どちらの明示ファイルリストにも無かったギャップ）**: `/root/case_file.sh`の動的生成
+  （`fs.py`、`/proc`と同じ「filesystemに無ければ動的生成」方式。全Missionで判定文言は同一定数なので
+  active_mission_id分岐は不要と判断）。`tests/test_permissions.py`に14テスト追加（デフォルト開放の
+  明示確認・ロック済みディレクトリのls/cd/find/grep-r/glob全経路での不可視化・mode書き換えでの再可視化・
+  動的case_file.shの存在確認と正規パス限定の確認）。既存263テストは無影響（274 passed）。
 
 現状、ディレクトリ単位の権限チェックは一切存在しない（ファイル単位の`can_read`/`can_exec`のみ）。
 `cmd_ls`/`cmd_cd`/`cmd_find`/glob展開/`grep -r`はすべて権限チェック無しで`children`を直接走査している。

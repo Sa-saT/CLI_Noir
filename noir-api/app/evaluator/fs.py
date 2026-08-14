@@ -98,9 +98,47 @@ def is_proc_path(abs_path: str) -> bool:
     return bool(segs) and segs[0] == "proc"
 
 
-def _walk(node: dict, segs: list[str]) -> dict | None:
+# --- 動的 case_file.sh（Part5 P3-03/P3-04）---
+# 統合ワールドでは `case_file.sh` は常に `/root/case_file.sh` の1本（設計は
+# `context/04_task_backlog.md` Part5 背景節・P3-03参照）。`_build_world_fs()`
+# （app/content/missions.py）は静的マージ時にどの Mission の `case_file.sh` も
+# 深さを問わず除外しており、`filesystem` JSON には保存しない。/proc と同じく
+# 読み取り時に動的生成する（全 Mission で本文は同一の定型文なので、アクティブ
+# Mission に応じた内容分岐は不要）。旧 Mission 単位フローの state は元々この
+# パスに実ノードを持つため、この生成には到達しない（_walk が先に実ノードを返す）。
+_DYNAMIC_CASE_FILE_PATH = "/root/case_file.sh"
+_CASE_FILE_TEXT = "# 事件ファイル: sh case_file.sh で判定する\n"
+
+
+def _dynamic_case_file_node() -> dict:
+    return _proc_file(_CASE_FILE_TEXT)
+
+
+def can_traverse(node: dict, current_user: str = "detective") -> bool:
+    """ディレクトリの通過（cd で入る・ls/find で降りる等）権限を検査する。
+
+    `mode` が未設定なら常に許可する（デフォルト開放ポリシー。ファイル用
+    `can_exec` の「immutable なら常に許可」＝デフォルト閉鎖とは別物。Part5
+    P3-04。既存 22 Mission 分のディレクトリノードは mode 未設定のため無影響）。
+    設定されている場合は実行ビット（idx 2=owner, 8=other）を見る（`can_read` と
+    同じく owner/other の二値判定。グループ概念は持たない）。
+    """
+    mode = node.get("mode")
+    if mode is None:
+        return True
+    owner = node.get("owner", "detective")
+    idx = 2 if current_user == owner else 8
+    return mode[idx] == "x"
+
+
+def _walk(node: dict, segs: list[str], current_user: str) -> dict | None:
     for seg in segs:
         if node.get("type") != "dir":
+            return None
+        # 子へ降りる前に「現在地」ディレクトリの通過権限を検査する（Part5 P3-04）。
+        # 末端（探索対象そのもの）はここではチェックしない — cd 等の呼び出し側が
+        # 個別に検査する（見えない/触れない演出を「存在しない」に統一するため）。
+        if not can_traverse(node, current_user):
             return None
         node = node.get("children", {}).get(seg)
         if node is None:
@@ -112,20 +150,38 @@ def get_node(state: dict, abs_path: str) -> dict | None:
     """絶対パスのノードを返す。存在しない/途中がディレクトリでなければ None。
 
     `/proc` 配下は processes テーブルから動的生成する（読み取り専用）。
+    `/root/case_file.sh` も filesystem 内に実ノードが無ければ動的生成する
+    （統合ワールドの静的マージが除外しているため。旧 Mission 単位フローは
+    実ノードを持つのでこの分岐には到達しない）。
+    経路上の未解放ディレクトリ（Part5 P3-04）を通過する場合も None（見えない/
+    触れない演出。存在しないのと同じ扱い）。末端ノード自身の通過権限は
+    呼び出し側（cmd_cd 等）が個別に検査する。
     """
+    current_user = state.get("current_user", "detective")
     segs = segments(abs_path)
     if segs and segs[0] == "proc":
-        return _walk(_proc_root(state), segs[1:])
-    return _walk(root_node(state), segs)
+        return _walk(_proc_root(state), segs[1:], current_user)
+    node = _walk(root_node(state), segs, current_user)
+    if node is None and abs_path == _DYNAMIC_CASE_FILE_PATH:
+        return _dynamic_case_file_node()
+    return node
 
 
 def get_parent(state: dict, abs_path: str) -> tuple[dict | None, str | None]:
-    """(親ディレクトリノード, 末端名) を返す。親が無い/ディレクトリでなければ (None, name)。"""
+    """(親ディレクトリノード, 末端名) を返す。
+
+    親が無い/ディレクトリでなければ (None, name)。親ディレクトリ自身が未解放
+    （Part5 P3-04）の場合も (None, name)（そこへの書き込み系コマンド — touch /
+    mkdir / redirect 等 — は get_parent だけがゲートを担うため、ここで完結させる）。
+    """
     segs = segments(abs_path)
     if not segs:
         return None, None
     parent = get_node(state, "/" + "/".join(segs[:-1]))
     if parent is None or parent.get("type") != "dir":
+        return None, segs[-1]
+    current_user = state.get("current_user", "detective")
+    if not can_traverse(parent, current_user):
         return None, segs[-1]
     return parent, segs[-1]
 

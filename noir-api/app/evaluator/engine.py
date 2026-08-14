@@ -122,7 +122,11 @@ def _tokenize(command_line: str) -> list[tuple[str, bool]]:
 
 
 def _glob_matches(pattern: str, state: dict) -> list[str] | None:
-    """パターンに一致する名前一覧を返す（マッチ無しは None）。"""
+    """パターンに一致する名前一覧を返す（マッチ無しは None）。
+
+    未解放ディレクトリ（Part5 P3-04）は展開元にも展開結果にも含めない
+    （見えない/触れない演出）。
+    """
     if "/" in pattern:
         dir_part, _, name_pattern = pattern.rpartition("/")
     else:
@@ -132,9 +136,18 @@ def _glob_matches(pattern: str, state: dict) -> list[str] | None:
     dir_node = fs.get_node(state, abs_dir)
     if not fs.is_dir(dir_node):
         return None
+    current_user = state.get("current_user", "detective")
+    if not fs.can_traverse(dir_node, current_user):
+        return None
 
-    names = sorted(dir_node.get("children", {}).keys())
-    matches = [n for n in names if fnmatch.fnmatch(n, name_pattern)]
+    children = dir_node.get("children", {})
+    names = sorted(children.keys())
+    matches = [
+        n
+        for n in names
+        if fnmatch.fnmatch(n, name_pattern)
+        and (not fs.is_dir(children[n]) or fs.can_traverse(children[n], current_user))
+    ]
     if not matches:
         return None
     if dir_part:

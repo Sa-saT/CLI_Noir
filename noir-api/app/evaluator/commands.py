@@ -190,20 +190,30 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     # 複数ターゲット対応（glob 展開で `ls case_*` が複数ファイル名になるため）。
     targets = operands if operands else [state["current_path"]]
 
+    current_user = state.get("current_user", "detective")
     out: list[str] = []
     for target in targets:
         abs_path = fs.normalize(state["current_path"], target)
         node = fs.get_node(state, abs_path)
         if node is None:
             raise CommandError("Error: path not found")
+        # 未解放ディレクトリそのものを直接指定された場合も「存在しない」演出
+        # （Part5 P3-04。見えない/触れない）。
+        if fs.is_dir(node) and not fs.can_traverse(node, current_user):
+            raise CommandError("Error: path not found")
 
         if fs.is_file(node) or fs.is_link(node):
             name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
             out.append(_ls_long_line(name, node) if long else name)
         else:
-            names = sorted(node.get("children", {}).keys())
+            children = node.get("children", {})
+            names = sorted(
+                n
+                for n in children
+                if not fs.is_dir(children[n]) or fs.can_traverse(children[n], current_user)
+            )
             if long:
-                out.extend(_ls_long_line(n, node["children"][n]) for n in names)
+                out.extend(_ls_long_line(n, children[n]) for n in names)
             else:
                 out.extend(names)
     return out, state
@@ -211,17 +221,17 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 
 @command("cd")
 def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    current_user = state.get("current_user", "detective")
     if len(argv) < 2:
         # 引数無し cd は $HOME へ遷移する（実 bash と同じ挙動。BUG-02。Part5 P3-07）。
-        home = state.get("env_vars", {}).get("HOME", "/root")
-        node = fs.get_node(state, home)
-        if not fs.is_dir(node):
-            raise CommandError("Error: directory not found")
-        state["current_path"] = home
-        return [], state
-    abs_path = fs.normalize(state["current_path"], argv[1])
+        abs_path = state.get("env_vars", {}).get("HOME", "/root")
+    else:
+        abs_path = fs.normalize(state["current_path"], argv[1])
     node = fs.get_node(state, abs_path)
     if not fs.is_dir(node):
+        raise CommandError("Error: directory not found")
+    # 未解放ディレクトリへの cd も「存在しない」演出（Part5 P3-04）。
+    if not fs.can_traverse(node, current_user):
         raise CommandError("Error: directory not found")
     state["current_path"] = abs_path
     return [], state
@@ -351,14 +361,22 @@ def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
 
 # --- 検索 ---
 def _walk_files(state: dict, abs_dir: str):
-    """ディレクトリ配下の全ファイル（symlink は辿らず素通し）を再帰列挙する。"""
+    """ディレクトリ配下の全ファイル（symlink は辿らず素通し）を再帰列挙する。
+
+    未解放ディレクトリ（Part5 P3-04）へは降りない・列挙しない（見えない/触れない演出）。
+    """
     node = fs.get_node(state, abs_dir)
     if not fs.is_dir(node):
+        return
+    current_user = state.get("current_user", "detective")
+    if not fs.can_traverse(node, current_user):
         return
     for name in sorted(node.get("children", {}).keys()):
         child_path = fs.normalize(abs_dir, name)
         child = node["children"][name]
         if fs.is_dir(child):
+            if not fs.can_traverse(child, current_user):
+                continue
             yield from _walk_files(state, child_path)
         else:
             yield child_path
@@ -441,6 +459,10 @@ def cmd_find(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
     node = fs.get_node(state, abs_start)
     if node is None:
         raise CommandError("Error: path not found")
+    current_user = state.get("current_user", "detective")
+    # 未解放ディレクトリを起点に指定された場合も「存在しない」演出（Part5 P3-04）。
+    if fs.is_dir(node) and not fs.can_traverse(node, current_user):
+        raise CommandError("Error: path not found")
 
     results: list[str] = []
 
@@ -450,8 +472,11 @@ def cmd_find(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
             results.append(path)
         if fs.is_dir(n):
             for child_name in sorted(n.get("children", {})):
+                child = n["children"][child_name]
+                if fs.is_dir(child) and not fs.can_traverse(child, current_user):
+                    continue  # 未解放ディレクトリへは降りない・列挙しない
                 child_path = "/" + "/".join([*fs.segments(path), child_name])
-                walk(child_path, n["children"][child_name])
+                walk(child_path, child)
 
     walk(abs_start, node)
     return results, state
