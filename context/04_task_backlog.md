@@ -11,11 +11,11 @@
 - **Part 1: バックエンド Phase2（P2-01〜P2-19）— 完了 ✅**（タスク #21〜#39。Mission1〜22 全実装・241 tests green / ruff clean）
 - **Part 2: フロントエンド（FE-01〜FE-08）— 完了 ✅**。Goal 達成: **noir-client を実バックエンドに接続し、Mission1〜3 がブラウザで通しプレイ可能な状態にする**
 - **Part 3: ヒント機能（HINT-01）— 完了 ✅（仮実装）**。Mission1〜3 のみ配線済み。UI/UX の作り込みは未設計のまま
-- **Part 4: 疑似ターミナルのバグ修正 — 次回着手**。ユーザーが実プレイで発見した2件の既知バグ + 追加バグ探索
+- **Part 4: 疑似ターミナルのバグ修正 — Part5 に吸収・再設計**。ユーザーが実プレイで発見した BUG-01/BUG-02 は、Part5 の永続統合ワールド化（P3-07/P3-08）に統合して直す方針に確定（単独修正ではなく設計の一部として解決）
+- **Part 5: 永続統合ワールド化（P3-01〜P3-14 + FE3-01/02）— 次回着手（設計確定・未実装）**。Goal: **Mission単位で分離されていた仮想FSを、ユーザーごとに1つの永続的な統合ワールドに再設計する**（2026-08-12 Opus で設計・ユーザーと数往復の議論で確定）
 
-**次回セッションの入り方**: 「context/04_task_backlog.md の Part4 から着手して」と指示するか、このファイルの Part4 を読んで
-TaskCreate で復元してから着手する。branch `worktree-agent-a6ce2d8545e17a627`（未マージ・最新 commit `cf85f96`）の続きとして
-作業すること（新規branchを切らない）。
+**次回セッションの入り方**: 「context/04_task_backlog.md の Part5 から着手して」と指示するか、このファイルの Part5 を読んで
+TaskCreate で復元してから着手する（依存関係は Part5 冒頭の実行順序図を参照）。P3-01 から着手すること。
 
 ---
 
@@ -246,7 +246,10 @@ Goal: 設計指示書 § 11 ゲーム機能4「相棒キャラクター: 3段階
 
 ---
 
-# Part 4: 疑似ターミナルのバグ修正（2026-08-12 発見・次回着手）
+# Part 4: 疑似ターミナルのバグ修正（2026-08-12 発見。Part5 に吸収・再設計済み）
+
+> **本Partは実装しない**。BUG-01/BUG-02 の背景調査はそのまま有効なので残すが、修正方針は
+> Part5「永続統合ワールド化」の P3-07（BUG-02）/ P3-08（BUG-01）に統合された。着手する場合は Part5 を見ること。
 
 Goal: ユーザーが実プレイ（Mission1）で発見した2件の既知バグを直し、同じ手法で他コマンドの
 「ゲーム操作 ≠ 実PC操作」のズレが無いか一通り洗い出して直す。**最重要設計原則**（CLAUDE.md「ゲーム操作 = 実PC操作の
@@ -319,3 +322,263 @@ Mission1 を `cd desk` → 相対パスで `echo`/`git add` → `git push` と�
 3. BUG-HUNT-01 は BUG-01/02 の修正後、余裕があれば着手
 4. 各修正は 1 task = 1 commit + push。DoD: pytest全緑/ruff clean、フロントも影響あれば typecheck/build
 5. 完了ごとに本ファイルと `context/03_pending_items.md` を更新
+
+---
+
+# Part 5: 永続統合ワールド化（P3-01〜P3-14 + FE3-01/02。2026-08-12 設計確定・次回着手）
+
+Goal: **Mission単位で分離されていた仮想FSを、ユーザーごとに1つの永続的な統合ワールドに再設計する**。
+実務のssh/踏み台作業や都度違う障害対応を「Mission/探検」として楽しめるゲームにしたいというユーザーの狙いに沿い、
+`docs/設計指示書.md` § 5 が元々示していた「1つに繋がったlocal構造」（一度も実装されたことがない）を実現する。
+副次的に Part4 の BUG-01/BUG-02 もこの再設計に統合して直す（P3-07/P3-08）。
+
+## 背景・確定した設計（2026-08-12、ユーザーと複数往復の議論で確定）
+
+1. ユーザーごとに1つの永続的な仮想FS（Mission単位の`MissionState(user_id, mission_id)`分離を廃止）
+2. 22Mission分の区画は最初から実体として存在。未解放は権限（mode）で不可視・操作不可。解放時にバックエンドが権限を書き換える
+3. `case_file.sh`は常に`/root/case_file.sh`の1本。現在アクティブなMission（未クリアの最小mission_id）の内容を、
+   `/proc`と同じ「stateから動的生成・`filesystem`には保存しない」方式で反映する
+4. `/root`直下に裸置きされている約10Mission分のファイル（tape.log, evidence.dat, hint.txt等）は専用サブディレクトリへ移設する
+5. `vault`（Mission5とMission22）は同一場所への意図的なコールバック。上書きではなく加算マージ
+6. ssh接続先も到達性を該当Missionの解放状況でゲート（未解放は`Host not found`）
+7. Git commit履歴はプレイ全体で1本（Mission単位のリセット・死蔵をやめる。ゲーム機能8「リプレイ台帳」の土台にもなる）
+8. BUG-01は`command_log`を生テキストのまま維持しつつ、並行して解決済みパスを記録し判定側がそれも参照する方式で直す
+
+実装調査で判明した3つの矛盾はユーザーと解消済み:
+- **Mission5の謎解き矛盾**: `case_file.sh`が常時実行可能な動的生成物になるとchmod+x解錠パズルが成立しない
+  → `locked_evidence.txt`のchmod+rパズルに集約。case_file.sh側の解錠ギミックは廃止
+- **Mission20(FHS)の矛盾**: `/etc/hosts`に最初からghost.exampleのIPがあるとMission12のdig発見体験を潰す
+  → `/etc`等は最初から存在させ、`/home/mr_black`だけMission20専用にゲート。hosts のghost.example行だけMission12解放まで非表示
+- **PATH汚染の影響範囲**: そのまま統合すると世界全体でls/cat/grep等が使えなくなる
+  → 別ユーザーアカウントにPATH汚染を閉じ込める（`su`で該当アカウントに入った時だけ有効。`detective`自身は常に正常）。
+    env_varsをユーザー別dictにし、Mission21に`su`ステップを追加する内容変更を伴う
+
+DBスキーマは**クリーンスレート移行**（本番未リリースのためデータ保持不要）。
+
+## 実行順序と依存関係
+
+```
+P3-01 → P3-02 → P3-03 → P3-04 → P3-05 → P3-06
+                    │                │
+                    └──→ P3-08 ←─────┘（要: active-mission概念 + P3-03の新パス）
+P3-07（独立・いつでも可）
+P3-05,06,08,09 → P3-10 → P3-11 → FE3-01 → FE3-02
+P3-12 → P3-13 → P3-14（各バックエンドMilestone後に追随、P3-11完了時に確定）
+```
+
+各Milestone = 1〜3コミット。DoD = pytest全緑 + ruff clean（FE3は`pnpm typecheck`/build + 手動ブラウザ確認）。
+
+## Phase A: データモデル基盤
+
+### P3-01 DB移行: `MissionState`→`PlayerState`
+- [ ] 未着手
+
+`app/models/tables.py`に`PlayerState(user_id UNIQUE, data JSON, updated_at)`を新設。`data`は仮想世界全体
+（`current_path`/`filesystem`/`remote_mode`/`ssh_host`/`current_user`/`processes`/`cron_jobs`/
+`env_vars`（ユーザー別dictに変更）/`command_log`/`resolved_command_log`（新規）/`git_state`/
+`mission_progress`（新規、旧`mission_flags`をMission横断の進捗dictに置き換え））。
+Alembicで新規リビジョン（`missionstate`drop・`playerstate`create、クリーンスレートでよい）。
+**移行中も既存テストを常時緑に保つため、`MissionState`は残したまま`PlayerState`を追加し、P3-09/10で一気に
+API/WS層を切り替える**（削除→再構築ではなく追加→カットオーバー方式）。
+ファイル: `app/models/tables.py`, `alembic/versions/`
+
+### P3-02 `mission_progress`ヘルパーと"アクティブMission"概念
+- [ ] 未着手
+
+新規`app/evaluator/progress.py`: `completed_ids(mission_progress)`・`status_for(mission_id, mission_progress)`
+（既存`_status_for`と同じ順次解放ロジック）・`active_mission_id(mission_progress)`（未クリアの最小mission_id）。
+`active_mission_id`はキャッシュフィールドとして`mission_progress`内に保存し、Mission解放/クリアの唯一の書き込み箇所
+（P3-05の`advance_mission`）でのみ更新する。
+ファイル: `app/evaluator/progress.py`（新規）, `app/models/tables.py::default_state()`
+
+## Phase B: ワールドFSと仮想機構
+
+### P3-03 `_WORLD_FS`構築: 22Mission統合 + 裸置きファイルの移設 + vault加算マージ
+- [ ] 未着手
+
+`app/content/missions.py`に`_build_world_fs()`を新設:
+1. 各`_MISSIONn_FS["root"]["children"]`を1つの`world["root"]["children"]`へ統合。**`case_file.sh`は全除外**
+   （P3-04で動的生成に置換するため静的マージ対象から外す）
+2. 裸置きだった約10Mission分を専用サブディレクトリへ移設（命名は確定案）:
+   - Mission4 `tape.log` → `wiretap_room/tape.log`
+   - Mission9 `evidence.dat` → `evidence_locker/evidence.dat`
+   - Mission10 `original.txt`/`submitted.txt` → `will_office/`
+   - Mission13 `hint.txt` → `crontab_room/hint.txt`
+   - Mission15 `journal.log` → `informant_trail/journal.log`
+   - Mission19 `sample.sh`/`evidence.txt`（+ プレイヤー作成`patrol.sh`の設置先） → `precinct_desk/`
+   - Mission21 `hint.txt` → `toolbox_room/hint.txt`
+   - 既にサブディレクトリを持つMission（desk/park/vault/bar/mirror_hall/warehouse/contracts/archive、
+     Mission22のclues/vault/logs）は変更なし
+3. `vault`は例外的に加算マージ（`_ADDITIVE_MERGE_DIRS = {"vault": [5, 22]}`のような明示テーブルで扱う。
+   汎用衝突解決アルゴリズムにはしない — 意図しない衝突を握りつぶさないため）
+4. Mission20: `etc`/`var`/`tmp`/`bin`はワールド直下の常時公開システムディレクトリとしてマージ。
+   `/home/mr_black`だけMission20専用の被ゲート区画にする。`/etc/hosts`は初期状態でghost.example行を含めず、
+   Mission12解放時（P3-05）に追記する
+5. 各Mission区画のトップレベルdirノードに初期`mode`/`owner`を設定: 未解放は`mode="---------", owner="system"`、
+   Mission1の区画（と常時公開のFHSシステムディレクトリ）は`mode="rwxr-xr-x", owner="detective"`
+6. **検証**: `grep -n '"/root/' app/content/missions.py app/evaluator/judge.py`で全絶対パスリテラルを洗い出し、
+   移設漏れ・意図しない衝突が無いか確認するテスト/スクリプトを書く
+
+ファイル: `app/content/missions.py`（最大の差分）
+
+### P3-04 ディレクトリ権限ゲート機構（新規サブシステム）
+- [ ] 未着手
+
+現状、ディレクトリ単位の権限チェックは一切存在しない（ファイル単位の`can_read`/`can_exec`のみ）。
+`cmd_ls`/`cmd_cd`/`cmd_find`/glob展開/`grep -r`はすべて権限チェック無しで`children`を直接走査している。
+1. `fs.py`: `can_traverse(node, current_user) -> bool`（**modeが未設定なら常にTrue**というデフォルト開放ポリシー。
+   ファイル用`can_exec`の「デフォルト閉鎖」とは別物として実装。既存22Mission分のディレクトリノードはmode未設定
+   なので無影響であることをテストで保証）
+2. `_walk`/`get_node`/`get_parent`（`fs.py`）: 子ディレクトリへ降りる前に`can_traverse`チェック。拒否時は
+   存在しないのと同じ`None`を返す（`/proc`の不存在pidと同じ扱い）
+3. `cmd_cd`（`commands.py`）: 解決先ノード自体の`can_traverse`もチェックし、拒否時は`Error: directory not found`
+   （見えない/触れない演出を優先し`Permission denied`は使わない）
+4. `cmd_ls`: 列挙時に`can_traverse`を通らない子を除外（一覧に出さない）
+5. `cmd_find`: 再帰時に`can_traverse`を通らないディレクトリへ降りない・出力しない
+6. `engine.py::_glob_matches`: 同様にフィルタ
+7. `commands.py`の`_walk_files`（`grep -r`用）: 同様にディレクトリレベルでスキップ追加
+8. **完了確認**: `.get("children"`/`["children"]`の全呼び出し箇所をgrepし、上記5箇所以外に直接走査している場所が
+   無いか確認してから次のMilestoneへ
+
+ファイル: `app/evaluator/fs.py`, `app/evaluator/commands.py`（5箇所）, `app/evaluator/engine.py`
+
+### P3-05 Mission解放遷移: 権限反映・ssh到達性・`/etc/hosts`追記・processes/cron解放
+- [ ] 未着手
+
+`app/evaluator/progress.py::advance_mission(state, cleared_mission_id)`を新設。`git_ops._push`が
+`mission_flags.completed=True`を立てていた箇所から呼ぶ:
+1. `mission_progress`に該当Missionのクリアを記録、`active_mission_id`を再計算・保存
+2. 次Missionが所有する区画（`MissionDef.owned_paths: list[str]`を新規フィールドとして追加し、文字列推測に
+   頼らない）のディレクトリ`mode`を解放
+3. Mission12解放時は`/etc/hosts`にghost.example行を追記
+4. 該当Missionの`processes`/`cron_jobs`エントリを`state["processes"]`/`state["cron_jobs"]`へ追加
+   （各エントリに`owning_mission_id`タグを付け、`ps`/`crontab -l`は解放済みMissionの分だけ表示する）
+
+ファイル: `app/evaluator/git_ops.py`（`_push`から呼び出し）, `app/evaluator/progress.py`,
+`app/content/missions.py`（`MissionDef.owned_paths`追加）
+
+### P3-06 SSH到達性ゲート
+- [ ] 未着手
+
+`SSH_HOSTS[host]`に`required_mission_id`を追加（`amusement_park`=3, `ghost.example`/`10.66.6.6`=12）。
+`cmd_ssh`: 既存の未登録ホストチェックに加え、該当Missionが`locked`なら同じ`Host not found`を返す。
+`dig`/`ping`/`host`（`NET_HOSTS`）は意図的にゲートしない（ssh到達性のみ。DNS解決自体は現実でも認可と無関係という理屈）。
+ファイル: `app/evaluator/commands.py`
+
+## Phase C: 判定バグ修正
+
+### P3-07 BUG-02: 引数無し`cd`
+- [ ] 未着手
+
+`cmd_cd`: `len(argv) < 2`時に`Error: invalid input`ではなく`state["current_path"] = state["env_vars"][current_user]["HOME"]`
+（env_varsがユーザー別dictになる前提、P3-01/R4対応後）へ移動。既存テストに旧挙動を前提にしたものが無いか確認してから修正
+（`grep -rn "cd.*invalid input" tests/`）。他Milestoneと独立なので単独コミットで先に片付けてよい。
+ファイル: `app/evaluator/commands.py`
+
+### P3-08 BUG-01: 解決済みパスの並行記録と判定側の対応
+- [ ] 未着手
+
+`command_log`は生テキストのまま維持（リプレイ台帳・実bash風履歴のため）。並行して`state["resolved_command_log"]`を追加。
+実装: `fs.normalize(current_path, path)`が呼ばれるたびに`state["_resolved_this_command"]`（`_stderr`と同じ、
+evaluate内でのみ生成され戻り値には残さないスクラッチ領域の慣習を踏襲）へ`(raw_token, resolved_abs_path)`を積む。
+`engine.evaluate()`の`command_log`追記と同じ箇所で、このスクラッチ領域を
+`resolved_command_log.append({"line": command_line, "paths": [...], "mission_id": active_mission_id})`として
+スナップショットしクリアする（`mission_id`タグはP3-09のリプレイ台帳フィルタ用）。
+`judge.py::run_case_file`の汎用AND-regex: 各行について「生テキスト + 解決済みパス」を1つの検索対象文字列に結合
+してから`re.search`する。**既存9Mission分（1,3,4,5,9,11,13,17,18）の`expected_script_patterns`を1件ずつ見直し**、
+「コマンド名+パス」を要求するパターンと「パスのみ」で足りるパターンを区別する（`^`アンカー付きパターンは結合文字列
+だと意味が変わるため個別確認必須）。13個のカスタムjudge（`_MISSIONn_*_PATH in line`形式: Mission8/12/14/20/22等）
+も解決済みパスを参照するよう更新。**このMilestoneは既存Missionテストの大半に影響する**。他Milestoneより広く回帰確認すること。
+ファイル: `app/evaluator/fs.py`, `app/evaluator/engine.py`, `app/evaluator/judge.py`（汎用matcher + 13カスタムjudge）,
+`app/models/tables.py::default_state()`
+
+## Phase D: Git履歴・API/WS層
+
+### P3-09 Git履歴の一本化 + リプレイ台帳の土台
+- [ ] 未着手
+
+`git_ops.py`自体はP3-01/03で状態が1本化されれば機能的な変更はほぼ不要（Mission単位のリセットが構造的に無くなるため）。
+30コミット上限×統合済みワールド全体のdeepcopyのサイズを一度実測（テキストのみなので通常は問題ないはずだが未検証）。
+リプレイ台帳機能は、P3-08で`resolved_command_log`に付けた`mission_id`タグでフィルタする設計とする。
+ファイル: `app/evaluator/git_ops.py`（`advance_mission`呼び出しの配線のみ）
+
+### P3-10 `ws/terminal.py`: 単一永続セッション化
+- [ ] 未着手
+
+`build_initial_state(mission_id)` → `build_initial_world_state()`（mission_id引数を廃止）。
+`/ws/terminal?mission_id=<id>`のクエリパラメータを廃止（未リリースのため同時デプロイ前提でよい）。
+`_load_or_create(session, user_id, mission_id)` → `_load_or_create(session, user_id)`（`PlayerState`単一行）。
+`mission_clear`イベントの`next_mission_id`計算は`active_mission_id`を読むだけに簡略化。
+`_handle_resume`のcommitスナップショット復元はワールド全体を復元する形になる（過去commitへの復帰でロック状態も
+当時に戻る挙動は許容）。
+ファイル: `app/ws/terminal.py`
+
+### P3-11 API層: `missions.py`/`state.py`
+- [ ] 未着手
+
+`missions.py::_completed_ids`: 全`MissionState`行を跨ぐクエリ→単一`PlayerState`の`mission_progress`読み取りに変更。
+**`GET /api/missions/`と`GET /api/missions/{id}/`のレスポンス形は変えない**（フロント無改修で済む）。
+`state.py`: `GET /api/missions/{mission_id}/state/` → `GET /api/state/`へ変更（Mission単位のセーブ一覧という概念が
+無くなるため）。レスポンスの`mission_flags`は廃止し`mission_progress`全体を返す形に変更（**フロントのSaveSelectModal.vue
+がこのAPI契約変更に追随する必要あり**、FE3-01と合わせて対応）。
+ファイル: `app/api/missions.py`, `app/api/state.py`, `app/main.py`（ルータマウント変更があれば）
+
+## Phase E: フロントエンド
+
+### FE3-01 `useTerminalSocket.ts` / `stores/terminal.ts`: 単一永続接続化
+- [ ] 未着手
+
+`connect(id: number)` → `connect()`（mission_idクエリ廃止、P3-10と対）。
+`stores/terminal.ts::resetForMission(missionId)`をMission遷移毎の呼び出しから撤去。WS接続確立は
+「ログイン後/アプリ起動時に1回」のみに変更。`activeMissionId`をサーバーの`hello`/`result`フレームの`state`要約
+から取得するようstoreを変更（`noir-api/app/ws/frames.py`の`state_summary`に`active_mission_id`が無ければ
+P3-10とあわせて追加）。
+ファイル: `noir-client/app/composables/useTerminalSocket.ts`, `noir-client/app/stores/terminal.ts`
+
+### FE3-02 `pages/missions/[id].vue`: ナビゲーションでの再接続/リセット廃止
+- [ ] 未着手
+
+`watch(missionId, ...)`によるdisconnect→再接続を撤去。WS接続はアプリ/レイアウトレベルで1回確立し、`[id].vue`は
+Missionのブリーフィング・ヒント・コマンド一覧パネルの表示切替のみを担当する形に再設計。「捜査を開始する」ボタンの
+意味を再検討（永続世界なのでログイン後は常にターミナルが使える設計にするか、従来どおり明示的な開始導線を残すかは
+UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`をP3-11の新API（`GET /api/state/`、mission_id無し）に
+追随させる。テストは本プロジェクトの既存方針どおり手動（`pnpm dev` + ブラウザ確認）。
+ファイル: `noir-client/app/pages/missions/[id].vue`, `noir-client/app/pages/missions/index.vue`,
+`noir-client/app/components/SaveSelectModal.vue`
+
+## Phase F: テスト移行
+
+### P3-12 共通テストフィクスチャ: 「Mission Nまで進行済みの統合state」
+- [ ] 未着手
+
+`tests/helpers.py::state_at_mission(n)`を新設。`build_initial_world_state()`→ Mission `1..n-1`を実際の
+`advance_mission`関数（テスト専用の別実装を作らない）で順にクリア済みにし、Mission `n`が解放された状態を返す。
+2〜3ファイルで先に試してパターンを固めてから、残り約19本の`test_mission*.py`を一括変換。
+ファイル: `tests/helpers.py`（新規）, `tests/test_mission*.py`（全面差し替え）
+
+### P3-13 テスト内の絶対パスリテラル更新
+- [ ] 未着手
+
+P3-03で移設した約7Mission分の絶対パス（`/root/tape.log`等）をテスト側でも更新。`default_state()`の形状に依存する
+テスト（`test_state.py`/`test_ws.py`等）は新フィールド（`resolved_command_log`/`mission_progress`/ユーザー別
+`env_vars`）に合わせて書き換え。
+ファイル: `tests/test_mission4.py`, `test_mission9.py`, `test_mission10.py`, `test_mission13.py`, `test_mission15.py`,
+`test_mission19.py`, `test_mission21.py`, `test_state.py`, `test_ws.py`ほか
+
+### P3-14 新規サブシステムのテスト
+- [ ] 未着手
+
+ディレクトリ権限ゲート（未解放区画の不可視/操作不可、解放済み区画は無影響であることの回帰確認）、ssh到達性ゲート
+（未解放ホスト→`Host not found`）、BUG-01（`cd desk && echo x > businesscard.txt`が絶対パス要求パターンを満たす）/
+BUG-02（引数無し`cd`）、解放遷移が意図した区画だけを開けること、`vault`加算マージの正しさ、Mission21のPATH汚染が
+別ユーザーアカウントに閉じ込められ`detective`のPATHに影響しないこと。
+ファイル: `tests/test_permissions.py`（拡張）, `tests/test_progress.py`（新規）, `tests/test_evaluator.py`（拡張）
+
+## 検証方法
+
+- 各Milestone: `cd noir-api && source .venv/bin/activate && pytest && ruff check .`
+- P3-04完了時: 権限ゲートが「デフォルト開放」であることを明示的に確認するテストを含めてから次へ進む
+- P3-08完了時: 通常のMilestoneより広く全Missionのgolden transcriptテストを流す
+- FE3系: `pnpm dev`起動 + 実ブラウザでログイン→複数Mission分を通しプレイし、権限ゲートで未解放区画が見えない/
+  入れないこと、ssh到達性ゲート、PATH汚染の局所化（Mission21のsuアカウントに入った時だけ影響）を目視確認
+- 最終確認: `context/03_pending_items.md`・`docs/設計指示書.md` § 4/5（統合ワールド仕様に更新）を実装完了後に反映
