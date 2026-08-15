@@ -388,7 +388,15 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/models/tables.py`, `alembic/versions/`
 
 ### P3-02 `mission_progress`ヘルパーと"アクティブMission"概念
-- [ ] 未着手
+- [x] 完了（2026-08-16）。新規`app/evaluator/progress.py`に純粋関数6つ:
+  `completed_ids`・`status_from_completed`・`status_for`・`compute_active_mission_id`・
+  `refresh_active_mission_id`（`active_mission_id`キャッシュの唯一の書き込み口）・`active_mission_id`
+  （キャッシュ読み取りのみ、キー欠損時のみ再計算・書き戻しなし）。Mission全体集合は
+  `app.content.missions.all_missions()`から取得（ハードコードなし）。
+  `app/api/missions.py::_status_for`は`progress.status_from_completed`への委譲に置き換え（挙動不変）。
+  呼び出し側（API/WS/evaluator）のカットオーバーはまだ行っていない（P3-10/P3-11で対応）。
+  `tests/test_progress.py`新設（18テスト。パリティテスト・キャッシュ挙動込み）。265 tests green / ruff clean。
+  コミット: `<commit-hash>`
 
 新規`app/evaluator/progress.py`: `completed_ids(mission_progress)`・`status_for(mission_id, mission_progress)`
 （既存`_status_for`と同じ順次解放ロジック）・`active_mission_id(mission_progress)`（未クリアの最小mission_id）。

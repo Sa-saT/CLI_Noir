@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.api.deps import get_current_user
 from app.content.missions import all_missions, get_mission
+from app.evaluator import progress
 from app.models import MissionState, User
 from app.models.db import get_session
 
@@ -49,12 +50,10 @@ def _status_for(mission_id: int, completed: set[int]) -> str:
     """cleared: 完了 / open: 遊べる / locked: 前の Mission 未完了。
 
     Mission1 は常に open。以降は直前 Mission の完了で解放される（順次解放）。
+    実体は app/evaluator/progress.py::status_from_completed に委譲（P3-02、
+    ロジックの二重管理を避ける）。
     """
-    if mission_id in completed:
-        return "cleared"
-    if mission_id == 1 or (mission_id - 1) in completed:
-        return "open"
-    return "locked"
+    return progress.status_from_completed(mission_id, completed)
 
 
 @router.get("/", response_model=list[MissionSummary])
