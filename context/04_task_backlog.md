@@ -468,11 +468,9 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ## Phase C: 判定バグ修正
 
 ### P3-07 BUG-02: 引数無し`cd`
-- [ ] 未着手
-
-`cmd_cd`: `len(argv) < 2`時に`Error: invalid input`ではなく`state["current_path"] = state["env_vars"][current_user]["HOME"]`
-（env_varsがユーザー別dictになる前提、P3-01/R4対応後）へ移動。既存テストに旧挙動を前提にしたものが無いか確認してから修正
-（`grep -rn "cd.*invalid input" tests/`）。他Milestoneと独立なので単独コミットで先に片付けてよい。
+- [x] 完了（2026-08-16）。`cmd_cd`の`len(argv) < 2`時、local時は`env_vars["HOME"]`（既定`/root`）、ssh接続中は
+  `SSH_HOSTS[ssh_host]["initial_path"]`へ移動するよう修正（env_varsのユーザー別dict化は見送り、既存のグローバル
+  `env_vars`のまま対応）。テスト2件追加（local/ssh各1）、全244 testsグリーン。
 ファイル: `app/evaluator/commands.py`
 
 ### P3-08 BUG-01: 解決済みパスの並行記録と判定側の対応

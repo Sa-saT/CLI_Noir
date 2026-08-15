@@ -65,6 +65,16 @@ def test_cd_into_missing_dir(state: dict) -> None:
     assert _without_exit_status(new) == _without_exit_status(state)  # state 不変
 
 
+def test_cd_no_argument_returns_to_home(state: dict) -> None:
+    # 引数無し cd は $HOME（local では既定で /root）へ移動する（P3-07 / BUG-02）。
+    _, s2 = evaluate("cd desk", state)
+    assert s2["current_path"] == "/root/desk"
+
+    out, s3 = evaluate("cd", s2)
+    assert out == []
+    assert s3["current_path"] == "/root"
+
+
 def test_cat_file_and_missing(state: dict) -> None:
     out, _ = evaluate("cat /root/desk/businesscard.txt", state)
     assert out == ["NAME: ???", "ROLE: detective"]
@@ -140,6 +150,20 @@ def test_ssh_and_exit_swaps_filesystem(state: dict) -> None:
     assert s3["ssh_host"] is None
     assert s3["current_path"] == "/root"
     assert "desk" in s3["filesystem"]["root"]["children"]
+
+
+def test_cd_no_argument_while_ssh_returns_to_login_dir(state: dict) -> None:
+    # ssh 接続中の引数無し cd は接続先のログインディレクトリへ戻る
+    # （env_vars["HOME"] は local のままなので使えない。P3-07 / BUG-02）。
+    _, s2 = evaluate("ssh amusement_park", state)
+    assert s2["current_path"] == "/gate"
+
+    _, s3 = evaluate("cd booth", s2)
+    assert s3["current_path"] == "/gate/booth"
+
+    out, s4 = evaluate("cd", s3)
+    assert out == []
+    assert s4["current_path"] == "/gate"
 
 
 def test_ssh_unknown_host(state: dict) -> None:

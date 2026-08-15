@@ -212,8 +212,17 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
 @command("cd")
 def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
-        raise CommandError("Error: invalid input")
-    abs_path = fs.normalize(state["current_path"], argv[1])
+        # 引数無し cd は $HOME へ移動する（実 bash と同じ挙動。P3-07 / BUG-02）。
+        # ssh 接続中は env_vars["HOME"] が local のまま（cmd_ssh は env_vars を
+        # 退避・差し替えしないため）なので、接続先のログインディレクトリを使う。
+        if state.get("remote_mode"):
+            host_info = SSH_HOSTS.get(state.get("ssh_host"))
+            target = host_info["initial_path"] if host_info is not None else "/"
+        else:
+            target = state.get("env_vars", {}).get("HOME", "/root")
+    else:
+        target = argv[1]
+    abs_path = fs.normalize(state["current_path"], target)
     node = fs.get_node(state, abs_path)
     if not fs.is_dir(node):
         raise CommandError("Error: directory not found")
