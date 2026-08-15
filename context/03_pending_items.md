@@ -18,6 +18,10 @@
 `noir-api/app/content/missions.py` + `app/evaluator/judge.py` + `tests/test_mission*.py`（コードが正）、タスク単位の記録は
 `context/04_task_backlog.md` Part 1、設計判断の経緯は `01_decisions_log.md`「Phase2 バックエンド完了」節を参照。
 
+**Part5 永続統合ワールド化 P3-01（2026-08-16 完了）の残タスク**（`app/models/tables.py` に `PlayerState`/`default_world_state()` を追加のみ。evaluator/API/WS は未変更）:
+- [ ] `missionstate` テーブルの drop（P3-01 の Alembic リビジョンでは行っていない。API/WS 層を `PlayerState` に切り替えるカットオーバー＝P3-10/P3-11 完了後に別リビジョンとして実施）
+- [ ] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（`app/evaluator/engine.py` の `_expand_env_vars`/PATH解決、`app/evaluator/commands.py` の export/unset/printenv、`app/evaluator/git_ops.py` のスナップショット、`app/evaluator/judge.py` の Mission21 判定を `env_vars[current_user]` 参照へ更新。P3-10 で対応）
+
 **フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
 
 ### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）

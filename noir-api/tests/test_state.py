@@ -1,10 +1,12 @@
 """state API（取得のみ）のテスト。"""
 
+import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
 
 from app.api.deps import create_user
-from app.models import MissionState, default_state
+from app.models import MissionState, PlayerState, default_state, default_world_state
 
 
 def _auth_header(client: TestClient) -> dict[str, str]:
@@ -51,3 +53,55 @@ def test_state_returns_summary_without_snapshot(client: TestClient, session: Ses
 
 def test_state_requires_auth(client: TestClient) -> None:
     assert client.get("/api/missions/1/state/").status_code == 401
+
+
+# --- Part5 P3-01: PlayerState（永続統合ワールド）------------------------------
+
+
+def test_player_state_json_roundtrip(session: Session) -> None:
+    user = create_user(session, "detective01", "secret")
+    world = default_world_state()
+    world["current_path"] = "/root/desk"
+    session.add(PlayerState(user_id=user.id, data=world))
+    session.commit()
+
+    fetched = session.exec(
+        select(PlayerState).where(PlayerState.user_id == user.id)
+    ).one()
+    assert fetched.data["current_path"] == "/root/desk"
+    assert fetched.data["mission_progress"]["active_mission_id"] == 1
+
+
+def test_player_state_user_id_is_unique(session: Session) -> None:
+    user = create_user(session, "detective01", "secret")
+    session.add(PlayerState(user_id=user.id, data=default_world_state()))
+    session.commit()
+
+    session.add(PlayerState(user_id=user.id, data=default_world_state()))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_default_world_state_schema() -> None:
+    world = default_world_state()
+    expected_keys = {
+        "current_path",
+        "filesystem",
+        "remote_mode",
+        "ssh_host",
+        "current_user",
+        "processes",
+        "cron_jobs",
+        "env_vars",
+        "command_log",
+        "resolved_command_log",
+        "git_state",
+        "mission_progress",
+    }
+    assert expected_keys <= world.keys()
+    assert world["mission_progress"]["active_mission_id"] == 1
+    assert world["mission_progress"]["completed"] == []
+    assert world["mission_progress"]["flags"] == {"case_checked": False}
+    assert world["env_vars"]["detective"]["HOME"] == "/root"
+    assert world["resolved_command_log"] == []
+    assert world["command_log"] == []
