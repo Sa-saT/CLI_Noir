@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-08-12（フロントエンド実バックエンド接続 FE-01〜08 完了を反映。バックエンド部分は 2026-07-20 時点のまま）
+更新日: 2026-08-16（Part5 Phase A: PlayerState・progress.py 追加を反映。それ以外のバックエンド記述は 2026-07-20 時点）
 
 ---
 
@@ -26,7 +26,8 @@ CLI_Noir/
 
 **Mission1〜22 すべて実プレイ可能**（241 tests green / ruff clean）。詳細は `context/01_decisions_log.md`「Phase2 バックエンド実装」節・`context/03_pending_items.md` Backend 節を参照。
 
-- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）・`app/models/`（User / MissionState / default_state）は MVP 時点から変更なし
+- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は MVP 時点から変更なし（Part5 のカットオーバー P3-10/P3-11 で PlayerState 参照へ切り替える）
+- `app/models/tables.py`: User / MissionState / `default_state()` に加え、**Part5 用の `PlayerState`（user_id UNIQUE の統合ワールド）と `default_world_state()` を追加済み（P3-01, 2026-08-16）**。現時点では追加のみで API/WS はまだ MissionState を読み書きしている（両テーブル並存。`missionstate` の drop はカットオーバー後の別 Alembic リビジョン）
 - `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
 - `app/evaluator/`:
   - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）
@@ -34,6 +35,7 @@ CLI_Noir/
   - `engine.py` — トークナイズ（引用符追跡）→ 環境変数展開（`$VAR`/`$?`、シングルクォート保護）→ glob 展開 → パイプ分割 → PATH 解決付き dispatch → リダイレクト（`>`/`>>`/`2>`）→ `$?` 記録
   - `script.py`（新規）— `sh` 汎用スクリプトのミニインタープリタ（変数・if・for、ネスト非対応）
   - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック
+  - `progress.py`（新規, P3-02）— `mission_progress` の純粋関数群（`completed_ids`/`status_from_completed`/`status_for`/`compute_active_mission_id`/`refresh_active_mission_id`/`active_mission_id`）。`api/missions.py::_status_for` はここへ委譲済み
   - `git_ops.py` — 疑似Git（変更なし）
 - 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
 - 未実装（allowlist にあるが未登録）: awk のみ
