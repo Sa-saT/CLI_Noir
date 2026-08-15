@@ -396,7 +396,6 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
   `app/api/missions.py::_status_for`は`progress.status_from_completed`への委譲に置き換え（挙動不変）。
   呼び出し側（API/WS/evaluator）のカットオーバーはまだ行っていない（P3-10/P3-11で対応）。
   `tests/test_progress.py`新設（18テスト。パリティテスト・キャッシュ挙動込み）。265 tests green / ruff clean。
-  コミット: `<commit-hash>`
 
 新規`app/evaluator/progress.py`: `completed_ids(mission_progress)`・`status_for(mission_id, mission_progress)`
 （既存`_status_for`と同じ順次解放ロジック）・`active_mission_id(mission_progress)`（未クリアの最小mission_id）。
