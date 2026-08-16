@@ -7,6 +7,9 @@
 
 from datetime import datetime, timezone
 
+from app.content.missions import CASE_FILE_NAME, get_mission
+from app.evaluator import progress
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -98,6 +101,64 @@ def is_proc_path(abs_path: str) -> bool:
     return bool(segs) and segs[0] == "proc"
 
 
+# --- 統合ワールドの動的 case_file.sh（P3-04b）---
+# 疑似 /proc と同じ方針: filesystem JSON には保存せず、読み取り時に
+# mission_progress から動的生成する。Mission 別 state（filesystem に静的な
+# case_file.sh を持つ・mission_progress を持たない）とは "mission_progress"
+# キーの有無で区別し、移行期の両立を保つ。
+WORLD_CASE_FILE_DIR = "/root"
+WORLD_CASE_FILE_PATH = f"{WORLD_CASE_FILE_DIR}/{CASE_FILE_NAME}"
+
+
+def _synth_case_file_node(state: dict) -> dict | None:
+    """統合ワールドのアクティブ Mission から `/root/case_file.sh` を合成する。
+
+    `mission_progress` が無い（＝Mission 別 state）場合や、全 Mission クリア済み
+    （アクティブ Mission が無い）場合は None を返し、呼び出し側に通常のファイル
+    探索へフォールバックさせる。
+    """
+    mission_progress = state.get("mission_progress")
+    if mission_progress is None:
+        return None
+    mission_id = progress.active_mission_id(mission_progress)
+    if mission_id is None:
+        return None
+    mission = get_mission(mission_id)
+    if mission is None:
+        return None
+    content = (
+        "# 事件ファイル: sh case_file.sh で判定する\n"
+        f"# 捜査中の事件: {mission.title_ja}\n"
+        f"# {mission.description}\n"
+    )
+    return new_file(content, immutable=True)
+
+
+def is_dynamic_path(state: dict, abs_path: str) -> bool:
+    """読み取り時に合成される（`filesystem` に実体を持たない）パスか。
+
+    疑似 `/proc` と統合ワールドの `case_file.sh` が該当する。書き込み系は実体が
+    無いため黙って握り潰されてしまうので、呼び出し側はこれを見て明示的に拒否する。
+    """
+    if is_proc_path(abs_path):
+        return True
+    return abs_path == WORLD_CASE_FILE_PATH and _synth_case_file_node(state) is not None
+
+
+def effective_children(state: dict, abs_path: str, node: dict) -> dict:
+    """ディレクトリノードの実効的な children（動的合成エントリを含む）を返す。
+
+    `ls` 等の列挙系コマンドはこの関数経由で children を取得すること。合成結果は
+    `state["filesystem"]` には一切書き戻さない（読み取り専用のスナップショット）。
+    """
+    children = node.get("children", {})
+    if abs_path == WORLD_CASE_FILE_DIR:
+        synth = _synth_case_file_node(state)
+        if synth is not None:
+            children = {**children, CASE_FILE_NAME: synth}
+    return children
+
+
 def _walk(node: dict, segs: list[str], current_user: str = "detective") -> dict | None:
     for seg in segs:
         if node.get("type") != "dir":
@@ -126,6 +187,12 @@ def get_node(state: dict, abs_path: str) -> dict | None:
     segs = segments(abs_path)
     if segs and segs[0] == "proc":
         return _walk(_proc_root(state), segs[1:])
+    if abs_path == WORLD_CASE_FILE_PATH:
+        synth = _synth_case_file_node(state)
+        if synth is not None:
+            return synth
+        # mission_progress を持たない state（Mission 別 state）は合成しない。
+        # 通常探索へフォールスルーし、静的に配置された case_file.sh を返す。
     current_user = state.get("current_user", "detective")
     return _walk(root_node(state), segs, current_user)
 

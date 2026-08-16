@@ -253,7 +253,9 @@ def _split_redirect(
 
 def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
     abs_path = fs.normalize(state["current_path"], path)
-    if fs.is_proc_path(abs_path):
+    # 動的合成されるパス（疑似 /proc・統合ワールドの case_file.sh）は書き込めない。
+    # 実体が無いため、拒否しないと書き込みが黙って消える（P3-04b）。
+    if fs.is_dynamic_path(state, abs_path):
         raise CommandError("Permission denied")
     node = fs.get_node(state, abs_path)
     text = "\n".join(lines)

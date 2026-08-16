@@ -202,14 +202,15 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
             name = fs.segments(abs_path)[-1] if fs.segments(abs_path) else abs_path
             out.append(_ls_long_line(name, node) if long else name)
         else:
+            # 統合ワールドの動的合成エントリ（/root/case_file.sh 等）を含めた
+            # 実効的な children から列挙する（P3-04b）。
+            children = fs.effective_children(state, abs_path, node)
             # 通行権限（P3-04a）を通らない子ディレクトリは一覧から除外する。
             names = sorted(
-                n
-                for n, child in node.get("children", {}).items()
-                if fs.can_traverse(child, current_user)
+                n for n, child in children.items() if fs.can_traverse(child, current_user)
             )
             if long:
-                out.extend(_ls_long_line(n, node["children"][n]) for n in names)
+                out.extend(_ls_long_line(n, children[n]) for n in names)
             else:
                 out.extend(names)
     return out, state

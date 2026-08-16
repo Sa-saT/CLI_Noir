@@ -450,7 +450,25 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/content/missions.py`（最大の差分）
 
 ### P3-04 ディレクトリ権限ゲート機構（新規サブシステム）
-- [ ] 未着手
+- [x] 完了（2026-08-16）。実装は Sonnet サブエージェント、設計判断とレビューは Opus。2 コミットに分割:
+  - **P3-04a 権限ゲート**（356 tests green）: `fs.can_traverse(node, current_user)` を新設し、
+    `fs._walk` で**経路上の中間ディレクトリと解決済みノード自身の両方**を検査する。この 1 箇所で
+    `ls`/`cd`/`cat`/`find`/`grep -r`/`touch`/`mkdir`/`ln`/リダイレクトの「ロック済みディレクトリを
+    直接名指し」の抜け穴がまとめて塞がる（初版は cd のみで、レビューで指摘して修正させた）。
+    親から列挙する経路のフィルタは `cmd_ls`/`cmd_find`/`_walk_files`/`_glob_matches` に個別配置。
+    **mode 未設定＝デフォルト開放**（`can_exec` のデフォルト閉鎖とは別物）。x ビット位置は
+    owner 側 `mode[2]` / other 側 `mode[8]`（計画の `mode[0]`/`mode[6]` は r ビットを指しており誤り）。
+  - **P3-04b `case_file.sh` 動的生成**（368 tests green）: `fs._synth_case_file_node` +
+    `fs.effective_children` + `fs.is_dynamic_path`。合成条件は **state に `mission_progress` がある時だけ**
+    （Mission 別 state は静的 `case_file.sh` を持つので移行期に衝突しない）。全 Mission クリア済み
+    （`active_mission_id is None`）なら合成しない。`judge.run_case_file` は `mission_id` 不在時に
+    `active_mission_id` へフォールバック。合成パスへの書き込みは疑似 /proc と同様
+    `Permission denied`（拒否しないと書き込みが黙って消えるため。レビューで追加）。
+  - 積み残し（後続で対応）:
+    - `judge.run_case_file` の `state.setdefault("mission_flags", {})` は移行期のブリッジ。
+      `case_checked` を `mission_progress["flags"]` へ移す **P3-05 で撤去**すること
+    - 合成 `case_file.sh` は `ls` にしか出ない（`find`/glob/`grep -r` は非対応）。疑似 /proc が
+      `ls /` に出ないのと同じ扱いで、発見導線としては `ls` で足りるため許容
 
 現状、ディレクトリ単位の権限チェックは一切存在しない（ファイル単位の`can_read`/`can_exec`のみ）。
 `cmd_ls`/`cmd_cd`/`cmd_find`/glob展開/`grep -r`はすべて権限チェック無しで`children`を直接走査している。

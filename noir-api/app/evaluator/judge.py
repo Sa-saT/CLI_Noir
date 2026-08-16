@@ -8,7 +8,7 @@ match_policy: AND（全パターン一致必須）/ 順不同 / 大小文字区�
 import re
 
 from app.content.missions import get_mission
-from app.evaluator import fs
+from app.evaluator import fs, progress
 
 # Mission ごとの専用判定（誤答メッセージを個別化する Mission だけ登録）。
 # 汎用 AND-regex では表現しづらい「絶対パス必須」「特定キー抽出」等をここで扱う。
@@ -442,7 +442,16 @@ _CUSTOM_JUDGES = {
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:
     """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
-    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    # Mission 別 state は state["mission_id"] で判定対象を持つが、統合ワールド state
+    # （P3-04b）はこれを持たないため mission_progress のアクティブ Mission へ
+    # フォールバックする。mission_id 経路が既に値を持つ場合の挙動は変えない。
+    mission_id = state.get("mission_id")
+    if mission_id is None:
+        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission = get_mission(mission_id) if mission_id else None
+    # 統合ワールド state はまだ mission_flags を持たない（置き場の移行は P3-05）。
+    # 判定に到達できるよう存在だけ保証する（値の意味・書き込み先は変えない）。
+    state.setdefault("mission_flags", {})
 
     custom = _CUSTOM_JUDGES.get(mission.id) if mission else None
     if custom is not None:
