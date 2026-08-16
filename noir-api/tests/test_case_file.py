@@ -91,7 +91,9 @@ def test_sh_case_file_reaches_judge_for_active_mission() -> None:
     ]
     out, new_state = cmd_sh(state, ["sh", "case_file.sh"], [])
     assert out == ["case_file.sh: all checks passed"]
-    assert new_state["mission_flags"]["case_checked"] is True
+    # 統合ワールド state では mission_flags ではなく mission_progress.flags に
+    # 書き込まれる（progress.flags 経由。P3-05）。
+    assert new_state["mission_progress"]["flags"]["case_checked"] is True
 
 
 def test_sh_case_file_pattern_mismatch_for_active_mission() -> None:
@@ -100,7 +102,7 @@ def test_sh_case_file_pattern_mismatch_for_active_mission() -> None:
     state["command_log"] = ["pwd"]
     out, new_state = cmd_sh(state, ["sh", "case_file.sh"], [])
     assert out == ["Warning: pattern mismatch"]
-    assert new_state["mission_flags"]["case_checked"] is False
+    assert new_state["mission_progress"]["flags"]["case_checked"] is False
 
 
 # --- Mission 別 state：回帰（従来どおり静的ファイルが使われる） ------------------

@@ -2,7 +2,8 @@
 
 state.command_log の各行に対して Mission の expected_script_patterns を評価する。
 match_policy: AND（全パターン一致必須）/ 順不同 / 大小文字区別あり（設計指示書 § 9）。
-一致で mission_flags.case_checked=true。判定パターンは正規表現なので `re` のみ使う。
+一致で flags(state).case_checked=true（progress.flags 経由。両 state 形状に対応。P3-05）。
+判定パターンは正規表現なので `re` のみ使う。
 """
 
 import re
@@ -30,16 +31,16 @@ def _judge_mission2(state: dict) -> tuple[list[str], dict]:
     )
 
     if not used_find:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: use find to locate clues"], state
     if not used_abs_path:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Error: absolute path required"], state
     if not read_status:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Error: required cat status not found"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -53,12 +54,12 @@ def _judge_mission6(state: dict) -> tuple[list[str], dict]:
     still_running = any(p.get("name") == "listener_x" for p in processes)
 
     if still_running:
-        state["mission_flags"]["case_checked"] = False
-        state["mission_flags"]["bug_removed"] = False
+        progress.flags(state)["case_checked"] = False
+        progress.flags(state)["bug_removed"] = False
         return ["Warning: the bug is still running"], state
 
-    state["mission_flags"]["case_checked"] = True
-    state["mission_flags"]["bug_removed"] = True
+    progress.flags(state)["case_checked"] = True
+    progress.flags(state)["bug_removed"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -77,16 +78,16 @@ def _judge_mission7(state: dict) -> tuple[list[str], dict]:
     still_running = any(p.get("pid") == pid for p in state.get("processes", []))
 
     if not inspected:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: check /proc before you accuse anyone"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: report the impostor's real command"], state
     if still_running:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: the impostor is still running"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -104,19 +105,19 @@ def _judge_mission8(state: dict) -> tuple[list[str], dict]:
     returned_home = state.get("current_user", "detective") == "detective"
 
     if not did_su:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: find a way to become barman"], state
     if not did_whoami:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: confirm who you are with whoami"], state
     if not read_secret:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: the ledger is still unread"], state
     if not returned_home:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: return to your own identity before reporting"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -131,19 +132,19 @@ def _judge_mission10(state: dict) -> tuple[list[str], dict]:
     log = state.get("command_log", [])
     did_diff = any(re.match(r"\s*diff\b", line) for line in log)
     if not did_diff:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: run diff before you restore the will"], state
 
     original = fs.get_node(state, _MISSION10_ORIGINAL_PATH)
     submitted = fs.get_node(state, _MISSION10_SUBMITTED_PATH)
     if not (fs.is_file(original) and fs.is_file(submitted)):
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
     if original.get("content") != submitted.get("content"):
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: submitted.txt still does not match the original"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -175,16 +176,16 @@ def _judge_mission12(state: dict) -> tuple[list[str], dict]:
         and dig_idx < ping_idx < ssh_idx
     )
     if not order_ok:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: investigate before you breach"], state
 
     read_evidence = any(_MISSION12_EVIDENCE_PATH in line for line in log)
     reported_boss = any(_MISSION12_BOSS in line for line in log)
     if not read_evidence or not reported_boss:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -209,13 +210,13 @@ def _judge_mission14(state: dict) -> tuple[list[str], dict]:
     )
 
     if reported_real:
-        state["mission_flags"]["case_checked"] = True
+        progress.flags(state)["case_checked"] = True
         return ["case_file.sh: all checks passed"], state
     if reported_link_only:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Error: that is only a mirror"], state
 
-    state["mission_flags"]["case_checked"] = False
+    progress.flags(state)["case_checked"] = False
     return ["Warning: pattern mismatch"], state
 
 
@@ -236,13 +237,13 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     )
 
     if not reproduced:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: retrace the informant's exact steps"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -260,16 +261,16 @@ def _judge_mission16(state: dict) -> tuple[list[str], dict]:
     reported_code = any(_MISSION16_CODE in line for line in log)
 
     if not used_digit_glob:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: narrow the search with a glob pattern"], state
     if not read_secret:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: the warrant does not cover an unopened file"], state
     if not reported_code:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -282,7 +283,7 @@ def _judge_mission19(state: dict) -> tuple[list[str], dict]:
     """
     log = state.get("command_log", [])
     ran_script = any(re.search(r"\bsh\b.*patrol\.sh\b", line) for line in log)
-    script_found = state.get("mission_flags", {}).get("script_found", False)
+    script_found = progress.flags(state).get("script_found", False)
 
     script_node = fs.get_node(state, _MISSION19_SCRIPT_PATH)
     content = script_node.get("content", "") if fs.is_file(script_node) else ""
@@ -290,10 +291,10 @@ def _judge_mission19(state: dict) -> tuple[list[str], dict]:
     has_if = re.search(r"\bif\b", content) is not None
 
     if not (ran_script and script_found and has_var and has_if):
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -323,13 +324,13 @@ def _judge_mission20(state: dict) -> tuple[list[str], dict]:
     )
 
     if not all(explored.values()):
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: the map is incomplete"], state
     if not reported:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -351,13 +352,13 @@ def _judge_mission21(state: dict) -> tuple[list[str], dict]:
     )
 
     if not path_restored:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: PATH is still broken"], state
     if not used_tool_after_restore or not reported_bad_path:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -389,7 +390,7 @@ def _m22_hash(log: list[str], state: dict) -> bool:
 
 
 def _m22_script(log: list[str], state: dict) -> bool:
-    return state.get("mission_flags", {}).get("script_found", False)
+    return progress.flags(state).get("script_found", False)
 
 
 def _m22_report(log: list[str], state: dict) -> bool:
@@ -417,10 +418,10 @@ def _judge_mission22(state: dict) -> tuple[list[str], dict]:
     log = state.get("command_log", [])
     for i, check in enumerate(_MISSION22_CHECKPOINTS, start=1):
         if not check(log, state):
-            state["mission_flags"]["case_checked"] = False
+            progress.flags(state)["case_checked"] = False
             return [f"Warning: checkpoint {i} incomplete"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state
 
 
@@ -450,9 +451,6 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
     if mission_id is None:
         mission_id = progress.active_mission_id(state.get("mission_progress", {}))
     mission = get_mission(mission_id) if mission_id else None
-    # 統合ワールド state はまだ mission_flags を持たない（置き場の移行は P3-05）。
-    # 判定に到達できるよう存在だけ保証する（値の意味・書き込み先は変えない）。
-    state.setdefault("mission_flags", {})
 
     custom = _CUSTOM_JUDGES.get(mission.id) if mission else None
     if custom is not None:
@@ -462,7 +460,7 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
 
     if not patterns:
         # 判定パターン未設定の Mission（詳細未確定）。合格にしない。
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["case_file.sh: no checks configured for this mission"], state
 
     log = state.get("command_log", [])
@@ -474,8 +472,8 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
         return ["Error: invalid pattern"], state
 
     if unmatched:
-        state["mission_flags"]["case_checked"] = False
+        progress.flags(state)["case_checked"] = False
         return ["Warning: pattern mismatch"], state
 
-    state["mission_flags"]["case_checked"] = True
+    progress.flags(state)["case_checked"] = True
     return ["case_file.sh: all checks passed"], state

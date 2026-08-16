@@ -165,5 +165,9 @@ def default_world_state() -> dict:
             # completed は mission_progress.completed に吸収済みのためここには
             # 持たない）
             "flags": {"case_checked": False},
+            # 解放処理（progress.release_missions, P3-05）を実施済みの mission_id
+            # リスト。冪等性の保証に使う（同じ Mission を二重解放してプロセス復活や
+            # /etc/hosts 二重追記を起こさないため）。
+            "released": [],
         },
     }

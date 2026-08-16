@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 
 from app.content.missions import get_mission
-from app.evaluator import fs, script
+from app.evaluator import fs, progress, script
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.env import env_for
 from app.evaluator.errors import CommandError
@@ -1189,5 +1189,5 @@ def cmd_sh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     # 汎用スクリプト（変数 / if / for。Mission19）。
     out_lines, new_state = script.run_script(state, node.get("content", ""))
     if "FOUND" in out_lines:
-        new_state.setdefault("mission_flags", {})["script_found"] = True
+        progress.flags(new_state)["script_found"] = True
     return out_lines, new_state

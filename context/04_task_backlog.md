@@ -489,7 +489,27 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/evaluator/fs.py`, `app/evaluator/commands.py`（5箇所）, `app/evaluator/engine.py`
 
 ### P3-05 Mission解放遷移: 権限反映・ssh到達性・`/etc/hosts`追記・processes/cron解放
-- [ ] 未着手
+- [x] 完了（2026-08-17）。408 tests green / ruff clean。`app/evaluator/progress.py` に 3 関数を追加:
+  - `flags(state)` — `env_for` と同じ「両 state 形状を吸収するアクセサ」。統合ワールドなら
+    `mission_progress["flags"]`、Mission 別 state なら `mission_flags` を返す。commit スナップショット
+    dict にもそのまま使える。P3-04b で入れた移行ブリッジ（`run_case_file` の `setdefault`）は撤去済み
+  - `release_missions(state)` — `mission_progress["released"]`（新規フィールド）で**冪等**に区画解放。
+    ディレクトリ mode/owner 書き換え + `initial_processes`/`initial_cron_jobs` の投入（`owning_mission_id`
+    タグ付き）+ Mission12 の `/etc/hosts` 追記。区画が世界に無ければ黙って飛ばさず例外（設計ミス検出）
+  - `advance_mission(state, cleared_id)` — completed 記録 → active 再計算 → **flags リセット** → 解放
+  - 罠: 解放処理は `fs.get_node()` を使えない（権限ゲートでロック中ノードが `None` になるため。
+    mode を書き込む相手こそロック中のノード）。`progress._node_at` で素の木構造を辿る
+- 計画に無かった追加 2 点（レビューで判断）:
+  1. **`git push` 二度打ちの穴を塞いだ**。Git 履歴がプレイ全体で 1 本になったため、Mission1 クリア直後に
+     もう一度 push すると Mission1 の commit スナップショット（`case_checked=True`）が Mission2 の
+     合格判定に流用され、**何もせず次がクリアできてしまう**。`_commit` が commit に `mission_id` を
+     記録し、`_push` は最新 commit の `mission_id` が現在の `active_mission_id` と一致しなければ拒否する
+     （Mission 別 state ではこのチェックをしない＝挙動不変）。全 Mission クリア済み（active=None）の
+     push も同じ文言で拒否する（`advance_mission(state, None)` のクラッシュ防止）
+  2. `_commit` のスナップショットに `mission_progress` の deepcopy を含めた（P3-10 の resume が
+     ワールド全体＝ロック状態込みで復元できるようにするため）
+- 実動作確認（`engine.evaluate()` 通し）: Mission1 を絶対パスでクリア → `git push` 成功 → `/root/park`
+  に入れるようになる → `/root/case_file.sh` が Mission2 の内容に変わる → 二度目の push は拒否
 
 `app/evaluator/progress.py::advance_mission(state, cleared_mission_id)`を新設。`git_ops._push`が
 `mission_flags.completed=True`を立てていた箇所から呼ぶ:
