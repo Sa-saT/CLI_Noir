@@ -15,6 +15,7 @@ from datetime import datetime
 from app.content.missions import get_mission
 from app.evaluator import fs, script
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
+from app.evaluator.env import env_for
 from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
@@ -226,7 +227,7 @@ def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
             host_info = SSH_HOSTS.get(state.get("ssh_host"))
             target = host_info["initial_path"] if host_info is not None else "/"
         else:
-            target = state.get("env_vars", {}).get("HOME", "/root")
+            target = env_for(state).get("HOME", "/root")
     else:
         target = argv[1]
     abs_path = fs.normalize(state["current_path"], target)
@@ -1053,7 +1054,7 @@ def cmd_export(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str
     m = _ASSIGN.match(argv[1])
     if not m:
         raise CommandError("Error: invalid input")
-    state.setdefault("env_vars", {})[m.group(1)] = m.group(2)
+    env_for(state)[m.group(1)] = m.group(2)
     return [], state
 
 
@@ -1061,13 +1062,13 @@ def cmd_export(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str
 def cmd_unset(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     if len(argv) < 2:
         raise CommandError("Error: invalid input")
-    state.setdefault("env_vars", {}).pop(argv[1], None)
+    env_for(state).pop(argv[1], None)
     return [], state
 
 
 @command("printenv")
 def cmd_printenv(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    env_vars = state.get("env_vars", {})
+    env_vars = env_for(state)
     operands = _operands(argv)
     if not operands:
         return [f"{k}={v}" for k, v in env_vars.items()], state

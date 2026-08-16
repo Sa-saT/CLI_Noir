@@ -511,6 +511,18 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 `dig`/`ping`/`host`（`NET_HOSTS`）は意図的にゲートしない（ssh到達性のみ。DNS解決自体は現実でも認可と無関係という理屈）。
 ファイル: `app/evaluator/commands.py`
 
+### P3-04c `env_vars` のユーザー別 dict 対応（P3-10 から前倒し）
+- [x] 完了（2026-08-16）。**計画では P3-10 の一部だったが前倒しした**。理由: 統合ワールド state は
+  `env_vars` がユーザー別ネスト dict のため PATH 解決が効かず、`engine.evaluate()` 経由で
+  コマンドが 1 つも動かない状態だった。この土台が無いと P3-05 以降を実際に動かして検証できない。
+  新規 `app/evaluator/env.py` の `env_for(state)` が両形状を吸収（形状判定は「値に dict があるか」。
+  `$?` も `env_for` 経由でユーザーのバケットへ書き、トップレベルを汚さない）。engine 3 箇所・
+  commands 4 箇所・judge 1 箇所を経由に変更。`git_ops.py` は丸ごと deepcopy なので変更不要。
+  `tests/test_env_vars.py` 新設（13テスト。`su` で PATH 汚染がバケットに閉じ込められる確認込み）。
+  381 tests green / ruff clean。
+  **この時点で統合ワールドが初めてエンドツーエンドで動作**（Mission1 の `desk` だけ見え、`park` は
+  権限ゲートで不可視、`/root/case_file.sh` が Mission1 の内容で合成される、を実 evaluate で確認）。
+
 ## Phase C: 判定バグ修正
 
 ### P3-07 BUG-02: 引数無し`cd`

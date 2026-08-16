@@ -20,7 +20,7 @@
 
 **Part5 永続統合ワールド化 P3-01〜P3-03（2026-08-16 完了）の残タスク**（追加のみ。evaluator/API/WS は引き続き Mission 別 `MissionState` を読み書きしている）:
 - [ ] `missionstate` テーブルの drop（P3-01 の Alembic リビジョンでは行っていない。API/WS 層を `PlayerState` に切り替えるカットオーバー＝P3-10/P3-11 完了後に別リビジョンとして実施）
-- [ ] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（`app/evaluator/engine.py` の `_expand_env_vars`/PATH解決、`app/evaluator/commands.py` の export/unset/printenv、`app/evaluator/git_ops.py` のスナップショット、`app/evaluator/judge.py` の Mission21 判定を `env_vars[current_user]` 参照へ更新。P3-10 で対応）
+- [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
 - [ ] P3-03 の移設（`/root` 直下の裸置きファイル → Mission 専用サブディレクトリ）に伴う旧パス参照の追随。**統合ワールドでのみパスが変わり、Mission 別 FS は現役のため今は変更しない**（P3-08/P3-12/P3-13 で対応。一覧は `app/content/missions.py` の `_RELOCATIONS` 直下のコメントにも記載）:
   - `app/evaluator/judge.py` `_MISSION10_ORIGINAL_PATH`/`_MISSION10_SUBMITTED_PATH` → `/root/will_office/`
   - `app/evaluator/judge.py` `_MISSION19_SCRIPT_PATH`（プレイヤーが作る `patrol.sh` の置き場）→ `/root/precinct_desk/patrol.sh`

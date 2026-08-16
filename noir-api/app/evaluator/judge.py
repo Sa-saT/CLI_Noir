@@ -9,6 +9,7 @@ import re
 
 from app.content.missions import get_mission
 from app.evaluator import fs, progress
+from app.evaluator.env import env_for
 
 # Mission ごとの専用判定（誤答メッセージを個別化する Mission だけ登録）。
 # 汎用 AND-regex では表現しづらい「絶対パス必須」「特定キー抽出」等をここで扱う。
@@ -343,7 +344,7 @@ def _judge_mission21(state: dict) -> tuple[list[str], dict]:
     そもそもログに残らない。ログに残っている＝復旧後に成功した証跡になる。
     """
     log = state.get("command_log", [])
-    path_restored = state.get("env_vars", {}).get("PATH") == _MISSION21_GOOD_PATH
+    path_restored = env_for(state).get("PATH") == _MISSION21_GOOD_PATH
     used_tool_after_restore = any(re.match(r"\s*(grep|find)\b", line) for line in log)
     reported_bad_path = any(
         _MISSION21_BAD_PATH in line for line in log if re.match(r"\s*echo\b", line)

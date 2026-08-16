@@ -112,13 +112,11 @@ def default_world_state() -> dict:
     - processes: 解放済み Mission の分だけ P3-05 で積まれる
     - resolved_command_log: P3-08 で {"line", "paths", "mission_id"} が積まれる
 
-    注意（evaluator 側の未対応事項。今回は変更しない）: env_vars が「PATH汚染を
-    ユーザーアカウントに閉じ込める」ためユーザー別 dict に変わるため、カットオーバー
-    （P3-10）で以下を `env_vars[current_user]` 参照に追随させる必要がある:
-    app/evaluator/engine.py の _expand_env_vars・PATH 解決、
-    app/evaluator/commands.py の export/unset/printenv、
-    app/evaluator/git_ops.py のスナップショット、
-    app/evaluator/judge.py の Mission21 判定。
+    env_vars は「PATH汚染をユーザーアカウントに閉じ込める」ためユーザー別 dict に
+    なっている。evaluator 側の追随は P3-04c で完了済み（`app/evaluator/env.py` の
+    `env_for(state)` がフラット/ユーザー別の両形状を吸収する）。
+    `app/evaluator/git_ops.py` のスナップショットは env_vars を丸ごと deepcopy する
+    だけなので、どちらの形状でもそのまま動く。
     """
     return {
         "current_path": "/root",

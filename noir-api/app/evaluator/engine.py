@@ -24,6 +24,7 @@ from app.evaluator import commands as _commands  # noqa: F401  registry 登録�
 from app.evaluator import fs
 from app.evaluator import git_ops as _git_ops  # noqa: F401  registry 登録のため import
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
+from app.evaluator.env import env_for
 from app.evaluator.errors import CommandError
 from app.evaluator.registry import get_command
 
@@ -81,7 +82,7 @@ def _resolve_command_name(argv0: str) -> tuple[str, bool]:
 
 
 def _path_has_bin(state: dict) -> bool:
-    path_value = state.get("env_vars", {}).get("PATH", "")
+    path_value = env_for(state).get("PATH", "")
     return any(seg in _PATH_BIN_DIRS for seg in path_value.split(":"))
 
 
@@ -275,8 +276,12 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
 
 
 def _set_status(state: dict, code: str) -> dict:
-    """終了ステータスを env_vars["?"] に記録する（echo $? の最小実装。P2-15）。"""
-    state.setdefault("env_vars", {})["?"] = code
+    """終了ステータスを $? に記録する（echo $? の最小実装。P2-15）。
+
+    env_for() 経由でユーザーのバケットに書き込むため、ユーザー別形状の state
+    でも env_vars 直下（トップレベル）が "?" キーで汚れることはない（P3-04c）。
+    """
+    env_for(state)["?"] = code
     return state
 
 
@@ -284,7 +289,7 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     """1 行を評価し (出力行, 新 state) を返す。state は変更しない（deepcopy を返す）。"""
     working = copy.deepcopy(state)
 
-    expanded_line = _expand_env_vars(command_line, working.get("env_vars", {}))
+    expanded_line = _expand_env_vars(command_line, env_for(working))
 
     try:
         tok_pairs = _tokenize(expanded_line)
