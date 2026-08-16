@@ -133,7 +133,10 @@ def _glob_matches(pattern: str, state: dict) -> list[str] | None:
     if not fs.is_dir(dir_node):
         return None
 
-    names = sorted(dir_node.get("children", {}).keys())
+    current_user = state.get("current_user", "detective")
+    children = dir_node.get("children", {})
+    # 通行権限（P3-04a）を通らない子ディレクトリは glob 展開の候補から除外する。
+    names = sorted(n for n, child in children.items() if fs.can_traverse(child, current_user))
     matches = [n for n in names if fnmatch.fnmatch(n, name_pattern)]
     if not matches:
         return None

@@ -98,25 +98,36 @@ def is_proc_path(abs_path: str) -> bool:
     return bool(segs) and segs[0] == "proc"
 
 
-def _walk(node: dict, segs: list[str]) -> dict | None:
+def _walk(node: dict, segs: list[str], current_user: str = "detective") -> dict | None:
     for seg in segs:
         if node.get("type") != "dir":
+            return None
+        # 子へ降りる前に通行権限を検査する（P3-04a）。拒否は「存在しない」と同じ扱い。
+        if not can_traverse(node, current_user):
             return None
         node = node.get("children", {}).get(seg)
         if node is None:
             return None
+    # 経路の途中だけでなく、解決済みノード自身のゲートも検査する。ここが無いと
+    # 「/root/park を直接指定した ls/cat/touch/mkdir/...」がゲートを素通りしてしまう
+    # （get_parent 等が「経路の最後の1つ手前まで」を get_node に渡す形で親を解決するため）。
+    if node is not None and not can_traverse(node, current_user):
+        return None
     return node
 
 
 def get_node(state: dict, abs_path: str) -> dict | None:
     """絶対パスのノードを返す。存在しない/途中がディレクトリでなければ None。
 
-    `/proc` 配下は processes テーブルから動的生成する（読み取り専用）。
+    途中のディレクトリ、および解決済みノード自身が `can_traverse` を拒否した場合も
+    None（見えない/触れない演出）。`/proc` 配下は processes テーブルから動的生成する
+    読み取り専用ツリーで、権限ゲートの対象外のため素通しする。
     """
     segs = segments(abs_path)
     if segs and segs[0] == "proc":
         return _walk(_proc_root(state), segs[1:])
-    return _walk(root_node(state), segs)
+    current_user = state.get("current_user", "detective")
+    return _walk(root_node(state), segs, current_user)
 
 
 def get_parent(state: dict, abs_path: str) -> tuple[dict | None, str | None]:
@@ -170,6 +181,28 @@ def can_exec(node: dict) -> bool:
     if node.get("immutable", False):
         return True
     return "x" in node.get("mode", "rw-r--r--")
+
+
+def can_traverse(node: dict, current_user: str = "detective") -> bool:
+    """ディレクトリの通行権限（列挙・cd・再帰探索で子へ降りる）を検査する（P3-04a）。
+
+    mode 未設定は常に True（デフォルト開放ポリシー）。`can_exec` の「immutable
+    以外はデフォルト閉鎖」とは意図的に別物: 既存 22 Mission 分のディレクトリノードは
+    mode を持たないため、この関数の追加は無影響でなければならない。mode を持つのは
+    Part5 統合ワールド（`app/content/missions.py` の `OPEN_DIR_MODE`/`LOCKED_DIR_MODE`）
+    の未解放区画だけ。
+    dir 以外のノードは常に True（呼び出し側が type を意識せず呼べるようにするため）。
+    owner 一致なら owner 側の x ビット（mode[2]）、不一致なら other 側の x ビット
+    （mode[8]）を見る（`can_read` と同じ owner/other 二値の考え方）。
+    """
+    if node.get("type") != "dir":
+        return True
+    mode = node.get("mode")
+    if mode is None:
+        return True
+    owner = node.get("owner", "detective")
+    idx = 0 if current_user == owner else 6
+    return mode[idx + 2] == "x"
 
 
 def new_file(content: str = "", *, immutable: bool = False) -> dict:
