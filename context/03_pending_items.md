@@ -37,7 +37,7 @@
 - [x] WebSocket 接続基盤（初回 `auth` フレーム認証 + `hello`/`exec`/`result`/`event`/`resume` プロトコル。設計指示書 § 7。`app/composables/useTerminalSocket.ts` + Pinia store `app/stores/terminal.ts`（DESIGN.md § 10-1 の単方向データフロー）+ 型定義 `app/types/ws.ts`。指数バックオフ再接続対応。FE-03。まだどのページからも呼ばれていない状態で Python の websockets クライアントでプロトコルの往復を検証済み — UI 配線は FE-04）
 - [x] コマンド一覧パネル（`app/utils/commandCatalog.ts` で Mission 詳細 API の `allowed_commands` → `CommandPanel`/`CommandDetail` へ変換。`git` は git status/add/commit/push の4件に展開して highlight 表示。ヘッダーの探偵ランクも allowed_commands から算出。FE-05）
 - [x] 場面画像のカレントディレクトリ紐付け（`app/pages/missions/[id].vue` で WS state（Pinia store の `currentPath`/`remoteMode`/`sshHost`）から `host:パス接頭辞` の最長一致解決 → `SceneOverlay` へ。`cd`/`ssh`/`exit` の画像切替は `SceneOverlay` 側の 0.8s クロスフェードが自動追従。FE-06。ssh amusement_park:/gate 用画像は未制作のためプレースホルダ表示 — 下記「場所別画像アセットの制作」で追跡）
-- [ ] 場所別画像アセットの制作（`office_desk.png` / `amusement_park_gate.png` など。現状は `office.png` 1 枚のみ。※本タスク範囲外・素材制作待ち）
+- [ ] 場所別画像アセットの制作（現状は `office.png` 1 枚のみ。※素材制作待ち）。**必要な画像の一覧は `moc/images/NEEDED_IMAGES.md`**（2026-08-17 作成。Part5 統合ワールドの区画 + ssh 接続先から算出。サイズ 1536×1024・画風基準・`SCENE_IMAGES` への登録方法・優先度 A〜D 付き）。解決は前方一致の最長一致なので、`office:/root` があれば全部揃わなくても破綻しない
 - [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
 - [ ] Tab 補完（設計指示書 § 7 の `complete`/`completions` フレームが `noir-api/app/ws/terminal.py` に未実装のためフロント側も未着手。バックエンド側の実装が前提）
 - [ ] `TerminalView.vue` の残りキーマップ（`↑↓` 履歴 / `Ctrl+R` 逆検索 / `Ctrl+C` / `Ctrl+L` / `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。現状は Enter 送信のみ実装済み）
