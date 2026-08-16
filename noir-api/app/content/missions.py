@@ -5,10 +5,15 @@ allowed_commands は各 Mission の必須コマンド + 共通の基本操作（
 詳細正規表現・初期FS は実装時に本 MissionDef を拡張する（設計指示書 § 11 / § 5）。
 """
 
+import copy
 from dataclasses import dataclass, field
 
 # 全 Mission 共通で使える基本操作（ナビゲーション + 疑似 Git ワークフロー）。
 BASE_COMMANDS = ["ls", "cd", "cat", "pwd", "echo", "git"]
+
+# 判定スクリプトのファイル名。統合ワールド（Part5）では静的配置をやめ、
+# アクティブ Mission の内容を /proc と同じ方式で動的生成する（P3-04）。
+CASE_FILE_NAME = "case_file.sh"
 
 
 def _mode_file(content: str, mode: str, *, immutable: bool = False) -> dict:
@@ -980,3 +985,211 @@ def get_mission(mission_id: int) -> MissionDef | None:
 
 def all_missions() -> list[MissionDef]:
     return [MISSIONS[i] for i in sorted(MISSIONS)]
+
+
+# =============================================================================
+# Part5 P3-03: 永続統合ワールドの仮想FS（_WORLD_FS）
+# =============================================================================
+# 「22 Mission 分の区画を最初から実体として持ち、未解放はディレクトリ権限で
+# 不可視にする」統合ワールド（context/04_task_backlog.md § Part 5）を、既存の
+# Mission 別 `initial_filesystem` から機械的に組み立てる。
+#
+# Mission 別 FS はカットオーバー（P3-10 以降）まで現役なので、ここでは元の dict を
+# 一切変更せず deepcopy して変換する。組み立ての規則は 3 つだけ:
+#   1. `case_file.sh` は全除外（P3-04 で動的生成に置き換える）
+#   2. `/root` 直下の裸置きファイルは Mission 専用サブディレクトリへ移設（_RELOCATIONS）
+#   3. 区画の衝突は原則エラー。意図的な相乗りのみ _ADDITIVE_MERGE_PATHS で明示許可
+
+
+# `/root` 直下に裸置きされていたファイルの移設先（Mission ごと）。
+# 移設しないと Mission13 と Mission21 の `hint.txt` のように衝突するうえ、
+# ディレクトリ権限ゲート（P3-04）は dir 単位でしか効かず未解放にできない。
+_RELOCATIONS: dict[int, dict[str, str]] = {
+    4: {"tape.log": "wiretap_room"},
+    9: {"evidence.dat": "evidence_locker"},
+    10: {"original.txt": "will_office", "submitted.txt": "will_office"},
+    13: {"hint.txt": "crontab_room"},
+    15: {"journal.log": "informant_trail"},
+    19: {"sample.sh": "precinct_desk", "evidence.txt": "precinct_desk"},
+    21: {"hint.txt": "toolbox_room"},
+    # Mission22 は clues/vault/logs を持つが evidence.tar / ledger.txt が裸置きだった。
+    # 最終事件の証拠が Mission1 から丸見えになるため clues/ に収容する。
+    22: {"evidence.tar": "clues", "ledger.txt": "clues"},
+}
+
+# 移設によりカットオーバー（P3-08/P3-12/P3-13）で追随が要る旧パス参照:
+#   - judge.py `_MISSION10_ORIGINAL_PATH` / `_MISSION10_SUBMITTED_PATH`
+#     → /root/will_office/original.txt・submitted.txt
+#   - judge.py `_MISSION19_SCRIPT_PATH`（プレイヤーが作る patrol.sh の置き場）
+#     → /root/precinct_desk/patrol.sh
+#   - `_MISSION15_HISTORY`（情報屋の履歴）→ /root/informant_trail/journal.log
+# いずれも Mission 別 FS がまだ現役のためここでは変更しない（world 内の文章・
+# symlink が指すパスの実在は tests/test_world_fs.py が機械的に検査している）。
+
+# 複数 Mission が同じ場所を共有することを明示的に許可する絶対パス（→ 許可 mission_id）。
+# `/root/vault` は Mission5（開かずの資料室）と Mission22（最終事件）の意図的な
+# コールバック。ここに無い衝突は設計ミスとして build 時に例外を投げる。
+_ADDITIVE_MERGE_PATHS: dict[str, tuple[int, ...]] = {
+    "/root/vault": (5, 22),
+}
+
+# 各 Mission が所有する区画（ワールド上の絶対パス）。未解放のあいだ不可視にし、
+# クリア進行に応じて P3-05 の advance_mission が解放する。ここに載らない Mission
+# （3/6/7/12）はローカル FS の区画を持たない（ssh 先・プロセス・cron が舞台）。
+_MISSION_AREAS: dict[int, list[str]] = {
+    1: ["/root/desk"],
+    2: ["/root/park"],
+    4: ["/root/wiretap_room"],
+    5: ["/root/vault"],
+    8: ["/root/bar"],
+    9: ["/root/evidence_locker"],
+    10: ["/root/will_office"],
+    11: ["/root/scraps"],
+    13: ["/root/crontab_room"],
+    14: ["/root/mirror_hall"],
+    15: ["/root/informant_trail"],
+    16: ["/root/warehouse"],
+    17: ["/root/contracts"],
+    18: ["/root/archive"],
+    19: ["/root/precinct_desk"],
+    # Mission20 の FHS（/etc・/var・/tmp・/bin）は街の常設インフラなので常時公開し、
+    # 黒幕の住居だけを被ゲート区画にする（Mission12 の dig 発見体験を潰さないため
+    # /etc/hosts の ghost.example 行は別途 P3-05 で追記する）。
+    20: ["/home/mr_black"],
+    21: ["/root/toolbox_room"],
+    22: ["/root/clues", "/root/logs"],
+}
+
+# Mission に紐付かず最初から通行できるディレクトリ（探偵の自宅 + 街のインフラ）。
+_ALWAYS_OPEN_DIRS = ["/root", "/etc", "/var", "/tmp", "/bin", "/home"]
+
+# ディレクトリ権限ゲート（P3-04）の値。owner が異なると mode の other ビットを
+# 見るため、未解放区画は system 所有 + 全ビット無しで不可視になる。
+OPEN_DIR_MODE = "rwxr-xr-x"
+OPEN_DIR_OWNER = "detective"
+LOCKED_DIR_MODE = "---------"
+LOCKED_DIR_OWNER = "system"
+
+# Mission12 解放時に /etc/hosts へ追記される行（P3-05）。初期ワールドには含めない。
+HOSTS_PATH = "/etc/hosts"
+GHOST_HOSTS_LINE = "10.66.6.6 ghost.example"
+
+
+def _world_dir() -> dict:
+    return {"type": "dir", "children": {}}
+
+
+def _copy_without_case_files(children: dict) -> dict:
+    """children を deepcopy しつつ `case_file.sh` を再帰的に取り除く。"""
+    out: dict = {}
+    for name, node in children.items():
+        if name == CASE_FILE_NAME and node.get("type") == "file":
+            continue
+        if node.get("type") == "dir":
+            new_node = {k: copy.deepcopy(v) for k, v in node.items() if k != "children"}
+            new_node["children"] = _copy_without_case_files(node.get("children", {}))
+            out[name] = new_node
+        else:
+            out[name] = copy.deepcopy(node)
+    return out
+
+
+def _relocate_root_files(mission_id: int, children: dict) -> dict:
+    """`/root` 直下の裸置きファイルを _RELOCATIONS の部屋へ移す。"""
+    moves = _RELOCATIONS.get(mission_id, {})
+    out = {name: node for name, node in children.items() if name not in moves}
+    for name, node in children.items():
+        dest = moves.get(name)
+        if dest is None:
+            continue
+        room = out.setdefault(dest, _world_dir())
+        if room.get("type") != "dir":
+            raise ValueError(f"relocation target /root/{dest} is not a directory")
+        if name in room["children"]:
+            raise ValueError(f"relocation collision at /root/{dest}/{name}")
+        room["children"][name] = node
+    return out
+
+
+def _merge_children(dest: dict, src: dict, mission_id: int, base_path: str) -> None:
+    """src の children を dest へマージする。想定外の衝突は例外にする。"""
+    for name, node in src.items():
+        path = f"{base_path}/{name}"
+        if name not in dest:
+            dest[name] = node
+            continue
+        allowed = _ADDITIVE_MERGE_PATHS.get(path, ())
+        if (
+            mission_id not in allowed
+            or dest[name].get("type") != "dir"
+            or node.get("type") != "dir"
+        ):
+            raise ValueError(
+                f"world FS conflict at {path} (mission {mission_id}). "
+                f"意図した相乗りなら _ADDITIVE_MERGE_PATHS に追加すること"
+            )
+        _merge_children(dest[name]["children"], node["children"], mission_id, path)
+
+
+def _node_at(world: dict, abs_path: str) -> dict | None:
+    """ワールド（「/」直下の children map）から絶対パスのノードを引く。"""
+    node: dict | None = {"type": "dir", "children": world}
+    for seg in [s for s in abs_path.split("/") if s]:
+        if node is None or node.get("type") != "dir":
+            return None
+        node = node.get("children", {}).get(seg)
+    return node
+
+
+def _set_dir_gate(world: dict, abs_path: str, *, released: bool) -> None:
+    node = _node_at(world, abs_path)
+    if node is None or node.get("type") != "dir":
+        raise ValueError(f"mission area {abs_path} does not exist in the world FS")
+    node["mode"] = OPEN_DIR_MODE if released else LOCKED_DIR_MODE
+    node["owner"] = OPEN_DIR_OWNER if released else LOCKED_DIR_OWNER
+
+
+def _strip_ghost_hosts_line(world: dict) -> None:
+    """初期 /etc/hosts から ghost.example 行を落とす（Mission12 で追記される）。"""
+    node = _node_at(world, HOSTS_PATH)
+    if node is None or node.get("type") != "file":
+        return
+    lines = [ln for ln in node["content"].split("\n") if GHOST_HOSTS_LINE not in ln]
+    node["content"] = "\n".join(lines)
+
+
+def _build_world_fs() -> dict:
+    world: dict = {"root": _world_dir()}
+    for mission in all_missions():
+        if mission.initial_filesystem is None:
+            continue
+        pruned = _copy_without_case_files(mission.initial_filesystem)
+        root_node = pruned.pop("root", None)
+        if root_node is not None:
+            relocated = _relocate_root_files(mission.id, root_node.get("children", {}))
+            _merge_children(world["root"]["children"], relocated, mission.id, "/root")
+        # `/root` 以外（Mission20 の FHS: /etc・/var・/tmp・/bin・/home）。
+        _merge_children(world, pruned, mission.id, "")
+
+    _strip_ghost_hosts_line(world)
+
+    for path in _ALWAYS_OPEN_DIRS:
+        _set_dir_gate(world, path, released=True)
+    first_mission_id = all_missions()[0].id
+    for mission_id, paths in _MISSION_AREAS.items():
+        for path in paths:
+            _set_dir_gate(world, path, released=mission_id == first_mission_id)
+    return world
+
+
+_WORLD_FS = _build_world_fs()
+
+
+def build_world_filesystem() -> dict:
+    """永続統合ワールドの初期 filesystem（毎回まっさらなコピーを返す）。"""
+    return copy.deepcopy(_WORLD_FS)
+
+
+def mission_area_paths(mission_id: int) -> list[str]:
+    """その Mission が所有する区画の絶対パス（解放処理 P3-05 が使う）。"""
+    return list(_MISSION_AREAS.get(mission_id, []))

@@ -406,7 +406,23 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ## Phase B: ワールドFSと仮想機構
 
 ### P3-03 `_WORLD_FS`構築: 22Mission統合 + 裸置きファイルの移設 + vault加算マージ
-- [ ] 未着手
+- [x] 完了（2026-08-16）。`app/content/missions.py` 末尾に `_build_world_fs()` + 公開 API
+  （`build_world_filesystem()` / `mission_area_paths()` / `CASE_FILE_NAME` / `HOSTS_PATH` /
+  `GHOST_HOSTS_LINE` / `OPEN_DIR_MODE` 等）を追加。既存の Mission 別 `_MISSIONn_FS` は**一切変更せず**
+  deepcopy して変換する（カットオーバーまで両立させる方針は P3-01/P3-02 と同じ）。
+  `app/models/tables.py::default_world_state()` の `filesystem` を `build_world_filesystem()` に結線。
+  `tests/test_world_fs.py` 新設（53テスト）。318 tests green / ruff clean。
+  - 計画との差分3点:
+    1. **Mission22 の裸置き `evidence.tar` / `ledger.txt` も `clues/` へ移設**した（計画の移設表に無かったが、
+       権限ゲートは dir 単位でしか効かず、放置すると最終事件の証拠が Mission1 から丸見えになるため）
+    2. `MissionDef.owned_paths` は追加せず、モジュールレベルの `_MISSION_AREAS` テーブル + `mission_area_paths()`
+       で持たせた（「文字列推測に頼らない」という要件は満たす。P3-05 はこれを使う）
+    3. 加算マージの許可テーブルは名前ではなく**絶対パス**キー（`_ADDITIVE_MERGE_PATHS = {"/root/vault": (5, 22)}`）。
+       Mission14 の `/root/mirror_hall/vault` と取り違えないため
+  - 手順6の検証は `tests/test_world_fs.py::test_referenced_root_paths_exist_in_the_world`
+    （ワールド内の文章・symlink が指す `/root/...` が実在するか機械的に走査）+ 区画の存在・非空チェックとして実装。
+    ワールド側でパスが変わったことによる**旧パス参照の追随は未実施**（judge.py の Mission10/19 定数、
+    `_MISSION15_HISTORY`。Mission 別 FS が現役のため。`03_pending_items.md` に記載、P3-08/P3-12/P3-13 で対応）
 
 `app/content/missions.py`に`_build_world_fs()`を新設:
 1. 各`_MISSIONn_FS["root"]["children"]`を1つの`world["root"]["children"]`へ統合。**`case_file.sh`は全除外**

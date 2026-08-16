@@ -18,9 +18,14 @@
 `noir-api/app/content/missions.py` + `app/evaluator/judge.py` + `tests/test_mission*.py`（コードが正）、タスク単位の記録は
 `context/04_task_backlog.md` Part 1、設計判断の経緯は `01_decisions_log.md`「Phase2 バックエンド完了」節を参照。
 
-**Part5 永続統合ワールド化 P3-01（2026-08-16 完了）の残タスク**（`app/models/tables.py` に `PlayerState`/`default_world_state()` を追加のみ。evaluator/API/WS は未変更）:
+**Part5 永続統合ワールド化 P3-01〜P3-03（2026-08-16 完了）の残タスク**（追加のみ。evaluator/API/WS は引き続き Mission 別 `MissionState` を読み書きしている）:
 - [ ] `missionstate` テーブルの drop（P3-01 の Alembic リビジョンでは行っていない。API/WS 層を `PlayerState` に切り替えるカットオーバー＝P3-10/P3-11 完了後に別リビジョンとして実施）
 - [ ] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（`app/evaluator/engine.py` の `_expand_env_vars`/PATH解決、`app/evaluator/commands.py` の export/unset/printenv、`app/evaluator/git_ops.py` のスナップショット、`app/evaluator/judge.py` の Mission21 判定を `env_vars[current_user]` 参照へ更新。P3-10 で対応）
+- [ ] P3-03 の移設（`/root` 直下の裸置きファイル → Mission 専用サブディレクトリ）に伴う旧パス参照の追随。**統合ワールドでのみパスが変わり、Mission 別 FS は現役のため今は変更しない**（P3-08/P3-12/P3-13 で対応。一覧は `app/content/missions.py` の `_RELOCATIONS` 直下のコメントにも記載）:
+  - `app/evaluator/judge.py` `_MISSION10_ORIGINAL_PATH`/`_MISSION10_SUBMITTED_PATH` → `/root/will_office/`
+  - `app/evaluator/judge.py` `_MISSION19_SCRIPT_PATH`（プレイヤーが作る `patrol.sh` の置き場）→ `/root/precinct_desk/patrol.sh`
+  - `app/content/missions.py` `_MISSION15_HISTORY`（情報屋の履歴）→ `/root/informant_trail/journal.log`
+- [ ] Mission5 の `/root/vault/inner` が統合ワールドでは空部屋になる（`case_file.sh` を動的生成へ移す方針＝Part5 の確定事項により、そこにあった解錠ギミックが廃止されたため）。`locked_evidence.txt` の本文が `inner` を指しているので、部屋に何を置くか（あるいは本文を書き換えるか）のコンテンツ判断が要る。P3-04 の `case_file.sh` 動的生成とあわせて決める
 
 **フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
 

@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from sqlalchemy import JSON, Column, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
+from app.content.missions import build_world_filesystem
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -105,7 +107,8 @@ def default_world_state() -> dict:
     Mission 単位に分離されていた default_state() と異なり、ユーザーごとに 1 つの
     仮想世界全体を表す。P3-01 時点ではスキーマの枠組みのみを定義し、以下は後続
     Milestone で埋める（今回はこの関数を書くだけで、呼び出し側の切り替えは行わない）:
-    - filesystem: P3-03 で 22 Mission 分の区画を持つ `_WORLD_FS` に置き換えられる
+    - filesystem: P3-03 で 22 Mission 分の区画を持つ `_WORLD_FS` に置き換え済み
+      （未解放区画は mode="---------"/owner="system" で不可視。解放は P3-05）
     - processes: 解放済み Mission の分だけ P3-05 で積まれる
     - resolved_command_log: P3-08 で {"line", "paths", "mission_id"} が積まれる
 
@@ -120,11 +123,9 @@ def default_world_state() -> dict:
     return {
         "current_path": "/root",
         # Mission 定義の initial filesystem ではなく、22 Mission 分の区画を最初
-        # から実体として持つ統合ワールド構造。ここでは骨格のみ（P3-03 の
-        # _WORLD_FS で上書きされる想定）。
-        "filesystem": {
-            "root": {"type": "dir", "children": {}},
-        },
+        # から実体として持つ統合ワールド構造（P3-03）。未解放区画はディレクトリ
+        # 権限で不可視にしてあり、クリア進行に応じて解放される。
+        "filesystem": build_world_filesystem(),
         "remote_mode": False,
         "ssh_host": None,
         # 現在のユーザー（su/whoami/id・owner ベースの読み取り権限判定に使う）。
