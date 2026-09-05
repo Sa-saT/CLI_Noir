@@ -5,6 +5,7 @@
 削除は state に反映される。実 OS には一切触れない（設計指示書 § 0.5）。
 """
 
+from contextvars import ContextVar, Token
 from datetime import datetime, timezone
 
 from app.content.missions import CASE_FILE_NAME, get_mission
@@ -13,6 +14,28 @@ from app.evaluator import progress
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# --- パス解決の記録（P3-08a）---
+# normalize() は state を受け取らない純粋関数で呼び出し箇所が多数あるため、全箇所の
+# シグネチャを変える代わりに ContextVar の収集シンクへ記録する（async/スレッド安全・
+# `sh` 経由の入れ子 evaluate() でも親子の記録が混ざらない）。シンクが無効（None）な間は
+# 何もしない＝記録していない文脈では従来どおりの純粋関数のまま。
+_resolutions: ContextVar[list[tuple[str, str]] | None] = ContextVar(
+    "noir_path_resolutions", default=None
+)
+
+
+def start_recording() -> Token:
+    """新しい空リストをシンクにセットし、元へ戻すための Token を返す。"""
+    return _resolutions.set([])
+
+
+def drain_recording(token: Token) -> list[tuple[str, str]]:
+    """現在の記録リストを取り出し、シンクを Token 取得前の状態へ戻して返す。"""
+    collected = _resolutions.get()
+    _resolutions.reset(token)
+    return collected if collected is not None else []
 
 
 def normalize(current_path: str, path: str) -> str:
@@ -29,7 +52,11 @@ def normalize(current_path: str, path: str) -> str:
                 base.pop()
         else:
             base.append(part)
-    return "/" + "/".join(base)
+    result = "/" + "/".join(base)
+    sink = _resolutions.get()
+    if sink is not None:
+        sink.append((path, result))
+    return result
 
 
 def segments(abs_path: str) -> list[str]:

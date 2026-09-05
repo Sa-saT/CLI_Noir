@@ -23,6 +23,7 @@ import re
 from app.evaluator import commands as _commands  # noqa: F401  registry 登録のため import
 from app.evaluator import fs
 from app.evaluator import git_ops as _git_ops  # noqa: F401  registry 登録のため import
+from app.evaluator import progress
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.env import env_for
 from app.evaluator.errors import CommandError
@@ -275,6 +276,45 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
     parent["children"][name] = fs.new_file(content=text)
 
 
+def _resolved_mission_id(state: dict) -> int | None:
+    """resolved_command_log エントリに刺すタグ mission_id を求める（judge.run_case_file と同じフォールバック）。"""
+    mission_id = state.get("mission_id")
+    if mission_id is None:
+        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    return mission_id
+
+
+def _build_resolved_log_entry(
+    command_line: str, resolutions: list[tuple[str, str]], state: dict
+) -> dict:
+    """1 コマンドぶんの resolved_command_log エントリを組み立てる（P3-08a）。
+
+    command_line を空白で分割し、各トークンが記録済み解決ペアの生トークンと完全一致
+    する場合だけ解決後の絶対パスへ置換して単一スペースで再結合する（`2>/dev/null` の
+    ように他の文字とくっついているトークンやオプション・記号は置換しない）。同じ生
+    トークンが複数回解決されていれば最初の解決結果を使う。
+    """
+    token_to_path: dict[str, str] = {}
+    paths: list[str] = []
+    seen: set[str] = set()
+    for raw_token, resolved_path in resolutions:
+        token_to_path.setdefault(raw_token, resolved_path)
+        if resolved_path not in seen:
+            seen.add(resolved_path)
+            paths.append(resolved_path)
+
+    resolved_line = " ".join(
+        token_to_path.get(tok, tok) for tok in command_line.split()
+    )
+
+    return {
+        "line": command_line,
+        "resolved_line": resolved_line,
+        "paths": paths,
+        "mission_id": _resolved_mission_id(state),
+    }
+
+
 def _set_status(state: dict, code: str) -> dict:
     """終了ステータスを $? に記録する（echo $? の最小実装。P2-15）。
 
@@ -289,61 +329,79 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     """1 行を評価し (出力行, 新 state) を返す。state は変更しない（deepcopy を返す）。"""
     working = copy.deepcopy(state)
 
-    expanded_line = _expand_env_vars(command_line, env_for(working))
-
+    # P3-08a: 1 コマンドぶんのパス解決を記録するスナップショット区間。`sh` 経由の
+    # 入れ子 evaluate() 呼び出しでも ContextVar のネストにより親子の記録は混ざらない。
+    # 失敗コマンドの解決結果が次のコマンドへ漏れないよう、成功・失敗どちらの
+    # return 経路でも必ず一度だけ drain する（finally は「まだ drain してなければ」
+    # 捨てるだけの安全網。成功経路では resolved_command_log 構築のため先に drain する）。
+    token = fs.start_recording()
+    drained = False
     try:
-        tok_pairs = _tokenize(expanded_line)
-    except ValueError:
-        return ["Error: invalid input"], _set_status(working, "1")  # 引用符が閉じていない等
-    if not tok_pairs:
-        # 空行の実行は bash と同じく $? を変更しない。
-        return [], state
+        expanded_line = _expand_env_vars(command_line, env_for(working))
 
-    tokens = _expand_globs(tok_pairs, working)
-    tokens = _split_glued_redirects(tokens)
+        try:
+            tok_pairs = _tokenize(expanded_line)
+        except ValueError:
+            return ["Error: invalid input"], _set_status(working, "1")  # 引用符が閉じていない等
+        if not tok_pairs:
+            # 空行の実行は bash と同じく $? を変更しない。
+            return [], state
 
-    stages = _split_pipeline(tokens)
-    # 空ステージ（`| foo` / `foo |` / `foo || bar`）はパイプ不正。
-    if len(stages) > 1 and any(not st for st in stages):
-        return ["Error: invalid input"], _set_status(working, "1")
+        tokens = _expand_globs(tok_pairs, working)
+        tokens = _split_glued_redirects(tokens)
 
-    # リダイレクトは最終ステージにのみ適用する。
-    try:
-        stages[-1], target, append, stderr_target = _split_redirect(stages[-1])
-    except CommandError as exc:
-        return [str(exc)], _set_status(working, "1")
-    if not stages[-1]:
-        # 単段のリダイレクトのみ（`> file`）は no-op。多段での空末尾は不正。
-        if len(stages) == 1:
-            return [], _set_status(working, "0")
-        return ["Error: invalid input"], _set_status(working, "1")
+        stages = _split_pipeline(tokens)
+        # 空ステージ（`| foo` / `foo |` / `foo || bar`）はパイプ不正。
+        if len(stages) > 1 and any(not st for st in stages):
+            return ["Error: invalid input"], _set_status(working, "1")
 
-    working["_stderr"] = []
-    try:
-        stdin: list[str] = []
-        st_state = working
-        out_lines: list[str] = []
-        for argv in stages:
-            out_lines, st_state = _run_stage(argv, stdin, st_state)
-            stdin = out_lines
+        # リダイレクトは最終ステージにのみ適用する。
+        try:
+            stages[-1], target, append, stderr_target = _split_redirect(stages[-1])
+        except CommandError as exc:
+            return [str(exc)], _set_status(working, "1")
+        if not stages[-1]:
+            # 単段のリダイレクトのみ（`> file`）は no-op。多段での空末尾は不正。
+            if len(stages) == 1:
+                return [], _set_status(working, "0")
+            return ["Error: invalid input"], _set_status(working, "1")
 
-        stderr_lines = st_state.pop("_stderr", [])
-        if stderr_target == "/dev/null":
-            pass  # 雑音を捨てる（Mission18）
-        elif stderr_target is not None:
-            _write_file(st_state, stderr_target, stderr_lines, False)
-        else:
-            out_lines = out_lines + stderr_lines
+        working["_stderr"] = []
+        try:
+            stdin: list[str] = []
+            st_state = working
+            out_lines: list[str] = []
+            for argv in stages:
+                out_lines, st_state = _run_stage(argv, stdin, st_state)
+                stdin = out_lines
 
-        if target is not None:
-            _write_file(st_state, target, out_lines, append)
-            out_lines = []
-    except CommandError as exc:
-        # エラーは表示のみ・domain state は変更しない（設計指示書 § 9）。
-        # ただし $? は失敗を記録する（working は state の deepcopy のまま）。
-        st_state.pop("_stderr", None)
-        return [str(exc)], _set_status(st_state, "1")
+            stderr_lines = st_state.pop("_stderr", [])
+            if stderr_target == "/dev/null":
+                pass  # 雑音を捨てる（Mission18）
+            elif stderr_target is not None:
+                _write_file(st_state, stderr_target, stderr_lines, False)
+            else:
+                out_lines = out_lines + stderr_lines
 
-    # 成功したコマンドを履歴に記録（case_file.sh 判定・リプレイ台帳用）。
-    st_state.setdefault("command_log", []).append(command_line)
-    return out_lines, _set_status(st_state, "0")
+            if target is not None:
+                _write_file(st_state, target, out_lines, append)
+                out_lines = []
+        except CommandError as exc:
+            # エラーは表示のみ・domain state は変更しない（設計指示書 § 9）。
+            # ただし $? は失敗を記録する（working は state の deepcopy のまま）。
+            st_state.pop("_stderr", None)
+            return [str(exc)], _set_status(st_state, "1")
+
+        # 成功したコマンドを履歴に記録（case_file.sh 判定・リプレイ台帳用）。
+        # command_log / resolved_command_log は必ずこの 1 箇所でだけ append し、
+        # 要素数が常に 1:1 で揃うようにする。
+        resolutions = fs.drain_recording(token)
+        drained = True
+        st_state.setdefault("command_log", []).append(command_line)
+        st_state.setdefault("resolved_command_log", []).append(
+            _build_resolved_log_entry(command_line, resolutions, st_state)
+        )
+        return out_lines, _set_status(st_state, "0")
+    finally:
+        if not drained:
+            fs.drain_recording(token)

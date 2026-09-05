@@ -89,6 +89,10 @@ def default_state() -> dict:
         },
         # 実行に成功したコマンド行の履歴（case_file.sh 判定・リプレイ台帳に使う）
         "command_log": [],
+        # {"line", "resolved_line", "paths", "mission_id"} を積む解決済みコマンドログ
+        # （P3-08 新設）。command_log と並行して記録する。両 state 形状で同じ記録を
+        # 持たせるため default_world_state() 側と同じキーをここにも用意する。
+        "resolved_command_log": [],
         "git_state": {
             "staged": [],
             "commits": [],
@@ -110,7 +114,8 @@ def default_world_state() -> dict:
     - filesystem: P3-03 で 22 Mission 分の区画を持つ `_WORLD_FS` に置き換え済み
       （未解放区画は mode="---------"/owner="system" で不可視。解放は P3-05）
     - processes: 解放済み Mission の分だけ P3-05 で積まれる
-    - resolved_command_log: P3-08 で {"line", "paths", "mission_id"} が積まれる
+    - resolved_command_log: P3-08a で {"line", "resolved_line", "paths", "mission_id"}
+      の記録基盤が実装済み（判定側の参照は次段の P3-08b で行う）
 
     env_vars は「PATH汚染をユーザーアカウントに閉じ込める」ためユーザー別 dict に
     なっている。evaluator 側の追随は P3-04c で完了済み（`app/evaluator/env.py` の
@@ -145,8 +150,9 @@ def default_world_state() -> dict:
         # BUG-01 対応として生テキストのままにし、判定は resolved_command_log 側に
         # 寄せる（P3-08）。
         "command_log": [],
-        # {"line", "paths", "mission_id"} を積む解決済みコマンドログ（P3-08 新設）。
-        # command_log と並行して記録し、判定側（case_file.sh 相当）はこちらを見る。
+        # {"line", "resolved_line", "paths", "mission_id"} を積む解決済みコマンドログ
+        # （P3-08 新設）。command_log と並行して記録し、判定側（case_file.sh 相当）は
+        # こちらを見る。
         "resolved_command_log": [],
         # Git commit 履歴はプレイ全体で 1 本（Mission 単位のリセットをやめる。
         # ゲーム機能「リプレイ台帳」の土台）。
