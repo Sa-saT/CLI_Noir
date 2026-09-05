@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-08-17（Part5 Phase A 完了 + Phase B P3-03〜P3-04c を反映。それ以外のバックエンド記述は 2026-07-20 時点）
+更新日: 2026-09-05（Part5 Phase A 完了 + Phase B P3-03〜P3-06 を反映。それ以外のバックエンド記述は 2026-07-20 時点）
 
 ---
 
@@ -37,7 +37,7 @@ CLI_Noir/
   - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック
   - `progress.py`（新規, P3-02/P3-05）— `mission_progress` の純粋関数群（`completed_ids`/`status_from_completed`/`status_for`/`compute_active_mission_id`/`refresh_active_mission_id`/`active_mission_id`）+ **P3-05 で `flags`（両 state 形状を吸収するフラグアクセサ）・`release_missions`（冪等な区画解放）・`advance_mission`（クリア記録→active更新→flagsリセット→解放）を追加**。`api/missions.py::_status_for` はここへ委譲済み
   - `env.py`（新規, P3-04c）— `env_for(state)`。`env_vars` のフラット形（Mission 別 state）とユーザー別ネスト形（統合ワールド）を吸収する。engine/commands/judge はこれ経由で環境変数を読み書きする
-  - **Part5 統合ワールドの状態（2026-08-17 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。API/WS 層は未接続（P3-10/P3-11）、判定の相対パス対応（BUG-01）は P3-08 で未着手
+  - **Part5 統合ワールドの状態（2026-09-05 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）、`SSH_HOSTS[host]["required_mission_id"]` で未解放ホストへの `ssh` をゲート（P3-06。未登録ホストと同文言 `Host not found`）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。API/WS 層は未接続（P3-10/P3-11）、判定の相対パス対応（BUG-01）は P3-08 で未着手
   - `git_ops.py` — 疑似Git（変更なし）
 - 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
 - 未実装（allowlist にあるが未登録）: awk のみ

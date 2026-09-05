@@ -7,7 +7,7 @@ purely evaluator 層のみを対象にし、DB・API/WS 層は一切使わない
 
 from app.content.missions import get_mission
 from app.evaluator import engine
-from app.models.tables import default_world_state
+from app.models.tables import default_state, default_world_state
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -89,3 +89,53 @@ def test_case_file_pattern_mismatch_for_mission2_after_transition() -> None:
     # 状態では find 未使用として警告になる（Mission1 の合格を引き継いでいない証明）。
     assert out == ["Warning: use find to locate clues"]
     assert state["mission_progress"]["flags"]["case_checked"] is False
+
+
+# --- P3-06: SSH 到達性ゲート -------------------------------------------------
+
+
+def test_ssh_to_locked_mission_host_reports_host_not_found() -> None:
+    """Mission3 未解放（Mission2 未クリア）の統合ワールドでは amusement_park の
+    存在自体を隠す（未登録ホストと同じ Host not found）。
+    """
+    state = default_world_state()
+    state["mission_progress"]["completed"] = [1]
+
+    out, _ = _run(state, "ssh amusement_park")
+    assert out == ["Host not found"]
+
+
+def test_ssh_to_open_mission_host_connects() -> None:
+    """Mission2 クリア済み（Mission3 open）の統合ワールドでは通常どおり接続できる。"""
+    state = default_world_state()
+    state["mission_progress"]["completed"] = [1, 2]
+
+    out, state = _run(state, "ssh amusement_park")
+    assert out == ["Connected to amusement_park"]
+    assert state["current_path"] == "/gate"
+    assert state["remote_mode"] is True
+
+
+def test_ssh_to_locked_mission12_host_and_ip_alias_both_hidden() -> None:
+    """Mission12 未解放の統合ワールドでは ghost.example / 10.66.6.6 のどちらも
+    Host not found になる（IP エイリアスも同じ dict を共有するため自動的に追従）。
+    """
+    state = default_world_state()
+
+    out, _ = _run(state, "ssh ghost.example")
+    assert out == ["Host not found"]
+
+    state2 = default_world_state()
+    out2, _ = _run(state2, "ssh 10.66.6.6")
+    assert out2 == ["Host not found"]
+
+
+def test_ssh_gate_does_not_apply_to_mission_scoped_state() -> None:
+    """Mission 別 state（mission_progress を持たない）では従来どおりゲートしない
+    （現行 API/WS がまだこの形状を使うため回帰防止）。
+    """
+    state = default_state()
+
+    out, state = _run(state, "ssh amusement_park")
+    assert out == ["Connected to amusement_park"]
+    assert state["remote_mode"] is True

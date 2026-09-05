@@ -37,6 +37,7 @@ def _rfile(content: str) -> dict:
 # echo で記録する（判定は judge の汎用 AND-regex。証跡=echo 行）。
 SSH_HOSTS: dict[str, dict] = {
     "amusement_park": {
+        "required_mission_id": 3,
         "initial_path": "/gate",
         "filesystem": {
             "gate": {
@@ -87,6 +88,7 @@ SSH_HOSTS: dict[str, dict] = {
     # 2026-07-20）。/den 配下に黒幕の指示書 + デコイ。dig で判明する IP でも
     # 接続できるよう別名登録する。
     "ghost.example": {
+        "required_mission_id": 12,
         "initial_path": "/den",
         "filesystem": {
             "den": {
@@ -1105,6 +1107,17 @@ def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     host = argv[1]
     info = SSH_HOSTS.get(host)
     if info is None:
+        raise CommandError("Host not found")
+    # 未解放 Mission のホストは存在自体を隠す（同じ文言の Host not found で返す）。
+    # Mission 別 state（mission_progress を持たない）は現行 API/WS がまだ使う形状
+    # なので既存挙動を変えないためゲートしない。
+    required_mission_id = info.get("required_mission_id")
+    mission_progress = state.get("mission_progress")
+    if (
+        mission_progress is not None
+        and required_mission_id is not None
+        and progress.status_for(required_mission_id, mission_progress) == "locked"
+    ):
         raise CommandError("Host not found")
     # 現在（local または上位 remote）の FS とパスを退避してから remote FS を載せる。
     stack = state.setdefault("_fs_stack", [])

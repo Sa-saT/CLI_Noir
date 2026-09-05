@@ -524,7 +524,14 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 `app/content/missions.py`（`MissionDef.owned_paths`追加）
 
 ### P3-06 SSH到達性ゲート
-- [ ] 未着手
+- [x] 完了（2026-09-05）。412 tests green / ruff clean。`SSH_HOSTS` に `required_mission_id` を追加
+  （`amusement_park`=3 / `ghost.example`=12。`10.66.6.6` は同一 dict 共有のため自動追従）。`cmd_ssh` の
+  未登録ホストチェック直後に、`progress.status_for(required_mission_id, mission_progress) == "locked"`
+  なら未登録ホストと**同文言**の `Host not found` を返すゲートを追加（存在自体を隠す）。
+  **`mission_progress` を持たない Mission 別 state ではゲートしない**（現行 API/WS の挙動を変えないため。
+  `env_for`/`flags` と同じ「両形状を吸収する」方針）。`required_mission_id` 未定義のホストもゲート対象外
+  （将来ホスト追加時に安全側へ倒す）。テスト4件を `tests/test_world_progress.py` に追加
+  （未解放でゲート / Mission2クリア後に接続成功 / ghost.example・10.66.6.6 の両方がゲート / Mission別 state の回帰防止）。
 
 `SSH_HOSTS[host]`に`required_mission_id`を追加（`amusement_park`=3, `ghost.example`/`10.66.6.6`=12）。
 `cmd_ssh`: 既存の未登録ホストチェックに加え、該当Missionが`locked`なら同じ`Host not found`を返す。
