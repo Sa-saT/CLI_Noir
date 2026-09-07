@@ -67,3 +67,48 @@ def test_mission20_missing_report_blocks_clear() -> None:
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: pattern mismatch"]
     assert s["mission_flags"]["case_checked"] is False
+
+
+def test_mission20_golden_transcript_via_relative_paths() -> None:
+    """相対パス経路（P3-08d）: cd で移動してから引数なし ls / 相対パスの
+    cat・tail・grep で4区画を探索しても案件書判定が通る。"""
+    s = build_initial_state(20)
+
+    _, s = _run(s, "cd /etc")
+    out, s = _run(s, "ls")
+    assert "hosts" in out
+    _, s = _run(s, "cd /var/log")
+    _, s = _run(s, "tail entry.log")
+    _, s = _run(s, "cd /tmp")
+    _, s = _run(s, "cat .forgotten")
+    _, s = _run(s, "cd /home/mr_black")
+    _, s = _run(s, "ls")
+    _, s = _run(s, "cd /root")
+    _, s = _run(s, 'echo "mr_black" > report.txt')
+
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+    _, s = _run(s, "git add .")
+    _, s = _run(s, 'git commit -m "black identified"')
+    out, s = _run(s, "git push")
+    assert out == ["Mission Complete! Next mission unlocked."]
+    assert s["mission_flags"]["completed"] is True
+
+
+def test_mission20_missing_zone_blocks_clear_with_relative_paths() -> None:
+    """回帰: 3 区画だけ相対パスで探索しても未探索区画が残れば失敗する。"""
+    s = build_initial_state(20)
+    _, s = _run(s, "cd /etc")
+    _, s = _run(s, "ls")
+    _, s = _run(s, "cd /var/log")
+    _, s = _run(s, "tail entry.log")
+    _, s = _run(s, "cd /home/mr_black")
+    _, s = _run(s, "ls")
+    # /tmp を探索していない。
+    _, s = _run(s, "cd /root")
+    _, s = _run(s, 'echo "mr_black" > report.txt')
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["Warning: the map is incomplete"]
+    assert s["mission_flags"]["case_checked"] is False

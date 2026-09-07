@@ -309,18 +309,31 @@ _MISSION20_ZONES = {
 }
 
 
+_MISSION20_TOOL_RE = re.compile(r"\s*(ls|cat|tail|grep)\b")
+
+
 def _judge_mission20(state: dict) -> tuple[list[str], dict]:
     """Mission20: /etc・/var/log・/tmp・/home の4区画それぞれへの探索
     （ls/cat/tail/grep のいずれか）+ 黒幕名の報告を検査する。
+
+    区画判定は同一コマンドについて、候補文字列（生の行・resolved_line）と
+    `paths`（コマンドが解決した絶対パス）の両方を見る。引数なし `ls` のように
+    行にパストークンが現れない操作（`cd /etc` の後の `ls` 等）は `paths` 側でしか
+    区画が分からないため（P3-08d）。
     """
-    log = state.get("command_log", [])
+    entries = _match_entries(state)
     explored = {
         key: any(
-            re.match(r"\s*(ls|cat|tail|grep)\b", line) and re.search(pattern, line)
-            for line in log
+            any(_MISSION20_TOOL_RE.match(candidate) for candidate in candidates)
+            and (
+                any(re.search(pattern, candidate) for candidate in candidates)
+                or any(re.search(pattern, p) for p in paths)
+            )
+            for candidates, paths in entries
         )
         for key, pattern in _MISSION20_ZONES.items()
     }
+    log = state.get("command_log", [])
     reported = any(
         _MISSION20_BLACK_NAME in line for line in log if re.match(r"\s*echo\b", line)
     )
@@ -444,6 +457,40 @@ _CUSTOM_JUDGES = {
 }
 
 
+def _match_entries(state: dict) -> list[tuple[list[str], list[str]]]:
+    """1 コマンドにつき `(候補文字列のリスト, 解決済み絶対パスのリスト)` を実行順に返す。
+
+    候補文字列側は `_match_lines` と同じ考え方で `[生の行]`（`resolved_command_log` に
+    対応するエントリがあり、その `resolved_line` が生の行と異なる場合は
+    `[生の行, resolved_line]`）。パス側は対応する `resolved_command_log` エントリの
+    `paths`（無ければ空リスト）。
+
+    `paths` を候補文字列と別に持ち回るのは、引数なし `ls` のように**行の中に区画の
+    パストークンが一切現れない**操作を拾うため。`cd /etc` の後の `ls` は `cmd_ls` が
+    引数なし時に `current_path` を `fs.normalize` に通すので、行自体（`resolved_line`
+    含む）は `ls` のままでも `paths` には `/etc` が残る。行の文字列だけを見る判定
+    （`_match_lines` / `_flat_match_lines`）ではこの区画情報を拾えない。
+
+    `resolved_command_log` が無い、または `command_log` より短い（過去セーブや
+    resolved_command_log 未対応の経路）場合は、足りないぶんを候補文字列は生テキスト
+    のみ・paths は空リストで埋め、フォールバックでも必ず `command_log` と同じ要素数
+    を返す。
+    """
+    command_log = state.get("command_log", [])
+    resolved_log = state.get("resolved_command_log") or []
+
+    result: list[tuple[list[str], list[str]]] = []
+    for i, line in enumerate(command_log):
+        resolved_entry = resolved_log[i] if i < len(resolved_log) else None
+        resolved_line = resolved_entry.get("resolved_line") if resolved_entry else None
+        paths = resolved_entry.get("paths", []) if resolved_entry else []
+        if resolved_line and resolved_line != line:
+            result.append(([line, resolved_line], paths))
+        else:
+            result.append(([line], paths))
+    return result
+
+
 def _match_lines(state: dict) -> list[list[str]]:
     """1 コマンドにつき、判定でマッチ対象にする文字列のリストを実行順に返す。
 
@@ -452,22 +499,9 @@ def _match_lines(state: dict) -> list[list[str]]:
     生の行と解決済みの行の**どちらかに**当たれば合格とする（既存パターンを
     1 文字も変えずに相対パス操作を通すため。P3-08b / BUG-01 対応）。
 
-    `resolved_command_log` が無い、または `command_log` より短い（過去セーブや
-    resolved_command_log 未対応の経路）場合は、足りないぶんを `command_log` の
-    生テキストだけで埋め、フォールバックでも必ず `command_log` と同じ要素数を返す。
+    実体は `_match_entries` から候補文字列だけを取り出したもの。
     """
-    command_log = state.get("command_log", [])
-    resolved_log = state.get("resolved_command_log") or []
-
-    result: list[list[str]] = []
-    for i, line in enumerate(command_log):
-        resolved_entry = resolved_log[i] if i < len(resolved_log) else None
-        resolved_line = resolved_entry.get("resolved_line") if resolved_entry else None
-        if resolved_line and resolved_line != line:
-            result.append([line, resolved_line])
-        else:
-            result.append([line])
-    return result
+    return [candidates for candidates, _ in _match_entries(state)]
 
 
 def _flat_match_lines(state: dict) -> list[str]:
