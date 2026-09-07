@@ -108,3 +108,33 @@ def test_git_status_progression(mission1_state: dict) -> None:
     assert _run(s, "git status")[0] == ["Nothing to commit"]
     _, s = _run(s, "git add .")
     assert _run(s, "git status")[0] == ["Changes staged"]
+
+
+def test_mission1_relative_path_passes_case_file(mission1_state: dict) -> None:
+    """BUG-01: 相対パスだけで操作しても resolved_command_log 経由で判定が通ること
+    （P3-08b）。従来は絶対パスを直接タイプしないと `Warning: pattern mismatch` に
+    なっていた。
+    """
+    s = mission1_state
+    _, s = _run(s, "cd /root/desk")
+    _, s = _run(s, "cat businesscard.txt")
+    _, s = _run(s, 'echo "NAME: Sam Spade" > businesscard.txt')
+    _, s = _run(s, "cd /root")
+
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
+def test_mission1_case_file_fallback_without_resolved_log(mission1_state: dict) -> None:
+    """resolved_command_log が無い/空の state でも従来どおり生テキストで判定できる
+    （フォールバック）。過去セーブや未対応経路を想定。
+    """
+    s = mission1_state
+    _, s = _run(s, "cat /root/desk/businesscard.txt")
+    _, s = _run(s, 'echo "NAME: Sam Spade" > /root/desk/businesscard.txt')
+    s["resolved_command_log"] = []
+
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True

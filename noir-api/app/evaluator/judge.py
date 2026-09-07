@@ -442,6 +442,32 @@ _CUSTOM_JUDGES = {
 }
 
 
+def _match_lines(state: dict) -> list[list[str]]:
+    """1 コマンドにつき、判定でマッチ対象にする文字列のリストを実行順に返す。
+
+    各要素は `[生の行]`。`resolved_command_log` に対応するエントリがあり、その
+    `resolved_line` が生の行と異なる場合は `[生の行, resolved_line]` にする。
+    生の行と解決済みの行の**どちらかに**当たれば合格とする（既存パターンを
+    1 文字も変えずに相対パス操作を通すため。P3-08b / BUG-01 対応）。
+
+    `resolved_command_log` が無い、または `command_log` より短い（過去セーブや
+    resolved_command_log 未対応の経路）場合は、足りないぶんを `command_log` の
+    生テキストだけで埋め、フォールバックでも必ず `command_log` と同じ要素数を返す。
+    """
+    command_log = state.get("command_log", [])
+    resolved_log = state.get("resolved_command_log") or []
+
+    result: list[list[str]] = []
+    for i, line in enumerate(command_log):
+        resolved_entry = resolved_log[i] if i < len(resolved_log) else None
+        resolved_line = resolved_entry.get("resolved_line") if resolved_entry else None
+        if resolved_line and resolved_line != line:
+            result.append([line, resolved_line])
+        else:
+            result.append([line])
+    return result
+
+
 def run_case_file(state: dict) -> tuple[list[str], dict]:
     """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
     # Mission 別 state は state["mission_id"] で判定対象を持つが、統合ワールド state
@@ -463,10 +489,16 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
         progress.flags(state)["case_checked"] = False
         return ["case_file.sh: no checks configured for this mission"], state
 
-    log = state.get("command_log", [])
+    lines_per_command = _match_lines(state)
     try:
         unmatched = [
-            p for p in patterns if not any(re.search(p, line) for line in log)
+            p
+            for p in patterns
+            if not any(
+                re.search(p, candidate)
+                for candidates in lines_per_command
+                for candidate in candidates
+            )
         ]
     except re.error:
         return ["Error: invalid pattern"], state
