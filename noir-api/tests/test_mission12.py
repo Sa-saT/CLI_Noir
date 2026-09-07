@@ -57,6 +57,25 @@ def test_ssh_by_hostname_and_by_ip() -> None:
     assert s4["current_path"] == "/den"
 
 
+def test_mission12_relative_path_passes_case_file() -> None:
+    """P3-08c: ssh 接続後に `cd evidence` してから相対パスで `cat orders.txt`
+    しても resolved_command_log 経由で判定が通ること。
+    """
+    s = build_initial_state(12)
+
+    _, s = _run(s, "dig ghost.example")
+    _, s = _run(s, "ping ghost.example")
+    _, s = _run(s, "ssh ghost.example")
+    _, s = _run(s, "cd evidence")
+    _, s = _run(s, "cat orders.txt")
+    _, s = _run(s, "cd ..")
+    _, s = _run(s, 'echo "BOSS: Selene Vance" > report.txt')
+
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_mission12_golden_transcript() -> None:
     s = build_initial_state(12)
 

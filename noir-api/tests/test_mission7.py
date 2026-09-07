@@ -69,6 +69,23 @@ def test_mission7_case_file_fails_while_still_running() -> None:
     assert out == ["Warning: the impostor is still running"]
 
 
+def test_mission7_relative_path_passes_case_file() -> None:
+    """P3-08c: `cd /proc/923` してから相対パスで `cat status` を読んでも
+    resolved_command_log 経由で判定が通ること（実 Linux と同じ意味）。
+    """
+    s = build_initial_state(7)
+
+    _, s = _run(s, "cd /proc/923")
+    _, s = _run(s, "cat status")
+    _, s = _run(s, "cd /root")
+    _, s = _run(s, 'echo "/tmp/.fake/exfil --send" > report.txt')
+    _, s = _run(s, "kill 923")
+
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_mission7_golden_transcript() -> None:
     s = build_initial_state(7)
 

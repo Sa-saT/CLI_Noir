@@ -73,7 +73,9 @@ def _judge_mission7(state: dict) -> tuple[list[str], dict]:
     """
     log = state.get("command_log", [])
     pid = _MISSION7_IMPOSTOR_PID
-    inspected = any(re.search(rf"/proc/{pid}/(status|cmdline)", line) for line in log)
+    inspected = any(
+        re.search(rf"/proc/{pid}/(status|cmdline)", line) for line in _flat_match_lines(state)
+    )
     reported = any(_MISSION7_FAKE_CMDLINE in line for line in log)
     still_running = any(p.get("pid") == pid for p in state.get("processes", []))
 
@@ -101,7 +103,7 @@ def _judge_mission8(state: dict) -> tuple[list[str], dict]:
     log = state.get("command_log", [])
     did_su = any(re.match(r"\s*su\s+barman\b", line) for line in log)
     did_whoami = any(re.match(r"\s*whoami\b", line) for line in log)
-    read_secret = any(_MISSION8_SECRET_PATH in line for line in log)
+    read_secret = any(_MISSION8_SECRET_PATH in line for line in _flat_match_lines(state))
     returned_home = state.get("current_user", "detective") == "detective"
 
     if not did_su:
@@ -179,7 +181,7 @@ def _judge_mission12(state: dict) -> tuple[list[str], dict]:
         progress.flags(state)["case_checked"] = False
         return ["Warning: investigate before you breach"], state
 
-    read_evidence = any(_MISSION12_EVIDENCE_PATH in line for line in log)
+    read_evidence = any(_MISSION12_EVIDENCE_PATH in line for line in _flat_match_lines(state))
     reported_boss = any(_MISSION12_BOSS in line for line in log)
     if not read_evidence or not reported_boss:
         progress.flags(state)["case_checked"] = False
@@ -466,6 +468,18 @@ def _match_lines(state: dict) -> list[list[str]]:
         else:
             result.append([line])
     return result
+
+
+def _flat_match_lines(state: dict) -> list[str]:
+    """`_match_lines(state)` を 1 本のリストに平坦化する。
+
+    「どれか 1 つの文字列に当たればよい」判定（`any(... for line in log)` 形の
+    パス参照チェック等）向け。行ごとに複数条件を同時に満たす必要がある判定
+    （例: `re.match(...) and re.search(pattern, line)` のように同一行の 2 条件を
+    見るもの）には使えない——平坦化すると生の行と resolved_line が別要素に
+    分かれてしまい、どちらの行由来かの対応が失われるため。
+    """
+    return [candidate for candidates in _match_lines(state) for candidate in candidates]
 
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:

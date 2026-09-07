@@ -44,6 +44,24 @@ def test_exit_restores_detective_identity() -> None:
     assert out == ["Error: permission denied"]
 
 
+def test_mission8_relative_path_passes_case_file() -> None:
+    """P3-08c: 秘密ファイルのディレクトリへ `cd` してから相対パスで `cat` しても
+    resolved_command_log 経由で判定が通ること。
+    """
+    s = build_initial_state(8)
+
+    _, s = _run(s, "su barman")
+    _, s = _run(s, "whoami")
+    _, s = _run(s, "cd /root/bar/back")
+    _, s = _run(s, "cat ledger.txt")
+    _, s = _run(s, "exit")
+    assert s["current_user"] == "detective"
+
+    out, s = _run(s, "sh /root/bar/case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]
+    assert s["mission_flags"]["case_checked"] is True
+
+
 def test_mission8_golden_transcript() -> None:
     s = build_initial_state(8)
 
