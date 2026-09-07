@@ -306,8 +306,13 @@ Mission1 を `cd desk` → 相対パスで `echo`/`git add` → `git push` と�
 - Goal: BUG-01/02 と同種の「実 bash なら通る操作がゲームでは弾かれる」パターンを allowlist 内の主要コマンドで
   一通り確認する。**ゲームの正解ルートが通ることの確認ではなく、正解ルート以外の妥当な操作が誤って拒否されないか**
   の観点で見ること
+- **確定済みの1件（2026-09-07 P3-08 のレビュー中に発見。未修正）**: `find` が**常に絶対パスを出力する**。
+  `app/evaluator/commands.py::cmd_find` は開始パスを `fs.normalize` で絶対化してから走査するため、
+  `find . -name catinfo.txt` でも `/root/park/swing/catinfo.txt` を返す。実 bash は `./swing/catinfo.txt`
+  と相対で返すので意味不一致。**現状は Mission2 の「find の出力をそのまま cat すれば通る」導線を支えているため、
+  直すと Mission2 の体験が変わる**。修正するなら Mission2 のヒント/導線とセットで検討すること
 - 確認候補（実プレイ or ユニットテストで）:
-  - `ls`/`cat`/`grep` 等の相対パス vs 絶対パス（BUG-01 と根が同じなら一括で直る可能性が高い）
+  - ~~`ls`/`cat`/`grep` 等の相対パス vs 絶対パス~~ → **P3-08 で解消済み**（judge が `resolved_line`/`paths` を見る）
   - `cd ~`（チルダ展開。bash なら $HOME 相当）
   - `cd -`（直前のディレクトリに戻る。bash の一般的な挙動。未実装なら未実装と明記するだけでも良い＝全部直す必要はない）
   - パイプ/リダイレクトの空白有無のバリエーション（`>file` / `> file` / `>  file` 等）
@@ -559,7 +564,40 @@ API/WS層を切り替える**（削除→再構築ではなく追加→カット
 ファイル: `app/evaluator/commands.py`
 
 ### P3-08 BUG-01: 解決済みパスの並行記録と判定側の対応
-- [ ] 未着手
+- [x] 完了（2026-09-07）。429 tests green / ruff clean。**Mission ごとに 5 commit に分割**した。
+
+**計画から変えた設計（重要）**: 当初案は「生テキスト + 解決済みパスを 1 本の文字列に連結して
+`re.search`」だったが、それだと Mission1 の `^cat\s+/root/desk/businesscard\.txt$` のような
+`^...$` アンカー付きパターンが全滅し、全 Mission の `expected_script_patterns` を書き直す必要が出る。
+代わりに **「生の行のトークンだけを絶対パスへ置換した `resolved_line` を並行して持ち、判定は
+生の行 or `resolved_line` のどちらかに当たれば合格」** とした。結果、`expected_script_patterns` は
+**1 つも変更していない**。
+
+**影響範囲は当初見積もりよりずっと狭かった**（計画では「汎用 9 Mission + カスタム 13 個を全部見直し」）。
+実際にパス依存だったのは以下だけ:
+- 汎用 AND-regex: **Mission1 のみ**（3/4/5/9/11/13/17/18 は内容マッチのみでパス非依存）
+- カスタム judge: **Mission7 / 8 / 12 / 20**（+ 設計判断を伴う Mission2）
+- 対象外と判断: Mission14/15/16/19/21/22 は「`echo` による報告文言」「コマンド名・出現順」
+  「引用符の有無」を見ており、生テキストのままが正しい。Mission6/10 はパスを見ていない
+
+| commit | 内容 | tests |
+|---|---|---|
+| `39152a8` `72fd6b2` | **P3-08a 記録基盤**。`fs.normalize` の解決結果を `contextvars.ContextVar` のシンクで収集し、`engine.evaluate` が成功コマンドごとに `resolved_command_log` へ `{line, resolved_line, paths, mission_id}` を積む。`command_log` と同じ 1 箇所でだけ append するので要素数が常に 1:1。失敗コマンドの解決結果は `try/finally` で捨てる。`default_state()` にもフィールド追加 | 420 |
+| `d6c7b18` | **P3-08b 汎用 matcher + Mission1**。`judge._match_lines()` が 1 コマンドにつき `[生の行, resolved_line]` を返し、汎用 AND-regex はそのどちらかに当たれば合格 | 422 |
+| `3876450` | **P3-08c Mission7/8/12**。`judge._flat_match_lines()` を追加し、`/proc/923/status`・`/root/bar/back/ledger.txt`・`/den/evidence/orders.txt` の閲覧判定をパス解決対応に | 425 |
+| `96e92ef` | **P3-08d Mission20**。`judge._match_entries()` を追加（`_match_lines` はその派生）。区画判定が候補文字列に加えてエントリの `paths` も見る。**`cd /etc` → 引数なし `ls` は行にパストークンが一切現れず、`paths` でしか区画を判定できない**ため | 427 |
+| `a985db8` | **P3-08e Mission2**（設計判断あり。下記） | 429 |
+
+**Mission2 の設計判断（2026-09-07 ユーザー承認）**: 絶対パス要件を「読み方」から「報告書の書き方」へ移した。
+読み方は自由（`cd` してから相対パスで読んでも実 Linux と同じ意味なので合格）、絶対パスが必須なのは
+報告書に書く一行（`echo`）のみ。理由は「報告書に `swing/catinfo.txt` と書いても読んだ人がどの swing か
+辿れない」という**絶対パスの存在理由そのものを課題にする**ため。誤答文言は確定文言を温存して理由を
+足した（`Error: absolute path required — report the path from /`）。ヒント3・Mission 説明・
+`docs/Mission参照ファイル.md` § 3 も更新（旧版は `old_files/Mission参照ファイル_005.md`）。
+**これまで `cat` の絶対パスだけで満たせていた条件は満たせなくなる意図的な締め直し**。
+
+ファイル: `app/evaluator/fs.py`, `app/evaluator/engine.py`, `app/evaluator/judge.py`,
+`app/models/tables.py`, `app/content/missions.py`（Mission2 のみ）, `docs/Mission参照ファイル.md`
 
 `command_log`は生テキストのまま維持（リプレイ台帳・実bash風履歴のため）。並行して`state["resolved_command_log"]`を追加。
 実装: `fs.normalize(current_path, path)`が呼ばれるたびに`state["_resolved_this_command"]`（`_stderr`と同じ、

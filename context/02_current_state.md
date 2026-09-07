@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-09-05（Part5 Phase A 完了 + Phase B P3-03〜P3-06 を反映。それ以外のバックエンド記述は 2026-07-20 時点）
+更新日: 2026-09-07（Part5 Phase A・B 完了 + Phase C（P3-07/P3-08）完了を反映。それ以外のバックエンド記述は 2026-07-20 時点）
 
 ---
 
@@ -30,14 +30,14 @@ CLI_Noir/
 - `app/models/tables.py`: User / MissionState / `default_state()` に加え、**Part5 用の `PlayerState`（user_id UNIQUE の統合ワールド）と `default_world_state()` を追加済み（P3-01, 2026-08-16）**。現時点では追加のみで API/WS はまだ MissionState を読み書きしている（両テーブル並存。`missionstate` の drop はカットオーバー後の別 Alembic リビジョン）
 - `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
 - `app/evaluator/`:
-  - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）
+  - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）+ **パス解決の記録シンク（`start_recording`/`drain_recording`。`contextvars.ContextVar` 方式。P3-08a）**
   - `commands.py` — 実装コマンド一覧は下記
-  - `engine.py` — トークナイズ（引用符追跡）→ 環境変数展開（`$VAR`/`$?`、シングルクォート保護）→ glob 展開 → パイプ分割 → PATH 解決付き dispatch → リダイレクト（`>`/`>>`/`2>`）→ `$?` 記録
+  - `engine.py` — トークナイズ（引用符追跡）→ 環境変数展開（`$VAR`/`$?`、シングルクォート保護）→ glob 展開 → パイプ分割 → PATH 解決付き dispatch → リダイレクト（`>`/`>>`/`2>`）→ `$?` 記録 + **成功コマンドごとに `resolved_command_log` へ `{line, resolved_line, paths, mission_id}` を積む（P3-08a。`command_log` と要素数が常に 1:1）**
   - `script.py`（新規）— `sh` 汎用スクリプトのミニインタープリタ（変数・if・for、ネスト非対応）
-  - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック
+  - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック。**P3-08 で `_match_entries`（1コマンド= `(候補文字列, 解決済みパス)`）/ `_match_lines` / `_flat_match_lines` を追加し、判定が「生の行 or `resolved_line` or `paths`」を見るようになった**（BUG-01 解消。`expected_script_patterns` は 1 つも変更していない）
   - `progress.py`（新規, P3-02/P3-05）— `mission_progress` の純粋関数群（`completed_ids`/`status_from_completed`/`status_for`/`compute_active_mission_id`/`refresh_active_mission_id`/`active_mission_id`）+ **P3-05 で `flags`（両 state 形状を吸収するフラグアクセサ）・`release_missions`（冪等な区画解放）・`advance_mission`（クリア記録→active更新→flagsリセット→解放）を追加**。`api/missions.py::_status_for` はここへ委譲済み
   - `env.py`（新規, P3-04c）— `env_for(state)`。`env_vars` のフラット形（Mission 別 state）とユーザー別ネスト形（統合ワールド）を吸収する。engine/commands/judge はこれ経由で環境変数を読み書きする
-  - **Part5 統合ワールドの状態（2026-09-05 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）、`SSH_HOSTS[host]["required_mission_id"]` で未解放ホストへの `ssh` をゲート（P3-06。未登録ホストと同文言 `Host not found`）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。API/WS 層は未接続（P3-10/P3-11）、判定の相対パス対応（BUG-01）は P3-08 で未着手
+  - **Part5 統合ワールドの状態（2026-09-07 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）、`SSH_HOSTS[host]["required_mission_id"]` で未解放ホストへの `ssh` をゲート（P3-06。未登録ホストと同文言 `Host not found`）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。判定の相対パス対応（BUG-01）は **P3-08 で完了**（Phase C 完了）。残るは **API/WS 層のカットオーバー（Phase D: P3-09〜P3-11）→ フロント（Phase E）→ テスト移行（Phase F）**
   - `git_ops.py` — 疑似Git（変更なし）
 - 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
 - 未実装（allowlist にあるが未登録）: awk のみ
