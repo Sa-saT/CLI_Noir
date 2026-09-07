@@ -18,13 +18,19 @@ _CATINFO_ABS = "/root/park/swing/catinfo.txt"
 
 
 def _judge_mission2(state: dict) -> tuple[list[str], dict]:
-    """Mission2: find 使用・catinfo 絶対パス参照・STATUS 抽出の 3 点を検査する。
+    """Mission2: find 使用・報告書の絶対パス記載・STATUS 抽出の 3 点を検査する。
 
-    誤答メッセージは Mission参照ファイル § 3 の確定文言に一致させる。
+    読み方（cat/grep）は絶対パスでも `cd` 後の相対パスでも実 Linux と同じ意味なので
+    自由（P3-08e）。絶対パスが必須なのは報告書に書く一行（`echo`）のみ——
+    「swing の catinfo」では読んだ人がどの swing か辿れない、という絶対パスの
+    存在理由そのものを判定条件にする。誤答メッセージは Mission参照ファイル § 3 の
+    確定文言に一致させる。
     """
     log = state.get("command_log", [])
     used_find = any(re.match(r"\s*find\b", line) for line in log)
-    used_abs_path = any(_CATINFO_ABS in line for line in log)
+    reported_abs_path = any(
+        _CATINFO_ABS in line for line in log if re.match(r"\s*echo\b", line)
+    )
     # STATUS 抽出: grep/echo 等で STATUS キーまたはその値 stray を含む行があるか。
     read_status = any(
         re.search(r"STATUS", line, re.IGNORECASE) or "stray" in line for line in log
@@ -33,9 +39,9 @@ def _judge_mission2(state: dict) -> tuple[list[str], dict]:
     if not used_find:
         progress.flags(state)["case_checked"] = False
         return ["Warning: use find to locate clues"], state
-    if not used_abs_path:
+    if not reported_abs_path:
         progress.flags(state)["case_checked"] = False
-        return ["Error: absolute path required"], state
+        return ["Error: absolute path required — report the path from /"], state
     if not read_status:
         progress.flags(state)["case_checked"] = False
         return ["Error: required cat status not found"], state

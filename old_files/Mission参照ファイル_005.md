@@ -82,20 +82,19 @@
 ## 3. Mission2（Park Cat Search）
 
 ### 確定
-- 目的: 公園で猫ファイルを find で探し出し、報告書に絶対パスと状態を書いて `case_file.sh` を完了する
+- 目的: 公園で猫ファイルを探索し、絶対パス・状態を満たした `case_file.sh` で完了する
 - 完了には疑似 `git push` 成功を含む
 - 猫ファイル: `catinfo.txt`（配置: `/root/park/swing/catinfo.txt`）
 - 必須コマンド: `find`, `cat`, `grep`
 - 任意（加点）: `awk`, `sort`, `uniq`
 - 誤答パターン:
-  - 報告書（echo 行）に絶対パス未記述: `Error: absolute path required — report the path from /`
+  - 絶対パス未記述: `Error: absolute path required`
   - 猫情報キー不足: `Error: required cat status not found`
   - `find` 未使用: `Warning: use find to locate clues`
 - ヒント（仮。2026-08-12 HINT-01 で起草。トーン調整は次回）:
   - 1: `公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。`
   - 2: `find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。`
-  - 3: `find /root/park -name catinfo.txt で場所を割り出せ。読むだけなら cd してからでも構わん。だが報告書に書く一行は / から始まる絶対パスにしろ——「swing の catinfo」では、どの swing だか誰にも辿れん。`
-- 絶対パスの扱い（2026-09-07 確定 / P3-08e）: 読み方は自由（`cd` してから相対パスで読んでも実 Linux と同じ意味なので合格）。絶対パスが必須なのは報告書に書く一行（`echo`）のみ。「報告書に `swing/catinfo.txt` と書いても、読んだ人がどの swing か辿れない」という絶対パスの存在理由そのものを体験させるための課題指定である。
+  - 3: `find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。`
 
 ---
 

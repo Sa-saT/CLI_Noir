@@ -761,16 +761,18 @@ _DEFS: list[MissionDef] = [
     ),
     MissionDef(
         2, "Park Cat Search", "公園の猫を探せ",
-        "公園で猫ファイルを絶対パスで探索し、条件を満たして完了する。",
+        "公園で猫ファイルを find で探し出し、報告書に絶対パスと状態を書いて完了する。",
         ["find", "grep", "awk", "sort", "uniq"],
-        # 判定は judge.py の Mission2 専用ロジック（find 使用・絶対パス・STATUS 抽出）で
-        # 行うため expected_script_patterns は空にする（誤答メッセージを個別化するため）。
+        # 判定は judge.py の Mission2 専用ロジック（find 使用・報告書（echo 行）の
+        # 絶対パス記載・STATUS 抽出）で行うため expected_script_patterns は空にする
+        # （誤答メッセージを個別化するため）。読み方（cat/grep）は絶対パスでも
+        # cd 後の相対パスでも自由（P3-08e）。
         initial_filesystem=_MISSION2_FS,
         initial_current_path="/root/park",
         hints=[
             "公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。",
             "find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。",
-            "find /root/park -name catinfo.txt — 見つけたら絶対パスで読み、STATUS の欄まで報告書に書き写せ。",
+            "find /root/park -name catinfo.txt で場所を割り出せ。読むだけなら cd してからでも構わん。だが報告書に書く一行は / から始まる絶対パスにしろ——「swing の catinfo」では、どの swing だか誰にも辿れん。",
         ],
     ),
     MissionDef(
