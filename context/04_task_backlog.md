@@ -16,6 +16,14 @@
   UX-01a（バックエンド）: `>file`/`>>file` 分割・`&&`/`||`/`;` の明示エラー・`~` 展開・`cd -`・`history`（`tests/test_shell_idioms.py` 17 件、446 tests green）。
   UX-01b（フロント）: `TerminalView.vue` に ↑↓ 履歴・Ctrl+C/L/A/E/U/W・`clear` コマンドでの scrollback 消去（typecheck/build 通過。**ブラウザ目視は未**）。
   見送り: `find` の相対パス出力（Mission2 導線と絡む）・Tab 補完・Ctrl+R → `03_pending_items.md` に記録
+- **UX-02 / STORY-01: 進行案内「独り言レイヤー」（2026-09-13 完了 ✅）**。ユーザーの実プレイで「`sh case_file.sh` の存在が分からず push が通らない」
+  「`git status` が嘘をつく（commit 済みで No commits yet）」「右パネルが閉じない/スクロールしない」が判明。
+  UX-02: `git status` を正しい状態 + 次の一手の案内行に、rail のスクロール・CommandDetail の × を修正。
+  STORY-01: **設計判断（ユーザー決定）= 進行案内は探偵本人の独り言（相棒キャラ不採用）でストーリー誘導、ヒントは別枠で直接的なゴール説明**。
+  バックエンド: `MissionDef.story_beats` + `app/evaluator/story.py`（`start`/`after`/`clear` の発火判定。発火記録は `mission_progress.story_fired`）+ WS `hello.story` / `event: story`。
+  フロント: `StoryOverlay.vue`（scene 下辺・タイプライター・クリックで早送り・4 秒で自動送り・⋯ でログ）+ 停滞判定（ブリーフィングを閉じてから 60 秒無操作 or 連続エラー 3 回 → 共通独り言 + ヒントボタン明滅）。
+  文言の正は `docs/Mission参照ファイル.md`（Mission1〜3 の「独り言」表・新ヒント）。headless Chromium で Mission1 の全 beat が順に出て Mission2 導入まで繋がることを確認。**見た目の目視は未**。
+  Mission4〜22 の独り言・ヒントは未起草
 - **Part 5: 永続統合ワールド化（P3-01〜P3-14 + FE3-01/02）— 次回着手（設計確定・未実装）**。Goal: **Mission単位で分離されていた仮想FSを、ユーザーごとに1つの永続的な統合ワールドに再設計する**（2026-08-12 Opus で設計・ユーザーと数往復の議論で確定）
 
 **次回セッションの入り方**: 「context/04_task_backlog.md の Part5 から着手して」と指示するか、このファイルの Part5 を読んで

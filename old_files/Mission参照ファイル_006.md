@@ -59,18 +59,6 @@
 
 ---
 
-### 独り言（story_beats）とヒントの共通仕様（2026-09-13 確定）
-
-- **独り言 = ストーリーで誘導**。探偵本人の一人称・話者ラベル無し。断定を避ける（「〜のはず」）。「!」「!?」は可。1 beat ≤ 2 行。各 beat はその Mission で一度だけ発火
-- **ヒント = 直接的なゴール説明**。1: ゴール / 2: 必要コマンドと書式 / 3: コマンド列 + 各コマンドの簡易説明。ペナルティなし
-- トリガー語彙（`MissionDef.story_beats` の `when`）:
-  - `start`: Mission がアクティブになって最初（hello / 前 Mission クリア直後）
-  - `after`: 実行後。`line`（`resolved_line` への正規表現。`paths` があれば `"<argv0> <path>"` にも当てる）+ 任意の `output`（出力全文への正規表現）+ 任意の `remote`（ssh 中か）
-  - `clear`: `git push` 成功時
-  - `stall`（フロント側・共通文言）: 無操作 60 秒 or 連続エラー 3 回。「……手が止まっている。焦らなくていい。ヒントを見るのは恥じゃない。」+ ヒントボタンを光らせる
-
----
-
 ## 2. Mission1（Edit Business Card）
 
 ### 確定
@@ -84,23 +72,10 @@
   - `^git\\s+add\\s+.+$`
   - `^git\\s+commit\\s+-m\\s+.+$`
   - `^git\\s+push$`
-- ヒント（2026-09-13 改訂: 直接的なゴール説明）:
-  - 1: `ゴール: /root/desk/businesscard.txt に自分の名前を書き込み、sh case_file.sh で確認 → git add → git commit -m → git push で提出する。`
-  - 2: `名刺は cat で読む。書き換えは echo "NAME: 名前" > businesscard.txt（上書き）。エディタ（vi 等）は無い。`
-  - 3: `cat businesscard.txt（中身を読む）→ echo "NAME: 名前" > businesscard.txt（上書きで書き込む）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "done"（セーブ）→ git push（提出）`
-- 独り言（story_beats）:
-
-| id | when | 条件 | 文言 |
-|---|---|---|---|
-| start | start | — | 雨の月曜。依頼人は俺の名刺を一瞥して言った——名前が無い、と。<br>……確か、机（desk）の上に置きっぱなしのはず。 |
-| desk | after | line `^(cd\|ls) /root/desk` | 名刺ファイルが一枚。中身、確かめておかないと。 |
-| read | after | line `^cat /root/desk/businesscard\.txt` | NAME: ???……我ながら間抜けな名刺。名前を書き込まないと話にならない。 |
-| no_editor | after | line `^(vi\|vim\|nano\|emacs)\b` output `command not allowed` | この事務所にまともなエディタは無い……。書き込むなら echo で流し込む（`>`）しかないか。 |
-| wrote | after | line `^echo .*> /root/desk/businesscard\.txt` | これでいい。名前の入った名刺。<br>本部に出す前に、事件ファイル（case_file.sh）で確認しておくか。 |
-| judge_pass | after | line `^sh .*case_file\.sh` output `all checks passed` | 確認は通った！ あとは記録して本部へ——add、commit、そして push。 |
-| judge_fail | after | line `^sh .*case_file\.sh` output `pattern mismatch` | 事件ファイルが突き返された!? 何か足りない……名刺をもう一度読み直してみるか。 |
-| push_fail | after | line `^git push` output `requirements not met` | 本部が受け付けない……。確認（sh case_file.sh）を通してから、記録し直さないと駄目らしい。 |
-| clear | clear | — | 名刺が本部に届いた。これで俺の名前は、この街の帳簿に載ったはず。<br>——今やったことは、本物の黒い画面でもそのまま通じる。 |
+- ヒント:
+  - 1: `まず机(desk)を調べ、名刺ファイルの場所を確認しよう。`
+  - 2: `名刺にはあなたのユーザー名を書き込む必要があります。`
+  - 3: `編集後は git add -> git commit -m -> git push の順で進めよう。`
 
 ---
 
@@ -116,23 +91,10 @@
   - 報告書（echo 行）に絶対パス未記述: `Error: absolute path required — report the path from /`
   - 猫情報キー不足: `Error: required cat status not found`
   - `find` 未使用: `Warning: use find to locate clues`
-- ヒント（2026-09-13 改訂: 直接的なゴール説明）:
-  - 1: `ゴール: catinfo.txt を find で見つけ、その絶対パスと STATUS の値を echo で書き出し、sh case_file.sh → git push する。`
-  - 2: `find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告は echo "/root/park/swing/catinfo.txt STATUS: stray" のように絶対パス（/ から）を含める。`
-  - 3: `find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/park/report.txt（報告を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）`
-- 独り言（story_beats）:
-
-| id | when | 条件 | 文言 |
-|---|---|---|---|
-| start | start | — | 依頼は迷い猫。名前はマイク、黒。公園（park）で最後に見られたらしい。<br>玄関を出て、公園へ向かわないと！ |
-| park | after | line `^(cd\|ls) /root/park` | ベンチ、噴水、遊具……区画が多い。当てずっぽうに歩けば日が暮れる。名前で探す（find）のが探偵の仕事、のはず。 |
-| found | after | line `^find ` output `catinfo\.txt` | 出た！ 猫の記録は遊具（swing）の傍。 |
-| read | after | line `^cat .*catinfo\.txt` | STATUS: stray——野良か。依頼人には場所と状態を報告しないと。<br>報告書に書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。 |
-| fail_abs | after | line `^sh .*case_file\.sh` output `absolute path required` | 突き返された!? 住所が途中から……`/` から書き直さないと。 |
-| fail_status | after | line `^sh .*case_file\.sh` output `cat status not found` | 状態が抜けている。STATUS の欄を報告に写さないと。 |
-| fail_find | after | line `^sh .*case_file\.sh` output `use find` | 歩き回って見つけたのはいいが、次からは find で絞ろう。この公園より広い場所も来るはず。 |
-| judge_pass | after | line `^sh .*case_file\.sh` output `all checks passed` | これで報告になる。記録して、本部へ。 |
-| clear | clear | — | 猫は遊具の下で丸くなっていた。住所が正確なら、誰でも同じ場所へ辿り着ける——それが絶対パス、というやつか。 |
+- ヒント（仮。2026-08-12 HINT-01 で起草。トーン調整は次回）:
+  - 1: `公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。`
+  - 2: `find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。`
+  - 3: `find /root/park -name catinfo.txt で場所を割り出せ。読むだけなら cd してからでも構わん。だが報告書に書く一行は / から始まる絶対パスにしろ——「swing の catinfo」では、どの swing だか誰にも辿れん。`
 - 絶対パスの扱い（2026-09-07 確定 / P3-08e）: 読み方は自由（`cd` してから相対パスで読んでも実 Linux と同じ意味なので合格）。絶対パスが必須なのは報告書に書く一行（`echo`）のみ。「報告書に `swing/catinfo.txt` と書いても、読んだ人がどの swing か辿れない」という絶対パスの存在理由そのものを体験させるための課題指定である。
 
 ---
@@ -150,25 +112,10 @@
   - `Code: [A-Z0-9]{4,}`
   - `Wire: (red|blue|yellow)`
   - `Height: [0-9]+`
-- ヒント（2026-09-13 改訂: 直接的なゴール説明）:
-  - 1: `ゴール: ssh amusement_park で接続し、園内の 3 ファイルから Code: / Wire: / Height: を読み取って echo で書き出し、sh case_file.sh → git push する。`
-  - 2: `接続後は find . -type f で 3 ファイルを列挙し cat で読む。報告は echo "Code: XXXX" のように「キー: 値」の書式で 3 行。事務所へ戻るのは exit。`
-  - 3: `ssh amusement_park（接続）→ find . -type f（ファイル列挙）→ cat booth/manual.txt / cat ferris/wiring.txt / cat sign/notice.txt（Code・Wire・Height を読む）→ echo "Code: ...", echo "Wire: ...", echo "Height: ..."（報告 3 行）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "bomb"（セーブ）→ git push（提出）`
-- 独り言（story_beats）:
-
-| id | when | 条件 | 文言 |
-|---|---|---|---|
-| start | start | — | 電話の声は震えていた。遊園地に爆弾が仕掛けられた、解除コードは園内の設備に散らばっている、と。<br>ここからじゃ届かない。回線を繋いで（ssh）、門（amusement_park）まで踏み込まないと！ |
-| no_host | after | line `^ssh ` output `Host not found` | 回線が繋がらない……。宛先の綴り、合っているか？ |
-| connected | after | line `^ssh amusement_park` | 繋がった。ここは門の前（/gate）。プロンプトの色が変わった——今は向こう側にいる、ということか。 |
-| survey | after | line `^(ls\|find)\b` remote | 案内所（booth）、観覧車（ferris）、看板（sign）……設備は三つ。手がかりも三つのはず。 |
-| code | after | line `^cat .*manual\.txt` remote | Code が出た！ 控えておこう。 |
-| wire | after | line `^cat .*wiring\.txt` remote | 切る線の色。間違えたら終わり……。 |
-| height | after | line `^cat .*notice\.txt` remote | 身長制限……これが最後の数字か？ |
-| no_way_back | after | line `^cd /root` output `directory not found` remote | ここは向こう側。事務所へ戻るなら回線を切る（exit）しかない、はず。 |
-| judge_fail | after | line `^sh .*case_file\.sh` output `pattern mismatch` | まだ揃っていない!? Code、Wire、Height——三つとも報告に書いたか……。 |
-| judge_pass | after | line `^sh .*case_file\.sh` output `all checks passed` | 三つ揃った！ 記録して本部へ。処理班が待っている。 |
-| clear | clear | — | 観覧車が止まった。回線を切って（exit）、事務所へ戻ろう。<br>——ssh は、遠くの機械を自分の机にする道具、なのかもしれない。 |
+- ヒント（仮。2026-08-12 HINT-01 で起草。トーン調整は次回）:
+  - 1: `遊園地の門の向こうに、答えはある。だがここからじゃ届かない。回線を繋げ。`
+  - 2: `ssh amusement_park で門(gate)まで踏み込め。中の設備を一つずつ find と cat で洗え。`
+  - 3: `ssh amusement_park のあと find . -type f で3つの手がかりを探し、cat で読んだ Code / Wire / Height を echo で報告書に書き出せ。`
 
 ---
 

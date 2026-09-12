@@ -60,7 +60,10 @@ def test_detail_and_not_found(client: TestClient, session: Session) -> None:
     assert "git" in body["allowed_commands"]
     assert body["status"] == "open"
     assert len(body["hints"]) == 3
-    assert body["hints"][0] == "まず机(desk)を調べ、名刺ファイルの場所を確認しよう。"
+    assert body["hints"][0] == (
+        "ゴール: /root/desk/businesscard.txt に自分の名前を書き込み、"
+        "sh case_file.sh で確認 → git add → git commit -m → git push で提出する。"
+    )
 
     missing = client.get("/api/missions/999/", headers=headers)
     assert missing.status_code == 404

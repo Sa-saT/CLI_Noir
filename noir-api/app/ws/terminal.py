@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.content.missions import get_mission
-from app.evaluator import evaluate, progress
+from app.evaluator import evaluate, progress, story
 from app.models import PlayerState, User, default_state, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -124,11 +124,19 @@ async def terminal_ws(
         await websocket.close(code=4401)
         return
 
-    # 2. state 復元 / 生成 + hello
+    # 2. state 復元 / 生成 + hello（story: 独り言レイヤーの start beat。STORY-01）
     row = _load_or_create(session, user.id)
     state = row.data
+    initial_beats = story.start_beats(state)
+    row.data = state
+    _persist(session, row)
     await websocket.send_json(
-        {"type": "hello", "state": state_summary(state), "commits": _commit_meta(state)}
+        {
+            "type": "hello",
+            "state": state_summary(state),
+            "commits": _commit_meta(state),
+            "story": initial_beats,
+        }
     )
 
     # 3. exec / resume ループ
@@ -139,10 +147,18 @@ async def terminal_ws(
 
             if mtype == "resume":
                 state = _handle_resume(msg, state)
+                # resume 先の story_fired は snapshot（mission_progress ごと）に含まれて
+                # 復元済みなので、start_beats はその時点で未発火の beat だけを返す。
+                resume_beats = story.start_beats(state)
                 row.data = state
                 _persist(session, row)
                 await websocket.send_json(
-                    {"type": "hello", "state": state_summary(state), "commits": _commit_meta(state)}
+                    {
+                        "type": "hello",
+                        "state": state_summary(state),
+                        "commits": _commit_meta(state),
+                        "story": resume_beats,
+                    }
                 )
                 continue
 
@@ -152,7 +168,21 @@ async def terminal_ws(
                 except ValidationError:
                     continue
                 prev_active = progress.active_mission_id(state["mission_progress"])
+                prev_log_len = len(state.get("resolved_command_log", []))
                 out_raw, state = evaluate(frame.command, state)
+
+                # そのコマンドで resolved_command_log に append されたときだけ
+                # entry を渡す（エラー等で記録されなかった場合は None）。
+                entry = None
+                if len(state.get("resolved_command_log", [])) > prev_log_len:
+                    entry = state["resolved_command_log"][-1]
+                beats = story.after_beats(state, prev_active, frame.command, out_raw, entry)
+
+                # クリア遷移で mission_clear イベント + clear/次 Mission start の独り言
+                next_active = progress.active_mission_id(state["mission_progress"])
+                if next_active != prev_active:
+                    beats = beats + story.clear_beats(state, prev_active)
+
                 row.data = state
                 _persist(session, row)
 
@@ -167,8 +197,10 @@ async def terminal_ws(
                         "state": state_summary(state),
                     }
                 )
-                # クリア遷移で mission_clear イベント
-                next_active = progress.active_mission_id(state["mission_progress"])
+                if beats:
+                    await websocket.send_json(
+                        {"type": "event", "name": "story", "beats": beats}
+                    )
                 if next_active != prev_active:
                     await websocket.send_json(
                         {

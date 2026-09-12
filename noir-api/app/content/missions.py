@@ -731,6 +731,11 @@ class MissionDef:
     # 3段階ヒント（相棒キャラクターの語り。設計指示書 § 11 機能4 / Mission参照 § 1-D）。
     # 空 = 未配線（Mission4〜22 は今回対象外。フロントはボタン自体を非表示にする）。
     hints: list[str] = field(default_factory=list)
+    # 進行案内「独り言レイヤー」（STORY-01。Mission参照ファイル § 独り言（story_beats）と
+    # ヒントの共通仕様）。各要素: {"id", "when": "start"|"after"|"clear",
+    # "text", "line"(任意・正規表現), "output"(任意・正規表現), "remote"(任意・bool)}。
+    # 空 = 未配線（Mission4〜22 は今回対象外）。純粋関数側の消費は app/evaluator/story.py。
+    story_beats: list[dict] = field(default_factory=list)
 
     @property
     def allowed_commands(self) -> list[str]:
@@ -754,9 +759,20 @@ _DEFS: list[MissionDef] = [
         ],
         initial_filesystem=_MISSION1_FS,
         hints=[
-            "まず机(desk)を調べ、名刺ファイルの場所を確認しよう。",
-            "名刺にはあなたのユーザー名を書き込む必要があります。",
-            "編集後は git add -> git commit -m -> git push の順で進めよう。",
+            "ゴール: /root/desk/businesscard.txt に自分の名前を書き込み、sh case_file.sh で確認 → git add → git commit -m → git push で提出する。",
+            '名刺は cat で読む。書き換えは echo "NAME: 名前" > businesscard.txt（上書き）。エディタ（vi 等）は無い。',
+            'cat businesscard.txt（中身を読む）→ echo "NAME: 名前" > businesscard.txt（上書きで書き込む）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "done"（セーブ）→ git push（提出）',
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "雨の月曜。依頼人は俺の名刺を一瞥して言った——名前が無い、と。\n……確か、机（desk）の上に置きっぱなしのはず。"},
+            {"id": "desk", "when": "after", "line": r"^(cd|ls) /root/desk", "text": "名刺ファイルが一枚。中身、確かめておかないと。"},
+            {"id": "read", "when": "after", "line": r"^cat /root/desk/businesscard\.txt", "text": "NAME: ???……我ながら間抜けな名刺。名前を書き込まないと話にならない。"},
+            {"id": "no_editor", "when": "after", "line": r"^(vi|vim|nano|emacs)\b", "output": "command not allowed", "text": "この事務所にまともなエディタは無い……。書き込むなら echo で流し込む（`>`）しかないか。"},
+            {"id": "wrote", "when": "after", "line": r"^echo .*> /root/desk/businesscard\.txt", "text": "これでいい。名前の入った名刺。\n本部に出す前に、事件ファイル（case_file.sh）で確認しておくか。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "確認は通った！ あとは記録して本部へ——add、commit、そして push。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "事件ファイルが突き返された!? 何か足りない……名刺をもう一度読み直してみるか。"},
+            {"id": "push_fail", "when": "after", "line": r"^git push", "output": "requirements not met", "text": "本部が受け付けない……。確認（sh case_file.sh）を通してから、記録し直さないと駄目らしい。"},
+            {"id": "clear", "when": "clear", "text": "名刺が本部に届いた。これで俺の名前は、この街の帳簿に載ったはず。\n——今やったことは、本物の黒い画面でもそのまま通じる。"},
         ],
     ),
     MissionDef(
@@ -770,9 +786,20 @@ _DEFS: list[MissionDef] = [
         initial_filesystem=_MISSION2_FS,
         initial_current_path="/root/park",
         hints=[
-            "公園は広い。当てずっぽうで歩き回っても日が暮れるだけだ。的を絞る道具を使え。",
-            "find を使え。猫の情報ファイルは、遊具の近くのどこかに眠っている。",
-            "find /root/park -name catinfo.txt で場所を割り出せ。読むだけなら cd してからでも構わん。だが報告書に書く一行は / から始まる絶対パスにしろ——「swing の catinfo」では、どの swing だか誰にも辿れん。",
+            "ゴール: catinfo.txt を find で見つけ、その絶対パスと STATUS の値を echo で書き出し、sh case_file.sh → git push する。",
+            'find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告は echo "/root/park/swing/catinfo.txt STATUS: stray" のように絶対パス（/ から）を含める。',
+            'find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/park/report.txt（報告を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）',
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "依頼は迷い猫。名前はマイク、黒。公園（park）で最後に見られたらしい。\n玄関を出て、公園へ向かわないと！"},
+            {"id": "park", "when": "after", "line": r"^(cd|ls) /root/park", "text": "ベンチ、噴水、遊具……区画が多い。当てずっぽうに歩けば日が暮れる。名前で探す（find）のが探偵の仕事、のはず。"},
+            {"id": "found", "when": "after", "line": r"^find ", "output": r"catinfo\.txt", "text": "出た！ 猫の記録は遊具（swing）の傍。"},
+            {"id": "read", "when": "after", "line": r"^cat .*catinfo\.txt", "text": "STATUS: stray——野良か。依頼人には場所と状態を報告しないと。\n報告書に書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。"},
+            {"id": "fail_abs", "when": "after", "line": r"^sh .*case_file\.sh", "output": "absolute path required", "text": "突き返された!? 住所が途中から……`/` から書き直さないと。"},
+            {"id": "fail_status", "when": "after", "line": r"^sh .*case_file\.sh", "output": "cat status not found", "text": "状態が抜けている。STATUS の欄を報告に写さないと。"},
+            {"id": "fail_find", "when": "after", "line": r"^sh .*case_file\.sh", "output": "use find", "text": "歩き回って見つけたのはいいが、次からは find で絞ろう。この公園より広い場所も来るはず。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "これで報告になる。記録して、本部へ。"},
+            {"id": "clear", "when": "clear", "text": "猫は遊具の下で丸くなっていた。住所が正確なら、誰でも同じ場所へ辿り着ける——それが絶対パス、というやつか。"},
         ],
     ),
     MissionDef(
@@ -787,9 +814,22 @@ _DEFS: list[MissionDef] = [
             r"Height: [0-9]+",
         ],
         hints=[
-            "遊園地の門の向こうに、答えはある。だがここからじゃ届かない。回線を繋げ。",
-            "ssh amusement_park で門(gate)まで踏み込め。中の設備を一つずつ find と cat で洗え。",
-            "ssh amusement_park のあと find . -type f で3つの手がかりを探し、cat で読んだ Code / Wire / Height を echo で報告書に書き出せ。",
+            "ゴール: ssh amusement_park で接続し、園内の 3 ファイルから Code: / Wire: / Height: を読み取って echo で書き出し、sh case_file.sh → git push する。",
+            '接続後は find . -type f で 3 ファイルを列挙し cat で読む。報告は echo "Code: XXXX" のように「キー: 値」の書式で 3 行。事務所へ戻るのは exit。',
+            'ssh amusement_park（接続）→ find . -type f（ファイル列挙）→ cat booth/manual.txt / cat ferris/wiring.txt / cat sign/notice.txt（Code・Wire・Height を読む）→ echo "Code: ...", echo "Wire: ...", echo "Height: ..."（報告 3 行）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "bomb"（セーブ）→ git push（提出）',
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "電話の声は震えていた。遊園地に爆弾が仕掛けられた、解除コードは園内の設備に散らばっている、と。\nここからじゃ届かない。回線を繋いで（ssh）、門（amusement_park）まで踏み込まないと！"},
+            {"id": "no_host", "when": "after", "line": r"^ssh ", "output": "Host not found", "text": "回線が繋がらない……。宛先の綴り、合っているか？"},
+            {"id": "connected", "when": "after", "line": r"^ssh amusement_park", "text": "繋がった。ここは門の前（/gate）。プロンプトの色が変わった——今は向こう側にいる、ということか。"},
+            {"id": "survey", "when": "after", "line": r"^(ls|find)\b", "remote": True, "text": "案内所（booth）、観覧車（ferris）、看板（sign）……設備は三つ。手がかりも三つのはず。"},
+            {"id": "code", "when": "after", "line": r"^cat .*manual\.txt", "remote": True, "text": "Code が出た！ 控えておこう。"},
+            {"id": "wire", "when": "after", "line": r"^cat .*wiring\.txt", "remote": True, "text": "切る線の色。間違えたら終わり……。"},
+            {"id": "height", "when": "after", "line": r"^cat .*notice\.txt", "remote": True, "text": "身長制限……これが最後の数字か？"},
+            {"id": "no_way_back", "when": "after", "line": r"^cd /root", "output": "directory not found", "remote": True, "text": "ここは向こう側。事務所へ戻るなら回線を切る（exit）しかない、はず。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "まだ揃っていない!? Code、Wire、Height——三つとも報告に書いたか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "三つ揃った！ 記録して本部へ。処理班が待っている。"},
+            {"id": "clear", "when": "clear", "text": "観覧車が止まった。回線を切って（exit）、事務所へ戻ろう。\n——ssh は、遠くの機械を自分の机にする道具、なのかもしれない。"},
         ],
     ),
     MissionDef(

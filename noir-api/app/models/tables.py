@@ -175,5 +175,8 @@ def default_world_state() -> dict:
             # リスト。冪等性の保証に使う（同じ Mission を二重解放してプロセス復活や
             # /etc/hosts 二重追記を起こさないため）。
             "released": [],
+            # 発火済み独り言（story_beats）の記録（STORY-01）。str(mission_id) →
+            # 発火済み beat id のリスト。app/evaluator/story.py が読み書きする。
+            "story_fired": {},
         },
     }
