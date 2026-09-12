@@ -2,7 +2,10 @@
 
 パイプライン（設計指示書 § 0.5 / § 8）:
   入力行 → env_vars による $VAR/$? 展開（シングルクォート内は保持）
-        → トークナイズ（引用符情報を保持）→ glob 展開 → `2>` の空白無し表記を分割
+        → トークナイズ（引用符情報を保持）→ `~`/`~/...` 展開（引用符なしのみ。
+          `~user` 形式は非対応）
+        → `&&` `||` `;` の使用を検知（未対応構文。使われていたら invalid input）
+        → glob 展開 → `>` `>>` `2>` の空白無し表記を分割
         → パイプ `|` でステージ分割
         → 最終ステージのリダイレクト分解（`>` `>>` `2>`）
         → 各ステージ: denylist → allowlist → PATH 解決（絶対パス実行は除外）
@@ -147,6 +150,38 @@ def _glob_matches(pattern: str, state: dict) -> list[str] | None:
     return matches
 
 
+def _expand_tilde(
+    tok_pairs: list[tuple[str, bool]], state: dict
+) -> list[tuple[str, bool]]:
+    """引用符なしトークンの `~` 単体・`~/...` を $HOME 相当パスへ展開する（実 bash 相当）。
+
+    `~user`（ユーザー名付き）形式は非対応のため展開しない。コマンド名位置の
+    トークンにも適用してよい。引用符付きトークン（`'~'` 等）は実 bash と同じく
+    展開しない。ssh 接続中の HOME は commands.home_dir が接続先で解決する。
+    """
+    home = _commands.home_dir(state)
+    return [
+        (home + tok[1:], quoted) if not quoted and (tok == "~" or tok.startswith("~/"))
+        else (tok, quoted)
+        for tok, quoted in tok_pairs
+    ]
+
+
+def _has_unsupported_operator(tok_pairs: list[tuple[str, bool]]) -> bool:
+    """`&&` / `||` / `;` の使用を検知する（設計指示書 § 8 の構文レベル外。未実装）。
+
+    引用符なしトークンがこれらの演算子そのもの、または末尾が `;` で終わる
+    （`pwd;` のように空白無しで連結されている）場合を対象とする。引用符付き
+    （`echo "a;"` / `sed 's/x/y/;'`）は文字列なので対象外。黙って一部だけ実行
+    してしまう（例: `cd desk && pwd` が cd だけ実行される）のを防ぐため、検知
+    したら呼び出し側で invalid input として扱う。
+    """
+    return any(
+        not quoted and (tok in ("&&", "||", ";") or tok.endswith(";"))
+        for tok, quoted in tok_pairs
+    )
+
+
 def _expand_globs(tok_pairs: list[tuple[str, bool]], state: dict) -> list[str]:
     """引用符なしトークンのうち glob 文字を含むものを実在エントリへ展開する
     （bash の既定＝nullglob 無効と同じく、マッチが無ければリテラルのまま渡す）。
@@ -173,16 +208,24 @@ def _expand_globs(tok_pairs: list[tuple[str, bool]], state: dict) -> list[str]:
 
 
 def _split_glued_redirects(tokens: list[str]) -> list[str]:
-    """`2>/dev/null`（空白無し）を `2>` と `/dev/null` の2トークンへ分割する。
+    """`2>/dev/null` `>>x.txt` `>x.txt`（空白無し）をリダイレクト記号と対象の
+    2トークンへ分割する。
 
-    トークナイズは空白区切りのため、`2>` と対象が空白無しで連結されていると
-    1トークンになってしまう。`2>` そのものは素通しする。
+    トークナイズは空白区切りのため、リダイレクト記号と対象が空白無しで連結
+    されていると1トークンになってしまう。記号そのもの（`2>` `>>` `>`）は
+    先に完全一致で素通しする（`>>` 自身が `>` の startswith にも当たるため）。
+    `>>` は `>` より先に判定する。
     """
     result: list[str] = []
     for tok in tokens:
-        if tok.startswith("2>") and tok != "2>":
-            result.append("2>")
-            result.append(tok[2:])
+        if tok in ("2>", ">>", ">"):
+            result.append(tok)
+        elif tok.startswith("2>"):
+            result.extend(["2>", tok[2:]])
+        elif tok.startswith(">>"):
+            result.extend([">>", tok[2:]])
+        elif tok.startswith(">"):
+            result.extend([">", tok[1:]])
         else:
             result.append(tok)
     return result
@@ -347,6 +390,11 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
             # 空行の実行は bash と同じく $? を変更しない。
             return [], state
 
+        if _has_unsupported_operator(tok_pairs):
+            # `&&` `||` `;` は未対応構文（設計指示書 § 8 に無い）。黙って一部だけ
+            # 実行する（例: `cd desk && pwd` が cd だけ実行される）のを防ぐ。
+            return ["Error: invalid input"], _set_status(working, "1")
+        tok_pairs = _expand_tilde(tok_pairs, working)
         tokens = _expand_globs(tok_pairs, working)
         tokens = _split_glued_redirects(tokens)
 

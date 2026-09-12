@@ -219,17 +219,32 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     return out, state
 
 
+def home_dir(state: dict) -> str:
+    """現在のコンテキスト（local/remote）での $HOME 相当パスを返す。
+
+    ssh 接続中は env_vars["HOME"] が local のまま（cmd_ssh は env_vars を退避・
+    差し替えしないため）なので、接続先のログインディレクトリ（initial_path）を
+    使う。引数無し `cd` と engine の `~` 展開が共用する（UX-01a）。
+    """
+    if state.get("remote_mode"):
+        host_info = SSH_HOSTS.get(state.get("ssh_host"))
+        return host_info["initial_path"] if host_info is not None else "/"
+    return env_for(state).get("HOME", "/root")
+
+
 @command("cd")
 def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    show_path = False
     if len(argv) < 2:
         # 引数無し cd は $HOME へ移動する（実 bash と同じ挙動。P3-07 / BUG-02）。
-        # ssh 接続中は env_vars["HOME"] が local のまま（cmd_ssh は env_vars を
-        # 退避・差し替えしないため）なので、接続先のログインディレクトリを使う。
-        if state.get("remote_mode"):
-            host_info = SSH_HOSTS.get(state.get("ssh_host"))
-            target = host_info["initial_path"] if host_info is not None else "/"
-        else:
-            target = env_for(state).get("HOME", "/root")
+        target = home_dir(state)
+    elif argv[1] == "-":
+        # `cd -` は OLDPWD へ戻り、実 bash と同じく移動先を 1 行表示する（UX-01a）。
+        oldpwd = env_for(state).get("OLDPWD")
+        if oldpwd is None:
+            raise CommandError("Error: directory not found")
+        target = oldpwd
+        show_path = True
     else:
         target = argv[1]
     abs_path = fs.normalize(state["current_path"], target)
@@ -237,8 +252,9 @@ def cmd_cd(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     # 解決先ディレクトリ自身のゲート（P3-04a）は fs.get_node が見る。
     if not fs.is_dir(node):
         raise CommandError("Error: directory not found")
+    env_for(state)["OLDPWD"] = state["current_path"]
     state["current_path"] = abs_path
-    return [], state
+    return ([abs_path] if show_path else []), state
 
 
 @command("pwd")
@@ -354,13 +370,16 @@ def cmd_clear(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str]
 
 @command("history")
 def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    # 通常は自分の操作履歴（フロント側の責務）だが、Mission15 は「情報屋の履歴」を
-    # 演出として見せるため MissionDef.informant_history があればそれを表示する。
+    # Mission15 は「情報屋の履歴」を演出として見せるため MissionDef.informant_history
+    # があればそれを優先する。無ければ実 bash と同じく自分の操作履歴（command_log）を
+    # `%5d  cmd` 書式で表示する（UX-01a）。実行中の history 自身は engine が成功後に
+    # append するためまだ command_log に無く、含めない。
     mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
     informant_history = mission.informant_history if mission else None
-    if not informant_history:
-        return [], state
-    return [f"{i + 1}  {cmd}" for i, cmd in enumerate(informant_history)], state
+    if informant_history:
+        return [f"{i + 1}  {cmd}" for i, cmd in enumerate(informant_history)], state
+    command_log = state.get("command_log", [])
+    return [f"{i + 1:5d}  {cmd}" for i, cmd in enumerate(command_log)], state
 
 
 # --- 検索 ---
