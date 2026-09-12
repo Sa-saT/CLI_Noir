@@ -13,6 +13,8 @@ from app.evaluator.fs import now_iso
 from app.evaluator.registry import command
 
 COMMIT_CAP = 30  # git_state.commits の上限 / Mission（設計指示書 § 4）
+# 統合ワールドの filesystem は約 19KB（JSON）。30 commit で 1 ユーザー約 570KB。
+# SQLite JSON カラムで許容範囲（2026-09-12 実測）。
 
 
 @command("git")
@@ -81,8 +83,15 @@ def _commit(state: dict, argv: list[str]) -> tuple[list[str], dict]:
     }
     if is_world:
         # P3-10 の resume がワールド全体（completed/active_mission_id/released 等）を
-        # 復元できるよう mission_progress も丸ごと含める。
+        # 復元できるよう mission_progress も丸ごと含める。commit = セーブなので、
+        # 再開時に世界全体が当時に戻るよう processes/cron_jobs/current_user/
+        # remote_mode/ssh_host も含める。
         snapshot["mission_progress"] = copy.deepcopy(state["mission_progress"])
+        snapshot["processes"] = copy.deepcopy(state.get("processes", []))
+        snapshot["cron_jobs"] = copy.deepcopy(state.get("cron_jobs", []))
+        snapshot["current_user"] = state.get("current_user", "detective")
+        snapshot["remote_mode"] = state.get("remote_mode", False)
+        snapshot["ssh_host"] = state.get("ssh_host")
 
     git["commits"].append(
         {
