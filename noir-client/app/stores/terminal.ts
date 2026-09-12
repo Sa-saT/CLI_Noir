@@ -1,12 +1,16 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CommitMeta, Style } from '~/types/ws'
+import type { CommitMeta, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
  * `useTerminalSocket` composable が WS フレームを受けてここへ書き込み、
  * `TerminalView.vue` はここから props/computed で読むだけ（フロントは FS の意味を知らない）。
+ *
+ * Phase E（FE3-01/FE3-02）: 接続がユーザーごとに 1 本の永続ワールドになったため、
+ * Mission 単位の `missionId` / `resetForMission()` は廃止。`lines`（scrollback）も
+ * Mission ページ間の遷移で消さない（実ターミナルは 1 つしかないため）。
  */
 
 const SCROLLBACK_LIMIT = 2000
@@ -25,15 +29,17 @@ export function styleToSource(style: Style): LineSource {
 
 export const useTerminalStore = defineStore('terminal', {
   state: () => ({
-    missionId: null as number | null,
     connected: false,
     connecting: false,
     currentPath: '/root',
     remoteMode: false,
     sshHost: null as string | null,
+    activeMissionId: null as number | null,
+    currentUser: 'detective',
     commits: [] as CommitMeta[],
     lines: [] as TerminalLine[],
     missionCleared: false,
+    clearedMissionId: null as number | null,
     nextMissionId: null as number | null,
     pendingResume: false,
     _nextLineId: 1,
@@ -47,10 +53,10 @@ export const useTerminalStore = defineStore('terminal', {
     displayHost(state): string {
       return state.remoteMode ? (state.sshHost ?? 'remote') : 'office'
     },
-    /** DESIGN.md § 4「プロンプト表記は状態を反映する」。su は未対応（Mission1〜3 の範囲外）。 */
+    /** DESIGN.md § 4「プロンプト表記は状態を反映する」。su は `currentUser` の反映で表現する。 */
     promptState(state): PromptState {
       return {
-        user: 'detective',
+        user: state.currentUser,
         host: this.displayHost,
         path: state.currentPath,
         hostType: state.remoteMode ? 'remote' : 'local',
@@ -58,20 +64,6 @@ export const useTerminalStore = defineStore('terminal', {
     },
   },
   actions: {
-    resetForMission(missionId: number) {
-      this.missionId = missionId
-      this.connected = false
-      this.connecting = false
-      this.currentPath = '/root'
-      this.remoteMode = false
-      this.sshHost = null
-      this.commits = []
-      this.lines = []
-      this.missionCleared = false
-      this.nextMissionId = null
-      this.pendingResume = false
-      this._nextLineId = 1
-    },
     pushLine(source: LineSource, text: string, prompt?: PromptState) {
       this.lines.push({ id: this._nextLineId++, source, text, prompt })
       if (this.lines.length > SCROLLBACK_LIMIT) {
@@ -85,10 +77,12 @@ export const useTerminalStore = defineStore('terminal', {
     clearScrollback() {
       this.lines = []
     },
-    applyState(state: { current_path: string, remote_mode: boolean, ssh_host: string | null }) {
+    applyState(state: StateSummary) {
       this.currentPath = state.current_path
       this.remoteMode = state.remote_mode
       this.sshHost = state.ssh_host
+      this.activeMissionId = state.active_mission_id
+      this.currentUser = state.current_user
     },
   },
 })

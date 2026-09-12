@@ -14,6 +14,7 @@ interface MissionSummary {
 const { apiFetch } = useApi()
 const { logout } = useAuth()
 const router = useRouter()
+const store = useTerminalStore()
 
 const missions = ref<MissionSummary[]>([])
 const loading = ref(true)
@@ -70,7 +71,10 @@ function onLogout() {
         <span class="num">Mission {{ m.id }}</span>
         <h2>{{ m.title }}</h2>
         <p class="ja">{{ m.title_ja }}</p>
-        <span class="status" :class="m.status">{{ STATUS_LABEL[m.status] }}</span>
+        <div class="status-row">
+          <span class="status" :class="m.status">{{ STATUS_LABEL[m.status] }}</span>
+          <span v-if="store.activeMissionId === m.id" class="status active">捜査中</span>
+        </div>
       </li>
     </ul>
   </div>
@@ -159,8 +163,13 @@ h2 {
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
-.status {
+.status-row {
   margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.status {
   align-self: flex-start;
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-caps);
@@ -176,5 +185,9 @@ h2 {
 .status.open {
   color: var(--accent-quiet);
   border-color: var(--accent);
+}
+.status.active {
+  color: var(--brass-400);
+  border-color: var(--brass-600);
 }
 </style>

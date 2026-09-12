@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
- * 未着手時は Mission 詳細（ブリーフィング）を表示し、「捜査を開始する」で
- * WebSocket 接続 → 実ターミナルへ遷移する（FE-02 の詳細+開始導線と、
- * 設計指示書 § 3 の固定ルーティングを両立させるため、ページ内 state で切替える）。
  *
- * FE-04: TerminalView を useTerminalSocket/Pinia store に接続し、モック evaluator
- * を撤去（旧実装は app/pages/index.vue にあった）。コマンド一覧の Mission 連動
- * （FE-05）・場面画像の current_path 連動（FE-06）・セーブ選択（FE-07）は後続タスク。
+ * Phase E（FE3-01/FE3-02）: 「常時ターミナル」導入により、このページは**表示切替専用**
+ * になった。WebSocket 接続のライフサイクル（connect/disconnect）は `app.vue` が
+ * ログイン状態にひもづけて管理する — このページからは一切呼ばない。
+ * ページが担うのはブリーフィング（事件ファイル）・ヒント・コマンド一覧の表示切替のみ。
+ * 「捜査を開始する」はブリーフィングカードを閉じるボタンであり、接続はしない。
+ * ターミナル本体（scrollback・接続状態）は Pinia store（app/stores/terminal.ts）が
+ * 唯一の真実で、Mission ページを行き来しても消えない。
  */
 definePageMeta({ middleware: 'auth' })
 
@@ -34,8 +35,10 @@ const socket = useTerminalSocket()
 const missionId = computed(() => Number(route.params.id))
 const mission = ref<MissionDetail | null>(null)
 const loadError = ref('')
-const started = ref(false)
 const selectedCommand = ref('')
+
+// ブリーフィング（事件ファイル）カードの開閉。Mission 切替時とページ初回表示時は開く。
+const briefingOpen = ref(true)
 
 // --- HINT-01: 3段階ヒントの仮UI（サーバー側に状態は持たせない。ページ離脱でリセット） ---
 const revealedHints = ref(0)
@@ -64,20 +67,17 @@ async function loadMission(id: number) {
 
 onMounted(() => loadMission(missionId.value))
 
-// 次 Mission への遷移など、同一コンポーネントのまま id だけ変わるケースに対応
+// 次 Mission への遷移など、同一コンポーネントのまま id だけ変わるケースに対応。
+// 接続には触らない（常時接続。app.vue 管理）。
 watch(missionId, (id) => {
-  socket.disconnect()
-  started.value = false
   revealedHints.value = 0
+  briefingOpen.value = true
   loadMission(id)
 })
 
-onBeforeUnmount(() => socket.disconnect())
-
-function start() {
+function closeBriefing() {
   if (!mission.value || mission.value.status === 'locked') return
-  started.value = true
-  socket.connect(missionId.value)
+  briefingOpen.value = false
 }
 
 function onSelectCommand(name: string) {
@@ -90,11 +90,17 @@ function onInterrupt(line: string) {
   store.pushEchoedInput(`${line}^C`, store.promptState)
 }
 
+// --- 捜査中の事件とこのページの Mission が異なる場合の案内（表示切替専用ページのため、
+// `sh case_file.sh` の判定対象は store.activeMissionId であり、このページの mission
+// とは限らない） ---
+const missionMismatch = computed(() => store.activeMissionId !== missionId.value)
+
 // --- FE-07: セーブ選択（再ログイン時の commit 一覧） ---
 const saves = computed<SaveEntry[]>(() => store.commits.map((c, idx) => ({
   hash: `#${c.id}`,
   message: c.message || '(無題のセーブ)',
   when: c.created_at ?? '',
+  mission: c.mission_id != null ? `Mission ${c.mission_id}` : '',
   latest: idx === store.commits.length - 1,
 })))
 
@@ -141,46 +147,47 @@ function onNext() {
   <div v-if="loadError" class="center hint error">{{ loadError }}</div>
   <div v-else-if="!mission" class="center hint">読み込み中…</div>
 
-  <div v-else-if="!started" class="briefing">
-    <MissionHeader
-      :tag="`Mission ${mission.id}`"
-      :title="mission.title"
-      :subtitle="mission.title_ja"
-      :rank="rank"
-    />
-    <SceneOverlay
-      class="briefing-scene"
-      :image="sceneImage"
-      badge="Case File"
-      :card-title="mission.title_ja"
-      :card-body="mission.description"
-    >
-      <NoirButton
-        variant="primary"
-        size="lg"
-        :disabled="mission.status === 'locked'"
-        @click="start"
-      >
-        {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
-      </NoirButton>
-    </SceneOverlay>
-  </div>
-
   <div v-else class="screen">
-    <MissionHeader
-      class="ga-header"
-      :tag="`Mission ${mission.id}`"
-      :title="mission.title"
-      :subtitle="mission.title_ja"
-      :rank="rank"
-    />
+    <div class="ga-header">
+      <MissionHeader
+        :tag="`Mission ${mission.id}`"
+        :title="mission.title"
+        :subtitle="mission.title_ja"
+        :rank="rank"
+      />
+      <p v-if="store.connected && missionMismatch" class="mismatch">
+        <template v-if="store.activeMissionId != null">
+          捜査中の事件は
+          <NuxtLink :to="`/missions/${store.activeMissionId}`">Mission {{ store.activeMissionId }}</NuxtLink>
+          です — <code>sh case_file.sh</code> はそちらを判定します
+        </template>
+        <template v-else>
+          すべての事件を解決済み
+        </template>
+      </p>
+    </div>
 
     <div class="ga-scene scene-col">
-      <SceneOverlay :image="sceneImage" badge="Scène" />
+      <SceneOverlay
+        :image="sceneImage"
+        :badge="briefingOpen ? 'Case File' : 'Scène'"
+        :card-title="briefingOpen ? mission.title_ja : ''"
+        :card-body="briefingOpen ? mission.description : ''"
+      >
+        <NoirButton
+          v-if="briefingOpen"
+          variant="primary"
+          size="lg"
+          :disabled="mission.status === 'locked'"
+          @click="closeBriefing"
+        >
+          {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
+        </NoirButton>
+      </SceneOverlay>
       <div v-if="store.pendingResume" class="resume-overlay">
         <SaveSelectModal
           title="セーブを選んで再開"
-          :subtitle="`Mission ${mission.id} — 記録された commit から選択してください`"
+          subtitle="記録された commit から選択してください"
           :saves="saves"
           @resume="onResume"
           @start-over="onStartOver"
@@ -190,6 +197,7 @@ function onNext() {
     </div>
 
     <aside class="ga-rail rail">
+      <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail
         v-if="detail"
@@ -240,16 +248,6 @@ function onNext() {
 .hint.error {
   color: var(--term-error);
 }
-.briefing {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-app-deep);
-}
-.briefing-scene {
-  flex: 1;
-  margin: var(--space-6);
-}
 .screen {
   display: grid;
   grid-template-columns: 1fr var(--rail-command-w);
@@ -265,6 +263,19 @@ function onNext() {
 }
 .ga-header {
   grid-area: header;
+  display: flex;
+  flex-direction: column;
+}
+.mismatch {
+  margin: 0;
+  padding: var(--space-2) var(--space-6);
+  background: var(--poster-black);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.mismatch a {
+  color: var(--brass-400);
 }
 .ga-scene {
   grid-area: scene;

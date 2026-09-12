@@ -663,7 +663,10 @@ evaluate内でのみ生成され戻り値には残さないスクラッチ領域
 ## Phase E: フロントエンド
 
 ### FE3-01 `useTerminalSocket.ts` / `stores/terminal.ts`: 単一永続接続化
-- [ ] 未着手
+- [x] 完了（2026-09-12）。`useTerminalSocket` の接続状態をモジュールスコープに移してシングルトン化、`connect()`（引数なし・冪等）、
+  `disconnect()` はログアウト専用（`store.$reset()` で別ユーザーへの scrollback 持ち越しを防ぐ）。接続のライフサイクルは
+  `app.vue` が `isAuthenticated` を watch して一元管理。store は `missionId`/`resetForMission` を廃止し
+  `activeMissionId`/`currentUser`（プロンプトの user に反映）/`clearedMissionId` を追加。`types/ws.ts` を frames.py に追随
 
 `connect(id: number)` → `connect()`（mission_idクエリ廃止、P3-10と対）。
 `stores/terminal.ts::resetForMission(missionId)`をMission遷移毎の呼び出しから撤去。WS接続確立は
@@ -673,7 +676,12 @@ P3-10とあわせて追加）。
 ファイル: `noir-client/app/composables/useTerminalSocket.ts`, `noir-client/app/stores/terminal.ts`
 
 ### FE3-02 `pages/missions/[id].vue`: ナビゲーションでの再接続/リセット廃止
-- [ ] 未着手
+- [x] 完了（2026-09-12）。**UX 判断「常時ターミナル」（ユーザー決定）**: ページは表示切替専用。常にゲーム画面グリッドを描画し、
+  ブリーフィングは scene 領域の SceneOverlay カード（「捜査を開始する」= カードを閉じる。rail の「事件ファイルを見る」で再表示。
+  クリア済みでも開ける）。ルートの Mission ≠ `activeMissionId` のときヘッダー下に「捜査中の事件は Mission N です — sh case_file.sh は
+  そちらを判定します」を表示。SaveSelectModal は各セーブに Mission 番号、「最初から」→「現在の状態で続ける」。一覧に「捜査中」ラベル。
+  Playwright（headless Chromium）で通し確認済み: ログイン→一覧→Mission1→UX-01 のキー操作/構文→commit→アプリ内遷移で scrollback 保持
+  →push→ClearEffect→Mission2→注意文→ログアウト/再ログインでセーブ選択が 1 回だけ。console error 0。**見た目の目視は未**
 
 `watch(missionId, ...)`によるdisconnect→再接続を撤去。WS接続はアプリ/レイアウトレベルで1回確立し、`[id].vue`は
 Missionのブリーフィング・ヒント・コマンド一覧パネルの表示切替のみを担当する形に再設計。「捜査を開始する」ボタンの

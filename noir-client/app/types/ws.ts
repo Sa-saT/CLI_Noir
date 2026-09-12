@@ -14,12 +14,15 @@ export interface StateSummary {
   current_path: string
   remote_mode: boolean
   ssh_host: string | null
+  active_mission_id: number | null
+  current_user: string
 }
 
 export interface CommitMeta {
   id: number
   message: string
   created_at: string | null
+  mission_id: number | null
 }
 
 // --- クライアント → サーバー ---
@@ -55,6 +58,7 @@ export interface StreamFrame {
 export interface MissionClearEvent {
   type: 'event'
   name: 'mission_clear'
+  cleared_mission_id: number
   next_mission_id: number | null
 }
 

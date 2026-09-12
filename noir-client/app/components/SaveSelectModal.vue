@@ -7,6 +7,7 @@ export interface SaveEntry {
   hash: string
   message: string
   when: string
+  mission?: string
   latest?: boolean
 }
 
@@ -16,11 +17,11 @@ const props = withDefaults(defineProps<{
   saves?: SaveEntry[]
 }>(), {
   title: 'セーブを選んで再開',
-  subtitle: 'Mission 3 — 記録された commit から選択してください',
+  subtitle: '記録された commit から選択してください',
   saves: () => [
-    { hash: 'a1f9c2e', message: '桟橋の足跡を照合', when: '2026-07-05 23:41', latest: true },
-    { hash: '7bd0410', message: 'ssh amusement_park に接続', when: '2026-07-05 23:12' },
-    { hash: '3e5aa88', message: 'case_file.sh を実行', when: '2026-07-05 22:58' },
+    { hash: 'a1f9c2e', message: '桟橋の足跡を照合', when: '2026-07-05 23:41', mission: 'Mission 3', latest: true },
+    { hash: '7bd0410', message: 'ssh amusement_park に接続', when: '2026-07-05 23:12', mission: 'Mission 3' },
+    { hash: '3e5aa88', message: 'case_file.sh を実行', when: '2026-07-05 22:58', mission: 'Mission 2' },
   ],
 })
 
@@ -46,6 +47,7 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
         @click="selected = s.hash"
       >
         <span class="hash">{{ s.hash }}</span>
+        <span v-if="s.mission" class="mission">{{ s.mission }}</span>
         <span class="msg">
           <span class="title">{{ s.message }}</span>
           <span class="when">{{ s.when }}</span>
@@ -54,7 +56,7 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
       </li>
     </ul>
     <div class="modal-foot">
-      <NoirButton variant="ghost" @click="emit('start-over')">最初から</NoirButton>
+      <NoirButton variant="ghost" @click="emit('start-over')">現在の状態で続ける</NoirButton>
       <NoirButton variant="primary" @click="emit('resume', selected)">このセーブで再開</NoirButton>
     </div>
   </div>
@@ -114,6 +116,12 @@ li.selected {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--cyan-400);
+}
+.mission {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  letter-spacing: var(--tracking-caps);
 }
 .msg {
   flex: 1;

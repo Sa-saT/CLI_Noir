@@ -2,8 +2,13 @@ import { styleToSource, useTerminalStore } from '~/stores/terminal'
 import type { EventFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } from '~/types/ws'
 
 /*
- * WebSocket 接続 composable（FE-03）。設計指示書 § 7。
- * `/ws/terminal?mission_id=<id>` へ接続 → `auth` → `hello` → `exec`/`result` ループ。
+ * WebSocket 接続 composable（Phase E: FE3-01/FE3-02）。設計指示書 § 7。
+ * `/ws/terminal`（クエリ無し）へ接続 → `auth` → `hello` → `exec`/`result` ループ。
+ * ユーザーごとに 1 つの永続統合ワールドを表す**単一の常時接続**（`docs/DESIGN.md` § 7
+ * 「常時ターミナル」）。接続は `app.vue` がログイン状態にひもづけて張る/切るだけで、
+ * Mission ページ（`pages/missions/[id].vue`）は connect/disconnect を呼ばない。
+ * `useAuth.ts` の accessToken と同じくモジュールスコープで状態を持ち、
+ * `useTerminalSocket()` を何度呼んでも同じ接続を共有する（シングルトン）。
  * 受信フレームは Pinia store（app/stores/terminal.ts）へ書き込むだけ（単方向データフロー。
  * DESIGN.md § 10-1）。切断時は指数バックオフで再接続する（DESIGN.md § 10-7）。
  */
@@ -13,34 +18,34 @@ const RECONNECT_MAX_MS = 30000
 /** noir-api/app/ws/terminal.py が auth フレーム欠落・不正/失効トークンで送る close code。 */
 const WS_CODE_UNAUTHORIZED = 4401
 
+// --- モジュールスコープ（シングルトン接続。useAuth.ts の accessToken と同じ方式） ---
+let ws: WebSocket | null = null
+let execId = 1
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let reconnectDelay = RECONNECT_MIN_MS
+let manualClose = false
+let everConnected = false
+let awaitingResumeHello = false
+
 export function useTerminalSocket() {
   const store = useTerminalStore()
   const { getToken, logout } = useAuth()
   const config = useRuntimeConfig()
 
-  let ws: WebSocket | null = null
-  let execId = 1
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  let reconnectDelay = RECONNECT_MIN_MS
-  let manualClose = false
-  let missionId: number | null = null
-  let everConnected = false
-  let awaitingResumeHello = false
-
-  function connect(id: number) {
+  function connect() {
+    // 冪等: 接続済み/接続中の socket があるか、再接続待機中なら何もしない。
+    if (import.meta.server) return
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
+    if (reconnectTimer) return
     manualClose = false
-    everConnected = false
-    awaitingResumeHello = false
-    missionId = id
     reconnectDelay = RECONNECT_MIN_MS
-    store.resetForMission(id)
     openSocket()
   }
 
   function openSocket() {
-    if (missionId == null || import.meta.server) return
+    if (import.meta.server) return
     store.connecting = true
-    const url = `${config.public.wsBase}/ws/terminal?mission_id=${missionId}`
+    const url = `${config.public.wsBase}/ws/terminal`
     const socket = new WebSocket(url)
     ws = socket
 
@@ -112,6 +117,8 @@ export function useTerminalSocket() {
       store.pushLine('system', '-- reconnected --')
     } else {
       everConnected = true
+      // ログイン直後の初回 hello のみ（接続がプレイ全体で 1 回になったため、
+      // セーブ選択はログインごとに 1 回だけ出る）。
       if (store.commits.length > 0) {
         store.pendingResume = true
       }
@@ -133,6 +140,7 @@ export function useTerminalSocket() {
   function handleEvent(frame: EventFrame) {
     if (frame.name === 'mission_clear') {
       store.missionCleared = true
+      store.clearedMissionId = frame.cleared_mission_id
       store.nextMissionId = frame.next_mission_id
     } else if (frame.name === 'rank_up') {
       // バックエンド未実装（types/ws.ts 冒頭コメント参照）。実装され次第、テキスト表示ではなく
@@ -167,14 +175,20 @@ export function useTerminalSocket() {
     store.pendingResume = false
   }
 
+  /** ログアウト時のみ呼ぶ。次のログインで初回 hello（セーブ選択判定含む）からやり直す。 */
   function disconnect() {
     manualClose = true
+    everConnected = false
+    awaitingResumeHello = false
     if (reconnectTimer) {
       clearTimeout(reconnectTimer)
       reconnectTimer = null
     }
     ws?.close()
     ws = null
+    // 同じブラウザで別ユーザーがログインしても前のユーザーの scrollback・commit 一覧が
+    // 残らないよう、store を初期状態へ戻す。
+    store.$reset()
   }
 
   return { connect, disconnect, exec, resume, skipResume }

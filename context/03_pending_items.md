@@ -20,7 +20,7 @@
 
 **Part5 永続統合ワールド化 Phase A〜D（P3-01〜P3-11、2026-09-12 Phase D 完了）の残タスク**（WS/API 層は `PlayerState` に切替済み。`MissionState`/`build_initial_state` はテスト用に残置）:
 - [ ] `missionstate` テーブルの drop（Alembic 別リビジョン）と `MissionState`/`default_state()`/`build_initial_state()` の撤去。Phase F（P3-12/P3-13）でテストの参照を外した後に実施
-- [ ] フロント追随（FE3-01/02）: WS 接続を「ログイン後 1 回」に、`hello.state.active_mission_id` を store へ、`mission_clear` の `cleared_mission_id` を利用、commit があると毎回 SaveSelectModal が出る問題（統合ワールドでは commit 履歴が 1 本なので Mission ページを開くたびに出る）
+- [x] フロント追随（FE3-01/02、2026-09-12 完了。「常時ターミナル」設計）。残: SaveSelectModal の `when` が ISO 文字列のまま（表示整形は未）、フルリロード時もセーブ選択が出る（接続の張り直し＝仕様として許容）
 - [ ] resume 後も `command_log`/`resolved_command_log` は巻き戻さないため、後で打ったコマンドの記録が判定に残る（Mission 別 state 時代からの既知挙動。リプレイ台帳の設計時に扱いを決める）
 - [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
 - [ ] P3-03 の移設（`/root` 直下の裸置きファイル → Mission 専用サブディレクトリ）に伴う旧パス参照の追随。**統合ワールドでのみパスが変わり、Mission 別 FS は現役のため今は変更しない**（P3-08/P3-12/P3-13 で対応。一覧は `app/content/missions.py` の `_RELOCATIONS` 直下のコメントにも記載）:
