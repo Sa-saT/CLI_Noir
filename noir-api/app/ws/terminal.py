@@ -1,8 +1,14 @@
-"""WebSocket ターミナルエンドポイント `/ws/terminal?mission_id=<id>`（設計指示書 § 7）。
+"""WebSocket ターミナルエンドポイント `/ws/terminal`（設計指示書 § 7、P3-10）。
 
 ハンドシェイク: 接続 → 5秒以内の `auth` フレームで JWT 認証 → `hello`（state + commits）
 → 任意の `resume` → `exec`/`result` ループ。state 更新とクリア判定の書き込みは
 evaluator のみ（本ハンドラは evaluate を呼び、結果を DB へ保存して result を返す）。
+
+クエリパラメータは取らない（旧 `?mission_id=<id>` は撤去。FastAPI は未知のクエリを
+無視するため、旧フロントの URL でも接続できる）。ユーザーごとに `PlayerState` 1 行
+（永続統合ワールド）を読み書きする。Mission クリアは exec 前後で
+`progress.active_mission_id(state["mission_progress"])` を比較して検出する
+（`git push` が `progress.advance_mission` を呼んで値を進める。§ 疑似Git）。
 """
 
 import asyncio
@@ -14,8 +20,8 @@ from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.content.missions import get_mission
-from app.evaluator import evaluate
-from app.models import MissionState, User, default_state
+from app.evaluator import evaluate, progress
+from app.models import PlayerState, User, default_state, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
 from app.ws.frames import AuthFrame, ExecFrame, ResumeFrame, state_summary, style_for
@@ -27,7 +33,12 @@ MAX_LINES = 1000
 
 
 def build_initial_state(mission_id: int) -> dict:
-    """Mission の初期 state を生成する（default + Mission 固有の初期FS）。"""
+    """Mission 別の初期 state を生成する（default + Mission 固有の初期FS）。
+
+    テスト/移行期用（`tests/test_mission*.py` 等が使う）。WS/API 層は P3-10/P3-11
+    で `PlayerState`（統合ワールド）へ切り替え済みでこの関数は使わない。
+    Phase F で MissionState ごと廃止する際、テストヘルパーへ移す予定。
+    """
     state = default_state()
     state["mission_id"] = mission_id
     mission = get_mission(mission_id)
@@ -54,19 +65,12 @@ def _authenticate(token: str, session: Session) -> User | None:
     return session.get(User, int(payload["sub"]))
 
 
-def _load_or_create(session: Session, user_id: int, mission_id: int) -> MissionState:
+def _load_or_create(session: Session, user_id: int) -> PlayerState:
     row = session.exec(
-        select(MissionState).where(
-            MissionState.user_id == user_id,
-            MissionState.mission_id == mission_id,
-        )
+        select(PlayerState).where(PlayerState.user_id == user_id)
     ).first()
     if row is None:
-        row = MissionState(
-            user_id=user_id,
-            mission_id=mission_id,
-            data=build_initial_state(mission_id),
-        )
+        row = PlayerState(user_id=user_id, data=default_world_state())
         session.add(row)
         session.commit()
         session.refresh(row)
@@ -75,7 +79,12 @@ def _load_or_create(session: Session, user_id: int, mission_id: int) -> MissionS
 
 def _commit_meta(state: dict) -> list[dict]:
     return [
-        {"id": c["id"], "message": c.get("message", ""), "created_at": c.get("created_at")}
+        {
+            "id": c["id"],
+            "message": c.get("message", ""),
+            "created_at": c.get("created_at"),
+            "mission_id": c.get("mission_id"),
+        }
         for c in state.get("git_state", {}).get("commits", [])
     ]
 
@@ -96,7 +105,6 @@ def _to_lines(raw: list[str]) -> tuple[list[dict], bool]:
 @router.websocket("/ws/terminal")
 async def terminal_ws(
     websocket: WebSocket,
-    mission_id: int,
     session: Session = Depends(get_session),
 ) -> None:
     await websocket.accept()
@@ -117,7 +125,7 @@ async def terminal_ws(
         return
 
     # 2. state 復元 / 生成 + hello
-    row = _load_or_create(session, user.id, mission_id)
+    row = _load_or_create(session, user.id)
     state = row.data
     await websocket.send_json(
         {"type": "hello", "state": state_summary(state), "commits": _commit_meta(state)}
@@ -143,7 +151,7 @@ async def terminal_ws(
                     frame = ExecFrame.model_validate(msg)
                 except ValidationError:
                     continue
-                was_completed = state.get("mission_flags", {}).get("completed", False)
+                prev_active = progress.active_mission_id(state["mission_progress"])
                 out_raw, state = evaluate(frame.command, state)
                 row.data = state
                 _persist(session, row)
@@ -160,17 +168,29 @@ async def terminal_ws(
                     }
                 )
                 # クリア遷移で mission_clear イベント
-                if not was_completed and state.get("mission_flags", {}).get("completed"):
-                    next_id = mission_id + 1 if get_mission(mission_id + 1) else None
+                next_active = progress.active_mission_id(state["mission_progress"])
+                if next_active != prev_active:
                     await websocket.send_json(
-                        {"type": "event", "name": "mission_clear", "next_mission_id": next_id}
+                        {
+                            "type": "event",
+                            "name": "mission_clear",
+                            "cleared_mission_id": prev_active,
+                            "next_mission_id": next_active,
+                        }
                     )
     except WebSocketDisconnect:
         return
 
 
 def _handle_resume(msg: dict, state: dict) -> dict:
-    """resume フレーム: 指定 commit の snapshot から state を復元する。"""
+    """resume フレーム: 指定 commit の snapshot から state を復元する。
+
+    統合ワールド state（`mission_progress` を持つ）は、スナップショットに存在する
+    キーだけを復元する: current_path / filesystem / env_vars / mission_progress /
+    processes / cron_jobs / current_user / remote_mode / ssh_host。command_log /
+    resolved_command_log / git_state は復元しない（履歴と commit 一覧は残す）。
+    Mission 別 state（mission_flags）は従来どおり復元する。
+    """
     try:
         frame = ResumeFrame.model_validate(msg)
     except ValidationError:
@@ -179,17 +199,36 @@ def _handle_resume(msg: dict, state: dict) -> dict:
         if commit["id"] == frame.commit_id:
             snap = commit.get("snapshot", {})
             restored = copy.deepcopy(state)
-            restored["current_path"] = snap.get("current_path", state["current_path"])
-            restored["filesystem"] = copy.deepcopy(snap.get("filesystem", state["filesystem"]))
-            restored["mission_flags"] = copy.deepcopy(
-                snap.get("mission_flags", state["mission_flags"])
-            )
-            restored["env_vars"] = copy.deepcopy(snap.get("env_vars", state.get("env_vars", {})))
+            if "mission_progress" in state:
+                for key in (
+                    "current_path",
+                    "filesystem",
+                    "env_vars",
+                    "mission_progress",
+                    "processes",
+                    "cron_jobs",
+                    "current_user",
+                    "remote_mode",
+                    "ssh_host",
+                ):
+                    if key in snap:
+                        restored[key] = copy.deepcopy(snap[key])
+            else:
+                restored["current_path"] = snap.get("current_path", state["current_path"])
+                restored["filesystem"] = copy.deepcopy(
+                    snap.get("filesystem", state["filesystem"])
+                )
+                restored["mission_flags"] = copy.deepcopy(
+                    snap.get("mission_flags", state["mission_flags"])
+                )
+                restored["env_vars"] = copy.deepcopy(
+                    snap.get("env_vars", state.get("env_vars", {}))
+                )
             return restored
     return state
 
 
-def _persist(session: Session, row: MissionState) -> None:
+def _persist(session: Session, row: PlayerState) -> None:
     # SQLAlchemy に JSON カラムの差し替えを検知させる（同一参照の in-place 変更対策）。
     from sqlalchemy.orm.attributes import flag_modified
 

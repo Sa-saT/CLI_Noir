@@ -9,6 +9,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.evaluator import progress
+
 
 class AuthFrame(BaseModel):
     type: Literal["auth"]
@@ -31,10 +33,16 @@ Style = Literal["normal", "error", "warning", "emphasis", "success"]
 
 def state_summary(state: dict) -> dict:
     """hello / result で返す最小 state（§ 7）。"""
+    if "mission_progress" in state:
+        active_mission_id = progress.active_mission_id(state["mission_progress"])
+    else:
+        active_mission_id = state.get("mission_id")
     return {
         "current_path": state.get("current_path", "/root"),
         "remote_mode": state.get("remote_mode", False),
         "ssh_host": state.get("ssh_host"),
+        "active_mission_id": active_mission_id,
+        "current_user": state.get("current_user", "detective"),
     }
 
 
