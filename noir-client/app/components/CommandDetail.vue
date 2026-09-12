@@ -14,11 +14,17 @@ withDefaults(defineProps<{
   real: 'ファイルの中から指定した文字列を含む行だけを抜き出す。捜査でいう「証言の中からキーワードを拾う」操作。',
   inGame: '名簿 witnesses.txt から容疑者の名前を含む行を探し出し、アリバイの矛盾を突く。',
 })
+
+// 閉じる導線（UX-02）。親が v-if で外す前提なので、ここでは emit するだけ。
+const emit = defineEmits<{ (e: 'close'): void }>()
 </script>
 
 <template>
   <div class="detail">
-    <p class="name">{{ name }}</p>
+    <div class="head">
+      <p class="name">{{ name }}</p>
+      <button type="button" class="close" aria-label="閉じる" @click="emit('close')">×</button>
+    </div>
     <p v-if="syntax" class="syntax">{{ syntax }}</p>
     <div v-if="real" class="block">
       <div class="label">実際のPCでは</div>
@@ -41,6 +47,25 @@ withDefaults(defineProps<{
   box-shadow: var(--shadow-card), var(--bezel-brass);
   padding: var(--space-4);
   font-family: var(--font-ui);
+}
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.close {
+  background: none;
+  border: 0;
+  padding: 0 var(--space-1);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.close:hover {
+  color: var(--brass-400);
 }
 .name {
   font-family: var(--font-mono);

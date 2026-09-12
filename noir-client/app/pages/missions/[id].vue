@@ -81,7 +81,8 @@ function closeBriefing() {
 }
 
 function onSelectCommand(name: string) {
-  selectedCommand.value = name
+  // 同じコマンドをもう一度クリックしたら閉じる（× ボタンと同じ）
+  selectedCommand.value = selectedCommand.value === name ? '' : name
 }
 
 // UX-01b: Ctrl+C は入力を破棄するのみでサーバーへは送らず、実 bash と同じ見た目
@@ -205,6 +206,7 @@ function onNext() {
         :syntax="detail.syntax"
         :real="detail.real"
         :in-game="detail.inGame"
+        @close="selectedCommand = ''"
       />
       <div v-if="mission.hints.length" class="hint-box">
         <NoirButton
@@ -313,6 +315,11 @@ function onNext() {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
+}
+/* flex 子の overflow:hidden は自動最小サイズを 0 にするため、rail の高さに合わせて
+   パネルが縮んで中身が切れてしまう。子は縮めず rail 側をスクロールさせる（UX-02）。 */
+.ga-rail > * {
+  flex-shrink: 0;
 }
 .ga-rail :deep(.panel) {
   width: 100%;
