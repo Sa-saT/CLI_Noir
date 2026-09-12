@@ -53,7 +53,8 @@ def test_mission1_golden_transcript(mission1_state: dict) -> None:
     assert s["mission_flags"]["case_checked"] is True
 
     out, s = _run(s, "git status")
-    assert out == ["Ready to push"] or out == ["Nothing to commit"]
+    # case_checked は立っているが commit が無いので、まずセーブを促す
+    assert out[0] == "No commits yet"
 
     _, s = _run(s, "git add .")
     assert s["git_state"]["staged"] == ["."]
@@ -104,10 +105,22 @@ def test_push_without_case_checked(mission1_state: dict) -> None:
 
 
 def test_git_status_progression(mission1_state: dict) -> None:
+    """git status は状態ごとに 1 行目で現状、2 行目で次の一手を示す（UX-02）。"""
     s = mission1_state
-    assert _run(s, "git status")[0] == ["Nothing to commit"]
+    assert _run(s, "git status")[0][0] == "No commits yet"
     _, s = _run(s, "git add .")
-    assert _run(s, "git status")[0] == ["Changes staged"]
+    assert _run(s, "git status")[0][0] == "Changes staged"
+    _, s = _run(s, 'git commit -m "save"')
+    out = _run(s, "git status")[0]
+    # 旧実装はここで "No commits yet" を返す反転バグがあった
+    assert out[0] == "Nothing to commit"
+    assert "sh case_file.sh" in out[1]
+    _, s = _run(s, "cat /root/desk/businesscard.txt")
+    _, s = _run(s, 'echo "NAME: Sam" > /root/desk/businesscard.txt')
+    _, s = _run(s, "sh case_file.sh")
+    _, s = _run(s, "git add .")
+    _, s = _run(s, 'git commit -m "solved"')
+    assert _run(s, "git status")[0][0] == "Ready to push"
 
 
 def test_mission1_relative_path_passes_case_file(mission1_state: dict) -> None:

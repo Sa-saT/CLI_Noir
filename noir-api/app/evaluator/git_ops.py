@@ -32,15 +32,21 @@ def cmd_git(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
 
 
 def _status(state: dict) -> list[str]:
+    """実 git status と同じく「今の状態」と「次にやること」のヒントを返す。
+
+    実 git も `(use "git add <file>..." ...)` のような案内行を出すので、
+    案内行を添えるのは意味一致の範囲内（UX-02, 2026-09-13。それまでは commit 済み
+    なのに `No commits yet` を返す反転バグがあり、プレイヤーが次の一手を見失っていた）。
+    """
     git = state["git_state"]
     checked = progress.flags(state).get("case_checked", False)
-    if git["commits"] and checked:
-        return ["Ready to push"]
     if git["staged"]:
-        return ["Changes staged"]
-    if git["commits"]:
-        return ["No commits yet"]
-    return ["Nothing to commit"]
+        return ["Changes staged", '  (use "git commit -m <message>" to save)']
+    if not git["commits"]:
+        return ["No commits yet", '  (use "git add ." then "git commit -m <message>" to save)']
+    if checked:
+        return ["Ready to push", '  (use "git push" to submit the case)']
+    return ["Nothing to commit", '  (run "sh case_file.sh" to check the case before "git push")']
 
 
 def _add(state: dict, argv: list[str]) -> tuple[list[str], dict]:
