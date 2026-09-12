@@ -620,7 +620,9 @@ evaluate内でのみ生成され戻り値には残さないスクラッチ領域
 ## Phase D: Git履歴・API/WS層
 
 ### P3-09 Git履歴の一本化 + リプレイ台帳の土台
-- [ ] 未着手
+- [x] 完了（2026-09-12）。`git_ops._commit` の統合ワールド分岐でスナップショットに `processes`/`cron_jobs`/
+  `current_user`/`remote_mode`/`ssh_host` を追加（commit = セーブとして世界全体を戻せるように）。サイズ実測:
+  ワールド filesystem ≈ 19KB（JSON）→ 30 commit で ≈ 570KB/ユーザー。許容範囲と判断し `COMMIT_CAP` は 30 のまま
 
 `git_ops.py`自体はP3-01/03で状態が1本化されれば機能的な変更はほぼ不要（Mission単位のリセットが構造的に無くなるため）。
 30コミット上限×統合済みワールド全体のdeepcopyのサイズを一度実測（テキストのみなので通常は問題ないはずだが未検証）。
@@ -628,7 +630,13 @@ evaluate内でのみ生成され戻り値には残さないスクラッチ領域
 ファイル: `app/evaluator/git_ops.py`（`advance_mission`呼び出しの配線のみ）
 
 ### P3-10 `ws/terminal.py`: 単一永続セッション化
-- [ ] 未着手
+- [x] 完了（2026-09-12）。`mission_id` クエリ撤去（FastAPI は未知クエリを無視するので現行フロントの URL でも接続可）、
+  `_load_or_create(session, user_id)` → `PlayerState` 単一行、クリア検出は exec 前後の `active_mission_id` 比較
+  （event に `cleared_mission_id` を追加）、`_handle_resume` は統合ワールドならスナップショットに存在するキーだけ
+  （current_path/filesystem/env_vars/mission_progress/processes/cron_jobs/current_user/remote_mode/ssh_host）を復元。
+  `state_summary` に `active_mission_id`/`current_user`、`_commit_meta` に `mission_id` を追加。`build_initial_state(mission_id)`
+  はテスト用に残置（Phase F で移す）。`tests/test_ws.py` を書き換え + resume 2 件追加（スナップショット復元 / クリア前セーブへの
+  巻き戻しで進捗・区画ロックも戻ること）
 
 `build_initial_state(mission_id)` → `build_initial_world_state()`（mission_id引数を廃止）。
 `/ws/terminal?mission_id=<id>`のクエリパラメータを廃止（未リリースのため同時デプロイ前提でよい）。
@@ -639,7 +647,11 @@ evaluate内でのみ生成され戻り値には残さないスクラッチ領域
 ファイル: `app/ws/terminal.py`
 
 ### P3-11 API層: `missions.py`/`state.py`
-- [ ] 未着手
+- [x] 完了（2026-09-12）。448 tests green / ruff clean。`missions._completed_ids` は `PlayerState.mission_progress.completed`
+  を読む（レスポンス形は不変）。`GET /api/missions/{id}/state/` → `GET /api/state/`（`active_mission_id`/`current_user`/
+  `mission_progress` を返し `mission_id`/`mission_flags` を廃止。フロントはこの API を呼んでいないため影響なし）。
+  `docs/設計指示書.md` § 6/§ 7 を該当行のみ更新（旧版 `old_files/設計指示書_011.md`）。`missionstate` テーブルの drop は
+  Phase F（テストから `MissionState` 参照を外した後）に送る
 
 `missions.py::_completed_ids`: 全`MissionState`行を跨ぐクエリ→単一`PlayerState`の`mission_progress`読み取りに変更。
 **`GET /api/missions/`と`GET /api/missions/{id}/`のレスポンス形は変えない**（フロント無改修で済む）。

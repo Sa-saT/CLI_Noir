@@ -4,7 +4,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.api.deps import create_user
-from app.models import MissionState, default_state
+from app.evaluator import progress
+from app.models import PlayerState, default_world_state
 
 
 def _auth_header(client: TestClient) -> dict[str, str]:
@@ -15,9 +16,11 @@ def _auth_header(client: TestClient) -> dict[str, str]:
 
 
 def _complete(session: Session, user_id: int, mission_id: int) -> None:
-    state = default_state()
-    state["mission_flags"]["completed"] = True
-    session.add(MissionState(user_id=user_id, mission_id=mission_id, data=state))
+    """mission_id までの Mission を順にクリア済みにした PlayerState を 1 行 add する。"""
+    state = default_world_state()
+    for mid in range(1, mission_id + 1):
+        progress.advance_mission(state, mid)
+    session.add(PlayerState(user_id=user_id, data=state))
     session.commit()
 
 

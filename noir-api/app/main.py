@@ -27,8 +27,8 @@ app.add_middleware(
 # --- HTTP ルータ（読み取り中心。state 書き込みは WS evaluator のみ） ---
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(missions.router, prefix="/api/missions", tags=["missions"])
-# state は missions のサブリソース: /api/missions/{id}/state/（設計指示書 § 6）
-app.include_router(state.router, prefix="/api/missions", tags=["state"])
+# state はユーザーごとの永続統合ワールド 1 つ: /api/state/（設計指示書 § 6、P3-11）
+app.include_router(state.router, prefix="/api/state", tags=["state"])
 
 # --- WebSocket: /ws/terminal ---
 app.include_router(terminal.router)

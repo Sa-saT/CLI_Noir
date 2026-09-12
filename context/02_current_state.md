@@ -26,7 +26,7 @@ CLI_Noir/
 
 **Mission1〜22 すべて実プレイ可能**（241 tests green / ruff clean）。詳細は `context/01_decisions_log.md`「Phase2 バックエンド実装」節・`context/03_pending_items.md` Backend 節を参照。
 
-- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は MVP 時点から変更なし（Part5 のカットオーバー P3-10/P3-11 で PlayerState 参照へ切り替える）
+- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は **P3-10/P3-11（2026-09-12）で `PlayerState`（統合ワールド）参照へ切替済み**。`/ws/terminal`（クエリ無し）、`GET /api/state/`。`build_initial_state(mission_id)`・`MissionState` はテスト用に残置
 - `app/models/tables.py`: User / MissionState / `default_state()` に加え、**Part5 用の `PlayerState`（user_id UNIQUE の統合ワールド）と `default_world_state()` を追加済み（P3-01, 2026-08-16）**。現時点では追加のみで API/WS はまだ MissionState を読み書きしている（両テーブル並存。`missionstate` の drop はカットオーバー後の別 Alembic リビジョン）
 - `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
 - `app/evaluator/`:

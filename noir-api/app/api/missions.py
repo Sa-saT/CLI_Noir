@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.api.deps import get_current_user
 from app.content.missions import all_missions, get_mission
 from app.evaluator import progress
-from app.models import MissionState, User
+from app.models import PlayerState, User
 from app.models.db import get_session
 
 router = APIRouter()
@@ -36,14 +36,12 @@ class MissionDetail(BaseModel):
 
 
 def _completed_ids(session: Session, user_id: int) -> set[int]:
-    rows = session.exec(
-        select(MissionState).where(MissionState.user_id == user_id)
-    ).all()
-    return {
-        r.mission_id
-        for r in rows
-        if r.data.get("mission_flags", {}).get("completed")
-    }
+    row = session.exec(
+        select(PlayerState).where(PlayerState.user_id == user_id)
+    ).first()
+    if row is None:
+        return set()
+    return set(row.data["mission_progress"]["completed"])
 
 
 def _status_for(mission_id: int, completed: set[int]) -> str:
