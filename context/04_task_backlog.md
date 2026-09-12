@@ -26,7 +26,14 @@
   Mission4〜22 の独り言・ヒントは未起草
 - **Part 5: 永続統合ワールド化（P3-01〜P3-14 + FE3-01/02）— Phase A〜E 完了 ✅（2026-09-12）。残: Phase F（P3-12〜14 テスト移行・MissionState 廃止）**。Goal: **Mission単位で分離されていた仮想FSを、ユーザーごとに1つの永続的な統合ワールドに再設計する**（2026-08-12 Opus で設計・ユーザーと数往復の議論で確定）
 
-**次回セッションの入り方**: ユーザーの目視フィードバック（独り言レイヤー・キー操作の手触り）を先に反映 → Phase F（P3-12 から）→ Mission4〜22 の独り言・直接ヒント起案。
+**次回セッションの入り方（2026-09-13 終業時）**: **最初に「疑似ターミナルの動作不良」の確認と修正**。ユーザーが実ブラウザ（`localhost:3000` + `detective01`）で
+動作不良を確認した（症状の詳細は未聴取 — セッション冒頭で「どの操作で・何が起きたか（画面の表示 / console のエラー）」を聞く）。
+疑わしい箇所（今日の変更点）: ① `MonologueLayer` のスクリム（scene 全面・pointer-events:none だが本文 `.plate` はクリック可）が
+ターミナル入力やブリーフィングのボタンを覆っていないか ② `TerminalView` のキーハンドラ統合（Enter / IME / Ctrl 系）で入力が
+送れない・二重送信していないか ③ 常時接続化（`app.vue` の watch）で hello 前に exec すると `Error: not connected` になる／
+再接続ループ ④ `--font-narration` 追加後の `pnpm dev` 再起動漏れ（古いコンポーネントのまま）。
+再現は Playwright（`~/.pyenv/versions/3.10.1/bin/python`、スクリプトの型は scratchpad の `e2e_story.py` 参照）か、ユーザーの
+console ログで。修正後に → 目視フィードバック反映 → Phase F（P3-12 から）→ Mission4〜22 の独り言・直接ヒント起案。
 
 ---
 

@@ -35,6 +35,8 @@
 
 **フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
 
+- [ ] **疑似ターミナルの動作不良（2026-09-13 ユーザー報告・症状未聴取）**: 次回冒頭で確認・修正。候補は `04_task_backlog.md`「次回セッションの入り方」参照
+
 ### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
 - [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）
 - [x] Nuxt ルーティング（/missions, /missions/{id}）。Mission 一覧 `app/pages/missions/index.vue` + 詳細/開始導線 `app/pages/missions/[id].vue`（ターミナル本体は FE-03/04 で追加配線）。FE-02
