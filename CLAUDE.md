@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は Mission1〜22 全実装済み（2026-07-20 完了）、フロントエンド（`noir-client/`）は着手済みだが実バックエンド未接続（`context/03_pending_items.md` § Frontend、`context/04_task_backlog.md` Part 2 参照）。
+CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は Mission1〜22 全実装済み + ユーザーごとの**永続統合ワールド**（`PlayerState`）へ移行済み（2026-09-12 Phase D 完了）。フロントエンド（`noir-client/`）は実バックエンド接続済み・**常時ターミナル**設計（ログインごとに WS 1 本）+ 進行案内「独り言レイヤー」（2026-09-13）。現状と残タスクは `context/03_pending_items.md`・`context/04_task_backlog.md` を参照。
 
 - コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
 - MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）
@@ -18,8 +18,8 @@ CLI_Noir/
 ├ CLAUDE.md      … 本ファイル
 ├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
-├ noir-client/   … Nuxt 4 フロント実装（実装済み。app/components/*.vue + pages。evaluator はモックのまま未接続）
-├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み。241 tests green / ruff clean）
+├ noir-client/   … Nuxt 4 フロント実装（実バックエンド接続済み。app/components/*.vue + pages/missions）
+├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み・統合ワールド。459 tests green / ruff clean）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```
@@ -51,7 +51,7 @@ CLI_Noir/
 
 セッション開始時にコンテキストを復元する場合は `context/00_READ_ME_FIRST.md` から順に `context/` 内 5 ファイルを読む。
 
-**実装タスクの復元**: セッション内タスクリストが空の場合、`context/04_task_backlog.md`（実装タスクの正。Part 1=バックエンド Phase2・完了済み、Part 2=フロントエンド FE-01〜FE-08・次の着手対象）から未完了タスクを TaskCreate で復元してから着手する。タスク完了時は backlog 側のチェックボックスも [x] にする。
+**実装タスクの復元**: セッション内タスクリストが空の場合、`context/04_task_backlog.md`（実装タスクの正。Part 1〜3 完了、Part 5 は Phase F（テスト移行）が残り。冒頭の進捗サマリを見る）から未完了タスクを TaskCreate で復元してから着手する。タスク完了時は backlog 側のチェックボックスも [x] にする。
 
 - `docs/DESIGN.md` — UI/ビジュアル仕様（カラートークン・レイアウト・コンポーネント分解・moc との差分表）。フロントエンド実装時に併読
 - `docs/AUTHORING_GUIDE.md` — Mission・コマンドの作り込みガイド（5幕構造・定義スキーマ・DoD）。コンテンツ追加時は必読
@@ -84,8 +84,8 @@ cd backend && alembic upgrade head && uvicorn app.main:app --reload
 
 ## アーキテクチャの要点
 
-- **仮想FS**: `user_id + mission_id` 単位で 1 レコード、DB の JSON カラムに永続化。再ログイン時に current_path / filesystem / remote_mode / git_state / mission_flags を復元する
-- **WebSocket**: `/ws/terminal?mission_id=<id>`。初回 `auth` フレームで JWT 認証 → `hello` で state 返却 → `exec`/`result` フレームでコマンド実行（denylist → allowlist → evaluator → state 更新）。**state とクリア判定の書き込みは evaluator のみ**(クライアントが state を書ける HTTP API は廃止済み)
+- **仮想FS**: **ユーザーごとに 1 レコード**（`PlayerState`。22 Mission 分の区画を最初から持ち、未解放区画はディレクトリ権限で不可視）、DB の JSON カラムに永続化。`mission_progress`（completed / active_mission_id / flags / released / story_fired）で進捗管理。`/root/case_file.sh` はアクティブ Mission から動的合成
+- **WebSocket**: `/ws/terminal`（クエリ無し・ログインごとに 1 本）。初回 `auth` フレームで JWT 認証 → `hello` で state 返却 → `exec`/`result` フレームでコマンド実行（denylist → allowlist → evaluator → state 更新）。**state とクリア判定の書き込みは evaluator のみ**(クライアントが state を書ける HTTP API は廃止済み)
 - **認証**: HTTP は `Authorization: Bearer`(SimpleJWT)、WebSocket は接続後の初回メッセージで JWT を渡す(query parameter は漏洩リスクのため不採用)
 - **コマンド制御**: allowlist 方式。判定順序は denylist → allowlist → 実行。`git` は第1トークン判定後にサブコマンドを別途分岐。`rm` は全般禁止、`curl` は mock API 限定
 - **SSH**: 疑似接続。`amusement_park`（初期ディレクトリ `/gate`、Mission3 用）が確定済み。local へ戻るのは `exit` のみ（`cd` 不可）
@@ -94,7 +94,8 @@ cd backend && alembic upgrade head && uvicorn app.main:app --reload
 
 - `git commit` = **ゲームセーブ**（何度でも可）、`git push` = **クリア判定**（最新 commit の snapshot で合否判定）
 - 順序制約: `sh case_file.sh`（判定実行）→ `git add`（必須）→ `git commit` → `git push`
-- 再ログイン時は commits 一覧から任意のセーブを選んで再開。次 Mission 遷移時に前 Mission のクリア前 commit は全消去
+- 再ログイン時は commits 一覧から任意のセーブを選んで再開（resume はワールド全体＝進捗・区画ロック込みで巻き戻す）。commit 履歴はプレイ全体で 1 本（上限 30）
+- 進行案内は探偵の**独り言**（`MissionDef.story_beats`、`app/evaluator/story.py`）でストーリー誘導、ヒントは別枠で直接的なゴール説明。相棒キャラは不採用
 - 実 Git 連携は行わない（`git_state` JSON で管理）
 
 ## 最重要設計原則

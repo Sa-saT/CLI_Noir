@@ -1,6 +1,6 @@
 # 未完了・未確定の項目
 
-更新日: 2026-08-12（バックエンド Phase2 完了 + フロントエンド実バックエンド接続 完了。Mission1〜3 がブラウザで通しプレイ可能）
+更新日: 2026-09-13（Part5 Phase D 完了・常時ターミナル・独り言レイヤーを反映）
 
 ---
 
@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了 — Mission1〜22 全実装・241 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 459 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）

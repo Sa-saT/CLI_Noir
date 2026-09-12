@@ -46,6 +46,7 @@ docs/design-system/
 | Scene | `mission-header` / `scene-overlay` | `MissionHeader.vue` / `SceneOverlay.vue` | § 3 / § 5 |
 | Feedback | `clear-effect` / `rank-up-effect` / `save-select-modal` | `ClearEffect.vue` / `RankUpEffect.vue` / `SaveSelectModal.vue` | § 6 / § 5 |
 | Primitives | `button` | `NoirButton.vue` | § 2 |
+| Story | （未登録。次回 ClaudeDesign 側に起こす） | `StoryOverlay.vue`（独り言の台詞窓。2026-09-13 local 先行） | 設計指示書 § 11 機能 4 |
 
 ### prop 名の対応メモ（React → Vue で踏襲）
 
@@ -60,7 +61,7 @@ docs/design-system/
 
 > **シーンのメイン画像は第一級の仕様**（2026-07-07 追加）。ClaudeDesign の SceneOverlay が `image`/`fading` を持つよう更新済み。
 > かつて Nuxt 固有だった `SceneView.vue` はこの更新で役割を SceneOverlay に統合し**廃止**した。
-> 場面→画像のマッピング（Mission1-3=自室 `office.png` / ssh 先=現地絵）はゲーム状態＝ページ側（`pages/index.vue` の `sceneImages`）が持つ。
+> 場面→画像のマッピング（Mission1-3=自室 `office.png` / ssh 先=現地絵）はゲーム状態＝ページ側（`pages/missions/[id].vue` の `SCENE_IMAGES`）が持つ。
 
 ## 元仕様との整合
 
@@ -97,4 +98,4 @@ docs/design-system/
 |---|---|---|
 | `tokens/*.css`, `styles.css` | `docs/design-system/tokens/`, `styles.css` | `noir-client/app/assets/css/tokens/`, `main.css` |
 | `components/<name>/<Name>.jsx` | （ミラーに複製しない。`get_file` で都度参照） | `noir-client/app/components/*.vue` |
-| `ui_kits/detective-terminal/` | `docs/design-system/ui_kits/detective-terminal/` | `noir-client/app/pages/index.vue`（レイアウト参照） |
+| `ui_kits/detective-terminal/` | `docs/design-system/ui_kits/detective-terminal/` | `noir-client/app/pages/missions/[id].vue`（レイアウト参照） |

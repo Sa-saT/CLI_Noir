@@ -11,11 +11,12 @@
 4. `03_pending_items.md`（未完了・未確定の項目）
 5. `04_task_backlog.md`（実装タスクバックログ。**実装を続ける場合は必読** — セッション内タスクリストが空ならここから復元）
 
-## 実装の現状（2026-07-20 時点）
+## 実装の現状（2026-09-13 時点）
 
-- **バックエンド `noir-api/`（FastAPI）は Phase2 まで完了**: Mission1〜22 すべて実プレイ可能（241 tests green / ruff clean）。詳細は `02_current_state.md`「noir-api/」節・`01_decisions_log.md`「Phase2 バックエンド完了」節を参照
-- **フロント `noir-client/`（Nuxt 4 SPA）は実装着手済みだが未接続**: DESIGN.md § 5 の 10 コンポーネント + Mission1 合成画面（`pages/index.vue`・**evaluator はモックのまま、実バックエンド未接続**）+ ギャラリー（`pages/design.vue`）。デザインは ClaudeDesign から pull（[[design-workflow-claudedesign-to-local]]）
-- **次の実装対象はフロントエンド**: `04_task_backlog.md` の「Part 2: フロントエンド」（FE-01〜FE-08。認証UI→Mission一覧→WS接続→TerminalView連携→コマンドパネル→場面画像→セーブ選択→E2E確認の順）
+- **バックエンド `noir-api/`（FastAPI）**: Mission1〜22 実装済み（459 tests green / ruff clean）。**Part5 永続統合ワールド化は Phase A〜D 完了**（ユーザーごとに 1 つの `PlayerState`、区画の権限ゲート、`/root/case_file.sh` 動的合成、WS `/ws/terminal`・`GET /api/state/` は `PlayerState` を参照）。残りは Phase F（テストを統合ワールド基準へ移行し `MissionState` を廃止）
+- **フロント `noir-client/`（Nuxt 4 SPA）**: 実バックエンド接続済み。**「常時ターミナル」設計**（`app.vue` がログインごとに WS を 1 本張る。Mission ページは表示切替専用）+ bash 風キー操作（↑↓/Ctrl+L/C/A/E/U/W）+ **独り言レイヤー**（`StoryOverlay.vue`。サーバーの `story_beats` に反応するタイプライター台詞窓）。見た目の目視確認は都度ユーザーが行う
+- **コンテンツ**: Mission1〜3 の独り言・直接ヒントは確定（`docs/Mission参照ファイル.md`）。Mission4〜22 は未起草
+- 次の候補: ユーザーの目視フィードバック反映 → Phase F → Mission4〜22 の独り言起草。詳細は `04_task_backlog.md` 冒頭の進捗サマリ
 - タスク別に読むファイルを絞る指針は `CLAUDE.md`「エージェント向け・読むファイルの絞り込み」を参照
 
 ## 読み込み後にやること

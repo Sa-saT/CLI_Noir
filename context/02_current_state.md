@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-09-07（Part5 Phase A・B 完了 + Phase C（P3-07/P3-08）完了を反映。それ以外のバックエンド記述は 2026-07-20 時点）
+更新日: 2026-09-13（Part5 Phase D・常時ターミナル・独り言レイヤーを反映）
 
 ---
 
@@ -38,7 +38,8 @@ CLI_Noir/
   - `progress.py`（新規, P3-02/P3-05）— `mission_progress` の純粋関数群（`completed_ids`/`status_from_completed`/`status_for`/`compute_active_mission_id`/`refresh_active_mission_id`/`active_mission_id`）+ **P3-05 で `flags`（両 state 形状を吸収するフラグアクセサ）・`release_missions`（冪等な区画解放）・`advance_mission`（クリア記録→active更新→flagsリセット→解放）を追加**。`api/missions.py::_status_for` はここへ委譲済み
   - `env.py`（新規, P3-04c）— `env_for(state)`。`env_vars` のフラット形（Mission 別 state）とユーザー別ネスト形（統合ワールド）を吸収する。engine/commands/judge はこれ経由で環境変数を読み書きする
   - **Part5 統合ワールドの状態（2026-09-07 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）、`SSH_HOSTS[host]["required_mission_id"]` で未解放ホストへの `ssh` をゲート（P3-06。未登録ホストと同文言 `Host not found`）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。判定の相対パス対応（BUG-01）は **P3-08 で完了**（Phase C 完了）。残るは **API/WS 層のカットオーバー（Phase D: P3-09〜P3-11）→ フロント（Phase E）→ テスト移行（Phase F）**
-  - `git_ops.py` — 疑似Git（変更なし）
+  - `git_ops.py` — 疑似Git。統合ワールドでは commit スナップショットに mission_progress/processes/cron/user/ssh 状態を含む（P3-09）。`git status` は現状 + 次の一手の案内行（UX-02）
+  - `story.py`（新規, STORY-01）— 独り言レイヤーの発火判定（`start_beats`/`after_beats`/`clear_beats`。発火記録は `mission_progress.story_fired`）
 - 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
 - 未実装（allowlist にあるが未登録）: awk のみ
 - `docs/設計指示書.md` の ghost.example「初期ディレクトリ未定」は**解消済み**（`/den`、Mission12/22 で使用）。`corp_server`・`archive_node` は Phase3 予約のまま未使用
@@ -48,7 +49,7 @@ CLI_Noir/
 ## 実装・デザインシステム（2026-07-07 追加）
 
 ### `noir-client/`（Nuxt 4 SPA / ssr:false。2026-08-12 実バックエンド接続完了・FE-01〜08。**2026-09-12 FE3-01/02 で「常時ターミナル」化**: WS 接続は `app.vue` がログイン状態で 1 本張る。Mission ページは表示切替専用）
-- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント実装（TerminalView がハブ）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
+- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント + `StoryOverlay.vue`（独り言の台詞窓。ClaudeDesign 側には未登録）。TerminalView がハブ（↑↓履歴・Ctrl キー対応）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
 - `app/pages/index.vue` … `/` へのアクセスを認証状態に応じて `/missions` or `/login` へ redirect するだけのエントリポイント（旧モック evaluator は撤去済み）
 - `app/pages/login.vue` … ログイン画面（`POST /api/auth/login/`）
 - `app/pages/missions/index.vue` … Mission 一覧（`GET /api/missions/`。cleared/open/locked カード表示）
