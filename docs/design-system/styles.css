@@ -2,3 +2,7 @@
 @import "./tokens/colors.css";
 @import "./tokens/typography.css";
 @import "./tokens/spacing.css";
+
+/* Typewriter caret for MonologueLayer — global because a .jsx component
+   cannot declare @keyframes inline. */
+@keyframes cli-noir-monologue-caret { 0%,49%{opacity:1} 50%,100%{opacity:0} }

@@ -11,6 +11,10 @@
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;       /* body */
   --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, monospace; /* code/terminal */
   --font-accent: "Josefin Sans", "Jost", sans-serif;             /* deco accent: eyebrows, scène numbers, chapter labels — small-caps only */
+  /* Narration voice (sound-novel monologue layer). NO new webfont: latin glyphs
+     use the existing display serif (Zilla Slab, same as H1–H3), CJK glyphs fall
+     through to the OS mincho already on the machine. Never the terminal's mono. */
+  --font-narration: "Zilla Slab", "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
 
   /* Type scale (px) */
   --text-xs: 0.75rem;    /* 12 */
@@ -26,6 +30,7 @@
   --leading-normal: 1.5;
   --leading-relaxed: 1.65;
   --leading-term: 1.55;
+  --leading-narration: 1.9;  /* monologue — sparse, sound-novel cadence */
 
   --tracking-term: 0.02em;
   --tracking-caps: 0.12em; /* rank labels, section eyebrows */

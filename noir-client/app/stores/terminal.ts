@@ -110,13 +110,18 @@ export const useTerminalStore = defineStore('terminal', {
         this.advanceStory()
       }
     },
-    /** 次の独り言へ進める。キューが空なら何もしない（最後の beat は表示されたまま）。 */
+    /** 次の独り言へ進める。キューが空なら何もしない。 */
     advanceStory() {
       if (this.storyQueue.length === 0) return
       const next = this.storyQueue.shift()
       if (!next) return
       this.storyCurrent = next
       this._pushStoryLog(next)
+    },
+    /** 一連の独り言を閉じる（Esc / 最後の beat をクリック / 放置）。次の beat が届けばまた表示される。 */
+    completeStory() {
+      this.storyCurrent = null
+      if (this.storyQueue.length > 0) this.advanceStory()
     },
   },
 })

@@ -21,7 +21,7 @@
   UX-02: `git status` を正しい状態 + 次の一手の案内行に、rail のスクロール・CommandDetail の × を修正。
   STORY-01: **設計判断（ユーザー決定）= 進行案内は探偵本人の独り言（相棒キャラ不採用）でストーリー誘導、ヒントは別枠で直接的なゴール説明**。
   バックエンド: `MissionDef.story_beats` + `app/evaluator/story.py`（`start`/`after`/`clear` の発火判定。発火記録は `mission_progress.story_fired`）+ WS `hello.story` / `event: story`。
-  フロント: `StoryOverlay.vue`（scene 下辺・タイプライター・クリックで早送り・4 秒で自動送り・⋯ でログ）+ 停滞判定（ブリーフィングを閉じてから 60 秒無操作 or 連続エラー 3 回 → 共通独り言 + ヒントボタン明滅）。
+  フロント: `MonologueLayer.vue`（ClaudeDesign `monologue-layer` に追随。枠なし・scene 全面に素テキスト・`--font-narration`・句読点で間・クリックで早送り・4 秒で自動送り・Esc で閉じる）+ 停滞判定（ブリーフィングを閉じてから 60 秒無操作 or 連続エラー 3 回 → 共通独り言 + ヒントボタン明滅）。
   文言の正は `docs/Mission参照ファイル.md`（Mission1〜3 の「独り言」表・新ヒント）。headless Chromium で Mission1 の全 beat が順に出て Mission2 導入まで繋がることを確認。**見た目の目視は未**。
   Mission4〜22 の独り言・ヒントは未起草
 - **Part 5: 永続統合ワールド化（P3-01〜P3-14 + FE3-01/02）— Phase A〜E 完了 ✅（2026-09-12）。残: Phase F（P3-12〜14 テスト移行・MissionState 廃止）**。Goal: **Mission単位で分離されていた仮想FSを、ユーザーごとに1つの永続的な統合ワールドに再設計する**（2026-08-12 Opus で設計・ユーザーと数往復の議論で確定）

@@ -49,7 +49,7 @@ CLI_Noir/
 ## 実装・デザインシステム（2026-07-07 追加）
 
 ### `noir-client/`（Nuxt 4 SPA / ssr:false。2026-08-12 実バックエンド接続完了・FE-01〜08。**2026-09-12 FE3-01/02 で「常時ターミナル」化**: WS 接続は `app.vue` がログイン状態で 1 本張る。Mission ページは表示切替専用）
-- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント + `StoryOverlay.vue`（独り言の台詞窓。ClaudeDesign 側には未登録）。TerminalView がハブ（↑↓履歴・Ctrl キー対応）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
+- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント + `MonologueLayer.vue`（独り言レイヤー。ClaudeDesign `monologue-layer` の移植: 枠なし・scene 全面の素テキスト・`--font-narration`）。TerminalView がハブ（↑↓履歴・Ctrl キー対応）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
 - `app/pages/index.vue` … `/` へのアクセスを認証状態に応じて `/missions` or `/login` へ redirect するだけのエントリポイント（旧モック evaluator は撤去済み）
 - `app/pages/login.vue` … ログイン画面（`POST /api/auth/login/`）
 - `app/pages/missions/index.vue` … Mission 一覧（`GET /api/missions/`。cleared/open/locked カード表示）

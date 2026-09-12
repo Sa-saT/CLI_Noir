@@ -233,11 +233,11 @@ function onNext() {
           {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
         </NoirButton>
       </SceneOverlay>
-      <StoryOverlay
+      <MonologueLayer
         :beat="store.storyCurrent"
         :has-next="store.storyHasNext"
-        :log="store.storyLog"
         @advance="store.advanceStory"
+        @complete="store.completeStory"
       />
       <div v-if="store.pendingResume" class="resume-overlay">
         <SaveSelectModal
@@ -348,6 +348,7 @@ function onNext() {
 .clear-overlay {
   position: absolute;
   inset: 0;
+  z-index: 45; /* MonologueLayer（40）より上、SaveSelectModal（50）より下 */
 }
 .resume-overlay {
   /* fixed: 画面全体を覆い、選択が済むまでターミナル操作をさせない（scene 領域内の

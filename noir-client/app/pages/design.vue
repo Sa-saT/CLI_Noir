@@ -7,12 +7,8 @@ import type { StoryBeat } from '~/types/ws'
 const storyBeat = ref<StoryBeat>({
   id: 'sample-1',
   mission_id: 1,
-  text: '……名刺の裏に走り書き。`cat businesscard.txt` で中身を見てみるか。',
+  text: '雨の月曜。依頼人は俺の名刺を一瞥して言った——名前が無い、と。\n……確か、机（desk）の上に置きっぱなしのはず。',
 })
-const storyLog: StoryBeat[] = [
-  { id: 'sample-0', mission_id: 1, text: '机の引き出しが半分開いている。何かが引っかかって閉まらない。' },
-  storyBeat.value,
-]
 const termLines = ref<TerminalLine[]>([
   { id: 1, source: 'system', text: '-- reconnected --' },
   { id: 2, source: 'out', text: 'Welcome, Detective. Mission 1: Edit Business Card' },
@@ -70,7 +66,7 @@ const termLines = ref<TerminalLine[]>([
         />
       </div>
       <div class="card no-pad story-card">
-        <StoryOverlay :beat="storyBeat" :has-next="true" :log="storyLog" />
+        <MonologueLayer :beat="storyBeat" :has-next="true" />
       </div>
     </section>
 
@@ -170,7 +166,7 @@ const termLines = ref<TerminalLine[]>([
 }
 .story-card {
   position: relative;
-  height: 160px;
+  height: 320px;
   background: linear-gradient(155deg, var(--poster-blue) 0%, var(--poster-black) 62%);
 }
 .stack {

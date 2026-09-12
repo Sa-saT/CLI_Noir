@@ -7,6 +7,10 @@ claude.ai/design の **「CLI_Noir Design System」** プロジェクトの **lo
 > 開発仕様（2026-07-07 確定）: **デザイン変更は ClaudeDesign で行い、変更を local へ落とし込む**。
 > 詳細は末尾「更新フロー」を参照。
 
+## 同期履歴
+
+- 2026-09-13: `tokens/typography.css`（`--font-narration` / `--leading-narration`）、`styles.css`（`cli-noir-monologue-caret` keyframes）、`components/monologue-layer` を pull。ui_kit・colors・spacing・fonts は差分なし。noir-client 側の `tokens/colors.css` にだけ `--term-success` がローカル追加されている（ClaudeDesign 未反映の逆ドリフト。次回 ClaudeDesign 側に足すか撤去するか決める）
+
 ## アートディレクション（2026-07-07 更新）
 
 ノワール基調に 3 つの意匠レイヤーを重ねた作り込みへ更新済み:
@@ -46,7 +50,7 @@ docs/design-system/
 | Scene | `mission-header` / `scene-overlay` | `MissionHeader.vue` / `SceneOverlay.vue` | § 3 / § 5 |
 | Feedback | `clear-effect` / `rank-up-effect` / `save-select-modal` | `ClearEffect.vue` / `RankUpEffect.vue` / `SaveSelectModal.vue` | § 6 / § 5 |
 | Primitives | `button` | `NoirButton.vue` | § 2 |
-| Story | （未登録。次回 ClaudeDesign 側に起こす） | `StoryOverlay.vue`（独り言の台詞窓。2026-09-13 local 先行） | 設計指示書 § 11 機能 4 |
+| Story | `monologue-layer` | `MonologueLayer.vue`（独り言レイヤー。2026-09-13 pull） | 設計指示書 § 11 機能 4 |
 
 ### prop 名の対応メモ（React → Vue で踏襲）
 
@@ -57,6 +61,7 @@ docs/design-system/
 - ClearEffect: `stamp` / `sub` / `ctaLabel`（旧 `title` → `stamp`）
 - RankUpEffect: `eyebrow` / `title` / `body` / `from` / `to` / `unlocks`
 - SaveSelectModal: `saves[{ hash, message, when, latest }]`（旧 `title` → `message`）
+- MonologueLayer: `lines`/`visible`/`speaker`/`speed`(34)/`dim`(0.55)/`onAdvance`/`onComplete`。Vue 版はサーバーから beat が逐次届くため `beat`（現在の 1 件）+ `hasNext` + `advance`/`complete` emit に読み替え、次が待っていれば 4 秒で自動送り（React 版に無い追加。`speaker` は独り言方針のため未使用）。書体は `--font-narration`（等幅で描かない）、スクリムは pointer-events:none、z-index 40（ClearEffect 45 / SaveSelectModal 50 より下）
 - SceneOverlay: `image`（シーン地。場面ごと差し替え）/ `fading` / `caption` / `badge` / `cardTitle` / `cardBody`。`image` を第一級要素として `object-fit: cover` で敷き、ポスター調のキャプション帯・バッジ・イベントカードはその上にオーバーレイ。写真シーンには可読性スクリムを自動付与。`image` 変化で 0.8s クロスフェード（ssh/exit の local⇄remote 遷移）。`image` 空はポスターグラデにフォールバック。
 
 > **シーンのメイン画像は第一級の仕様**（2026-07-07 追加）。ClaudeDesign の SceneOverlay が `image`/`fading` を持つよう更新済み。
