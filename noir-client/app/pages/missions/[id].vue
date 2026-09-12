@@ -84,6 +84,12 @@ function onSelectCommand(name: string) {
   selectedCommand.value = name
 }
 
+// UX-01b: Ctrl+C は入力を破棄するのみでサーバーへは送らず、実 bash と同じ見た目
+// （プロンプト + 入力途中文字列 + ^C）をスクロールバックに残す。
+function onInterrupt(line: string) {
+  store.pushEchoedInput(`${line}^C`, store.promptState)
+}
+
 // --- FE-07: セーブ選択（再ログイン時の commit 一覧） ---
 const saves = computed<SaveEntry[]>(() => store.commits.map((c, idx) => ({
   hash: `#${c.id}`,
@@ -212,6 +218,8 @@ function onNext() {
         :prompt="store.promptState"
         :connected="store.connected"
         @command="socket.exec"
+        @clear="store.clearScrollback"
+        @interrupt="onInterrupt"
       />
     </section>
   </div>

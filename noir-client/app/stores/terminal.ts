@@ -81,6 +81,10 @@ export const useTerminalStore = defineStore('terminal', {
     pushEchoedInput(text: string, prompt: PromptState) {
       this.pushLine('input', text, prompt)
     },
+    /** Ctrl+L / `clear` コマンド共通。scrollback を空にする（実ターミナルの clear と同じ）。 */
+    clearScrollback() {
+      this.lines = []
+    },
     applyState(state: { current_path: string, remote_mode: boolean, ssh_host: string | null }) {
       this.currentPath = state.current_path
       this.remoteMode = state.remote_mode

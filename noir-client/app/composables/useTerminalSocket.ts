@@ -123,6 +123,11 @@ export function useTerminalSocket() {
       store.pushLine(styleToSource(line.style), line.text)
     }
     store.applyState(frame.state)
+    // `clear` コマンドはエコーされた入力行ごと消える（実ターミナルと同じ手触り）。
+    // frame.lines を積んだ後にクリアする（バックエンドは空出力を返すため実質 no-op だが順序を保証しておく）。
+    if (frame.ok && frame.command.trim() === 'clear') {
+      store.clearScrollback()
+    }
   }
 
   function handleEvent(frame: EventFrame) {
