@@ -49,6 +49,9 @@
 - [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。残り: `Ctrl+R` 逆検索・Tab 補完（下記）
 - [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
 
+- [ ] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Mission1〜3 の形が目視で固まってから。文体は `01_decisions_log.md` 2026-09-13 節）
+- [ ] ClaudeDesign 同期（2026-09-13 に `DesignSync` が未認可で止まった。次回冒頭で `/design-login` → tokens/ui_kit を pull → `StoryOverlay` を ClaudeDesign 側に起こしてから local へ落とす。方向は ClaudeDesign → local のみ）
+
 ### テスト
 - [x] Mission1〜3 のE2Eシナリオ（FE-08。Playwright 経由の実 Chromium ブラウザで、ログイン → Mission1（cat/echo/sh case_file.sh/git add・commit・push）→ Mission2（find/grep/sh/git）→ Mission3（ssh amusement_park/exit を含む）まで通しプレイし、3件とも "Mission Complete!" とコンソールエラー 0 件を確認。加えてセーブ選択（再訪 → resume/start-over 両方）も確認。自動テストコード自体はリポジトリに未追加— 手動 E2E 確認の記録として残す。恒久的な自動化が必要なら Vitest/Playwright を `noir-client` に導入する別タスクとして検討）
 - [ ] コマンドカテゴリごとの正常系/異常系（Vitest 等の自動テストが `noir-client` に未導入。上記 E2E は手動確認）
