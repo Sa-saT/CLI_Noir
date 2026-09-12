@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
 
@@ -45,7 +45,48 @@ const revealedHints = ref(0)
 function revealNextHint() {
   if (!mission.value) return
   revealedHints.value = Math.min(revealedHints.value + 1, mission.value.hints.length)
+  hintGlow.value = false
 }
+
+// --- STORY-01: 停滞（stall）判定（フロント側ローカル。Mission ごとに一度だけ発火） ---
+// サーバーからは来ない。60秒無操作、または `result` の ok=false が3回連続で発火する。
+const hintGlow = ref(false)
+let stallFired = false
+let stallTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearStallTimer() {
+  if (stallTimer) {
+    clearTimeout(stallTimer)
+    stallTimer = null
+  }
+}
+function scheduleStallTimer() {
+  clearStallTimer()
+  if (stallFired) return
+  // ブリーフィングを読んでいる間は「停滞」ではない。閉じてから計測を始める
+  if (briefingOpen.value) return
+  stallTimer = setTimeout(fireStall, 60000)
+}
+function fireStall() {
+  if (stallFired) return
+  // 捜査中でない（クリア済み等の）Mission ページを眺めているだけなら口を出さない
+  if (store.activeMissionId !== missionId.value) return
+  stallFired = true
+  clearStallTimer()
+  store.enqueueStory([{
+    id: 'stall',
+    mission_id: missionId.value,
+    text: '……手が止まっている。焦らなくていい。ヒントを見るのは恥じゃない。',
+  }])
+  if (mission.value && mission.value.hints.length > 0) hintGlow.value = true
+}
+// 操作（scrollback の変化）を最後の操作時刻とみなし、そのたびにタイマーを引き直す。
+watch(() => store.lines.length, () => scheduleStallTimer())
+// 連続失敗3回で即発火。
+watch(() => store.consecutiveErrors, (n) => {
+  if (n >= 3) fireStall()
+})
+onBeforeUnmount(clearStallTimer)
 
 const commands = computed<CommandEntry[]>(() => buildCommandEntries(mission.value?.allowed_commands ?? []))
 const detail = computed(() => {
@@ -65,19 +106,26 @@ async function loadMission(id: number) {
   }
 }
 
-onMounted(() => loadMission(missionId.value))
+onMounted(() => {
+  loadMission(missionId.value)
+  scheduleStallTimer()
+})
 
 // 次 Mission への遷移など、同一コンポーネントのまま id だけ変わるケースに対応。
 // 接続には触らない（常時接続。app.vue 管理）。
 watch(missionId, (id) => {
   revealedHints.value = 0
   briefingOpen.value = true
+  stallFired = false
+  hintGlow.value = false
+  scheduleStallTimer()
   loadMission(id)
 })
 
 function closeBriefing() {
   if (!mission.value || mission.value.status === 'locked') return
   briefingOpen.value = false
+  scheduleStallTimer()
 }
 
 function onSelectCommand(name: string) {
@@ -185,6 +233,12 @@ function onNext() {
           {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
         </NoirButton>
       </SceneOverlay>
+      <StoryOverlay
+        :beat="store.storyCurrent"
+        :has-next="store.storyHasNext"
+        :log="store.storyLog"
+        @advance="store.advanceStory"
+      />
       <div v-if="store.pendingResume" class="resume-overlay">
         <SaveSelectModal
           title="セーブを選んで再開"
@@ -211,6 +265,7 @@ function onNext() {
       <div v-if="mission.hints.length" class="hint-box">
         <NoirButton
           variant="secondary"
+          :class="{ glow: hintGlow }"
           :disabled="revealedHints >= mission.hints.length"
           @click="revealNextHint"
         >
@@ -336,6 +391,13 @@ function onNext() {
   box-shadow: var(--shadow-card), var(--bezel-brass);
   padding: var(--space-3);
   font-family: var(--font-ui);
+}
+.hint-box :deep(.glow) {
+  animation: hint-glow 1.2s ease-in-out infinite;
+}
+@keyframes hint-glow {
+  0%, 100% { box-shadow: var(--bezel-brass); }
+  50% { box-shadow: var(--bezel-brass), 0 0 12px 2px var(--brass-400); }
 }
 .hint-list {
   margin: var(--space-3) 0 0;

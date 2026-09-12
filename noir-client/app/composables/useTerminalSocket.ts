@@ -109,6 +109,7 @@ export function useTerminalSocket() {
     store.connected = true
     store.connecting = false
     reconnectDelay = RECONNECT_MIN_MS
+    if (frame.story?.length) store.enqueueStory(frame.story)
     if (awaitingResumeHello) {
       // resume フレームへの応答（§ 7）。再接続ではなくセーブ復元の確認。
       awaitingResumeHello = false
@@ -130,6 +131,10 @@ export function useTerminalSocket() {
       store.pushLine(styleToSource(line.style), line.text)
     }
     store.applyState(frame.state)
+    // STORY-01: 停滞（stall）判定はフロント側（Mission ページ）が行う。その材料として
+    // 直近の成否と連続失敗回数だけ store に置いておく。
+    store.lastResultOk = frame.ok
+    store.consecutiveErrors = frame.ok ? 0 : store.consecutiveErrors + 1
     // `clear` コマンドはエコーされた入力行ごと消える（実ターミナルと同じ手触り）。
     // frame.lines を積んだ後にクリアする（バックエンドは空出力を返すため実質 no-op だが順序を保証しておく）。
     if (frame.ok && frame.command.trim() === 'clear') {
@@ -146,6 +151,8 @@ export function useTerminalSocket() {
       // バックエンド未実装（types/ws.ts 冒頭コメント参照）。実装され次第、テキスト表示ではなく
       // RankUpEffect.vue（未接続）へ繋ぎ直すこと。
       store.pushLine('system', `-- ランクアップ: Level ${frame.level}（新規解放: ${frame.unlocked.join(', ')}） --`)
+    } else if (frame.name === 'story') {
+      store.enqueueStory(frame.beats)
     }
   }
 

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CommitMeta, Style, StateSummary } from '~/types/ws'
+import type { CommitMeta, StoryBeat, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
@@ -14,6 +14,7 @@ import type { CommitMeta, Style, StateSummary } from '~/types/ws'
  */
 
 const SCROLLBACK_LIMIT = 2000
+const STORY_LOG_LIMIT = 200
 
 const STYLE_TO_SOURCE: Record<Style, LineSource> = {
   normal: 'out',
@@ -43,8 +44,19 @@ export const useTerminalStore = defineStore('terminal', {
     nextMissionId: null as number | null,
     pendingResume: false,
     _nextLineId: 1,
+    // --- STORY-01: 進行案内「独り言レイヤー」 ---
+    storyQueue: [] as StoryBeat[],
+    storyLog: [] as StoryBeat[],
+    storyCurrent: null as StoryBeat | null,
+    // --- STORY-01: 停滞（stall）判定用。useTerminalSocket.handleResult が更新する ---
+    lastResultOk: true,
+    consecutiveErrors: 0,
   }),
   getters: {
+    /** 独り言の未表示キューが残っているか（次へ進めるかの表示制御に使う）。 */
+    storyHasNext(state): boolean {
+      return state.storyQueue.length > 0
+    },
     /**
      * 「今どのホストにいるか」の単一ソース。プロンプト表示（promptState.host）と
      * 場面画像解決（missions/[id].vue の scene_images 最長一致キー）の両方がここを参照する。
@@ -83,6 +95,28 @@ export const useTerminalStore = defineStore('terminal', {
       this.sshHost = state.ssh_host
       this.activeMissionId = state.active_mission_id
       this.currentUser = state.current_user
+    },
+    /** 表示済みログへ積む（上限 200。古いものから捨てる）。 */
+    _pushStoryLog(beat: StoryBeat) {
+      this.storyLog.push(beat)
+      if (this.storyLog.length > STORY_LOG_LIMIT) {
+        this.storyLog.splice(0, this.storyLog.length - STORY_LOG_LIMIT)
+      }
+    },
+    /** 独り言をキューへ積む。表示中が無ければ即座に先頭を表示へ回す。 */
+    enqueueStory(beats: StoryBeat[]) {
+      this.storyQueue.push(...beats)
+      if (!this.storyCurrent && this.storyQueue.length > 0) {
+        this.advanceStory()
+      }
+    },
+    /** 次の独り言へ進める。キューが空なら何もしない（最後の beat は表示されたまま）。 */
+    advanceStory() {
+      if (this.storyQueue.length === 0) return
+      const next = this.storyQueue.shift()
+      if (!next) return
+      this.storyCurrent = next
+      this._pushStoryLog(next)
     },
   },
 })

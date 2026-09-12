@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { TerminalLine } from '~/components/TerminalView.vue'
+import type { StoryBeat } from '~/types/ws'
 
 // Static sample data for the gallery previews.
+const storyBeat = ref<StoryBeat>({
+  id: 'sample-1',
+  mission_id: 1,
+  text: '……名刺の裏に走り書き。`cat businesscard.txt` で中身を見てみるか。',
+})
+const storyLog: StoryBeat[] = [
+  { id: 'sample-0', mission_id: 1, text: '机の引き出しが半分開いている。何かが引っかかって閉まらない。' },
+  storyBeat.value,
+]
 const termLines = ref<TerminalLine[]>([
   { id: 1, source: 'system', text: '-- reconnected --' },
   { id: 2, source: 'out', text: 'Welcome, Detective. Mission 1: Edit Business Card' },
@@ -58,6 +68,9 @@ const termLines = ref<TerminalLine[]>([
           card-title="引き出しの中身"
           card-body="色褪せた名刺が一枚。裏に走り書き —「22時、桟橋。金は持ってきたか」。"
         />
+      </div>
+      <div class="card no-pad story-card">
+        <StoryOverlay :beat="storyBeat" :has-next="true" :log="storyLog" />
       </div>
     </section>
 
@@ -154,6 +167,11 @@ const termLines = ref<TerminalLine[]>([
 .scene-card :deep(section),
 .scene-card > * {
   height: 100%;
+}
+.story-card {
+  position: relative;
+  height: 160px;
+  background: linear-gradient(155deg, var(--poster-blue) 0%, var(--poster-black) 62%);
 }
 .stack {
   display: flex;
