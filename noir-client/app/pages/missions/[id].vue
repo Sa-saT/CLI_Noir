@@ -28,6 +28,7 @@ interface MissionDetail {
   status: 'cleared' | 'open' | 'locked'
   hints: string[]
   field_card: FieldCardData | null
+  recap: { start?: string, clear?: string } | null
 }
 
 const route = useRoute()
@@ -128,6 +129,7 @@ watch(missionId, (id) => {
   briefingOpen.value = true
   stallFired = false
   hintGlow.value = false
+  recapShownFor = null
   scheduleStallTimer()
   loadMission(id)
 })
@@ -138,10 +140,24 @@ watch(() => store.missionCleared, (cleared) => {
   if (cleared) briefingOpen.value = false
 })
 
+// 解決済み（CLOSED）の事件を開き直したとき: サーバーの独り言は捜査中の Mission にしか
+// 発火しないので、冒頭の独り言を回想として流し、解決済みであることを添える（2026-09-14）。
+let recapShownFor: number | null = null
+function playRecapIfCleared() {
+  const m = mission.value
+  if (!m || m.status !== 'cleared' || !m.recap?.start || recapShownFor === m.id) return
+  recapShownFor = m.id
+  store.enqueueStory([
+    { id: `recap-start-${m.id}`, mission_id: m.id, text: m.recap.start },
+    { id: `recap-note-${m.id}`, mission_id: m.id, text: `——この事件は解決済み。もう一度歩いてみるのは自由だが、判定は捜査中の事件（Mission ${store.activeMissionId ?? '?'}）に向く。手順を見返すならリプレイ台帳。` },
+  ])
+}
+
 function closeBriefing() {
   if (!mission.value || mission.value.status === 'locked') return
   briefingOpen.value = false
   scheduleStallTimer()
+  playRecapIfCleared()
 }
 
 function onSelectCommand(name: string) {

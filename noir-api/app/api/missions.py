@@ -38,6 +38,9 @@ class MissionDetail(BaseModel):
     hints: list[str]
     # 現場実習カード（§ 11 機能 11）。None は未起草
     field_card: dict | None = None
+    # 回想用: 冒頭とクリアの独り言（解決済み事件を開き直したときにフロントが流す。
+    # 進行中の発火はサーバー（WS の story イベント）が行う）
+    recap: dict[str, str] | None = None
 
 
 def _completed_ids(session: Session, user_id: int) -> set[int]:
@@ -87,6 +90,13 @@ def list_missions(
     ]
 
 
+def _recap_for(mission) -> dict[str, str] | None:
+    beats = {b["id"]: b["text"] for b in mission.story_beats if b["when"] in ("start", "clear")}
+    if not beats:
+        return None
+    return {k: v for k, v in beats.items() if k in ("start", "clear")}
+
+
 @router.get("/{mission_id}/", response_model=MissionDetail)
 def mission_detail(
     mission_id: int,
@@ -109,6 +119,7 @@ def mission_detail(
         status=_status_for(mission.id, completed),
         hints=mission.hints,
         field_card=FIELD_CARDS.get(mission.id),
+        recap=_recap_for(mission),
     )
 
 

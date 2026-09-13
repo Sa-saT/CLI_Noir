@@ -121,3 +121,12 @@ def test_replay_ledger_lists_the_missions_own_commands(
     assert ledger["commands"][0]["n"] == 1
     assert client.get("/api/missions/2/replay/", headers=headers).json()["commands"] == []
     assert client.get("/api/missions/999/replay/", headers=headers).status_code == 404
+
+
+def test_detail_carries_recap_beats(client: TestClient, session: Session) -> None:
+    """解決済み事件を開き直したときの回想用に、冒頭とクリアの独り言を返す。"""
+    create_user(session, "detective01", "secret")
+    headers = _auth_header(client)
+    detail = client.get("/api/missions/1/", headers=headers).json()
+    assert set(detail["recap"]) == {"start", "clear"}
+    assert "雨の月曜" in detail["recap"]["start"]
