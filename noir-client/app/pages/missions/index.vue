@@ -128,7 +128,7 @@ function onLogout() {
   clip-path: polygon(0 0, 34% 0, 22% 100%, 0 100%);
   -webkit-mask-image: radial-gradient(circle at 20% 34%, transparent 0, transparent 12vw, #000 calc(12vw + 1px));
   mask-image: radial-gradient(circle at 20% 34%, transparent 0, transparent 12vw, #000 calc(12vw + 1px));
-  opacity: 0.32;
+  opacity: 0.18;
 }
 .page > * {
   position: relative;
