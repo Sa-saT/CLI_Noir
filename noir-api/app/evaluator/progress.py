@@ -111,6 +111,24 @@ def _node_at(world: dict, abs_path: str) -> dict | None:
     return node
 
 
+def _graft_area_from_template(world: dict, abs_path: str) -> dict | None:
+    """初期ワールドの雛形（build_world_filesystem）から `abs_path` の区画を複製して
+    `world` に継ぎ足す。親ディレクトリが無い／雛形にも無い場合は None。"""
+    template = missions.build_world_filesystem()
+    src = _node_at(template, abs_path)
+    if src is None:
+        return None
+    segs = [s for s in abs_path.split("/") if s]
+    parent = _node_at(world, "/" + "/".join(segs[:-1])) if len(segs) > 1 else {
+        "type": "dir",
+        "children": world,
+    }
+    if parent is None or parent.get("type") != "dir":
+        return None
+    parent.setdefault("children", {})[segs[-1]] = copy.deepcopy(src)
+    return parent["children"][segs[-1]]
+
+
 def release_missions(state: dict) -> None:
     """未解放（locked でない）Mission の区画を解放する（統合ワールド state 専用・冪等）。
 
@@ -162,9 +180,13 @@ def release_missions(state: dict) -> None:
         # ディレクトリ権限ゲートを解放する（未解放は mode="---------"/owner="system"）。
         for path in missions.mission_area_paths(mission_id):
             node = _node_at(world, path)
+            if node is None:
+                # 追加エピソード（Mission23〜）より前に作られた世界には区画が無い。
+                # 初期ワールドの雛形から区画を継ぎ足して救済する（古いセーブの互換）。
+                node = _graft_area_from_template(world, path)
             if node is None or node.get("type") != "dir":
-                # 区画が世界に存在しないのは設計ミス（build_world_filesystem 側の
-                # バグ）。黙って飛ばすとテストでも気づけないため例外にする。
+                # 雛形にも無いのは設計ミス（build_world_filesystem 側のバグ）。
+                # 黙って飛ばすとテストでも気づけないため例外にする。
                 raise ValueError(
                     f"mission area {path} not found while releasing mission {mission_id}"
                 )

@@ -146,3 +146,17 @@ def test_release_mission21_poisons_only_detective_path() -> None:
     state["env_vars"]["detective"]["PATH"] = "/usr/local/bin:/usr/bin:/bin"
     progress.release_missions(state)
     assert state["env_vars"]["detective"]["PATH"] == "/usr/local/bin:/usr/bin:/bin"
+
+
+def test_release_grafts_missing_area_into_an_old_world() -> None:
+    """追加エピソード前に作られた世界（/root/team_desk が無い）でも Mission23 解放で区画が生える。"""
+    state = state_at_mission(23)
+    # 旧セーブを模して区画を消し、released からも外して解放をやり直す
+    del state["filesystem"]["root"]["children"]["team_desk"]
+    state["mission_progress"]["released"].remove(23)
+    del state["git_state"]["repo"]
+    progress.release_missions(state)
+    node = state["filesystem"]["root"]["children"]["team_desk"]
+    assert node["type"] == "dir" and "case_notes.txt" in node["children"]
+    assert node["mode"] == "rwxr-xr-x"
+    assert state["git_state"]["repo"]["current_branch"] == "main"
