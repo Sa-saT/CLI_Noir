@@ -297,6 +297,10 @@ def advance_mission(state: dict, cleared_mission_id: int) -> None:
     if cleared_mission_id not in completed:
         completed.append(cleared_mission_id)
         completed.sort()
+    # スマート捜査ボーナス / タイムアタック（機能 3・7）: クリア評価を記録する
+    from app.evaluator import score
+
+    score.record_clear(state, cleared_mission_id)
     refresh_active_mission_id(mission_progress)
     mission_progress["flags"] = {"case_checked": False}
     # やらかし体験室を閉じる（退避していた本物の世界を戻す）。sandbox が無ければ no-op。
@@ -305,6 +309,9 @@ def advance_mission(state: dict, cleared_mission_id: int) -> None:
     sandbox.leave(state)
     release_missions(state)
     return_to_office(state)
+    next_id = mission_progress.get("active_mission_id")
+    if next_id is not None:
+        score.mark_started(state, next_id)
 
 
 def return_to_office(state: dict) -> None:

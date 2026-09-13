@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.evaluator import progress, rank
+from app.evaluator import progress, rank, score
 
 
 class AuthFrame(BaseModel):
@@ -63,6 +63,9 @@ def state_summary(state: dict) -> dict:
         "rank": rank.rank_of(state),
         # やらかし体験室（Mission29）で予備の機械に繋いでいる間 True（ヘッダーに表示）
         "sandbox": bool(state.get("sandbox")),
+        # タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻（ISO）。フロントが経過を数える
+        "mission_started_at": score.started_at(state, active_mission_id),
+        "target_minutes": score.DEFAULT_TARGET_MINUTES,
     }
 
 

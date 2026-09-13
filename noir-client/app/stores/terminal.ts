@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CodexCommand, CodexError, CodexNew, CommitMeta, Fragment, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
+import type { CodexCommand, CodexError, CodexNew, CommitMeta, Fragment, MissionScore, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
@@ -41,6 +41,11 @@ export const useTerminalStore = defineStore('terminal', {
     rank: null as Rank | null,
     /** やらかし体験室（Mission29）: 予備の機械に繋いでいる間 true */
     sandbox: false,
+    /** タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻と目安分 */
+    missionStartedAt: null as string | null,
+    targetMinutes: 15,
+    /** 直近クリアの評価（機能 3）。ClearEffect の副文に出す */
+    lastScore: null as MissionScore | null,
     // --- 図鑑（ゲーム機能 2・10）。表示は scene 上の CodexLayer ---
     codexOpen: false,
     codexCommands: [] as CodexCommand[],
@@ -116,6 +121,8 @@ export const useTerminalStore = defineStore('terminal', {
       this.currentUser = state.current_user
       this.rank = state.rank ?? null
       this.sandbox = state.sandbox === true
+      this.missionStartedAt = state.mission_started_at ?? null
+      this.targetMinutes = state.target_minutes ?? 15
     },
     /** 図鑑に新規登録があった（result の codex）。一覧を差分更新し NEW を付ける。 */
     addCodexEntries(entries: CodexNew[], missionId: number | null) {
@@ -158,7 +165,8 @@ export const useTerminalStore = defineStore('terminal', {
      * サーバーは mission_clear → story の順で送るので、クリア独り言と次 Mission の start
      * 独り言はキューに溜まり、`dismissClear()` で流れ出す。
      */
-    holdStoryForClear(clearedMissionId: number, nextMissionId: number | null) {
+    holdStoryForClear(clearedMissionId: number, nextMissionId: number | null, score: MissionScore | null = null) {
+      this.lastScore = score
       this.missionCleared = true
       this.clearedMissionId = clearedMissionId
       this.nextMissionId = nextMissionId

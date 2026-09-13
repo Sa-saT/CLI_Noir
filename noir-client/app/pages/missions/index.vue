@@ -20,6 +20,7 @@ interface MissionSummary {
   title: string
   title_ja: string
   status: 'cleared' | 'open' | 'locked'
+  score?: { score: number, commands: number, par: number, bonuses: string[] } | null
 }
 
 const { apiFetch } = useApi()
@@ -95,6 +96,7 @@ function onLogout() {
           <h2 class="title">{{ m.title }}</h2>
           <span class="sub">{{ m.title_ja }}</span>
           <div class="foot">
+            <span v-if="m.score" class="badge score">{{ m.score.score }} pt · {{ m.score.commands }}手</span>
             <span v-if="STATUS_LABEL[m.status]" class="badge" :class="m.status">{{ STATUS_LABEL[m.status] }}</span>
             <span v-if="store.activeMissionId === m.id" class="badge active">捜査中</span>
           </div>
@@ -245,6 +247,12 @@ function onLogout() {
 }
 .badge.open {
   color: var(--poster-red);
+}
+.badge.score {
+  color: var(--poster-blue);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
 }
 /* 捜査中の一枚だけ影を mustard にし、黒地のバッジで示す */
 .card.active {

@@ -4,10 +4,13 @@
 withDefaults(defineProps<{
   stamp?: string
   sub?: string
+  /** スマート捜査ボーナス / 所要時間（機能 3・7）。"7 手 / 目安 9 手 · 12:03 · SMART +50" 等 */
+  verdict?: string
   ctaLabel?: string
 }>(), {
   stamp: 'Mission Complete!',
   sub: '$ git push — case closed. snapshot saved.',
+  verdict: '',
   ctaLabel: '次のミッションへ →',
 })
 defineEmits<{ (e: 'next'): void }>()
@@ -17,6 +20,7 @@ defineEmits<{ (e: 'next'): void }>()
   <div class="stage">
     <div class="stamp">{{ stamp }}</div>
     <div v-if="sub" class="sub">{{ sub }}</div>
+    <div v-if="verdict" class="verdict">{{ verdict }}</div>
     <NoirButton variant="primary" size="lg" @click="$emit('next')">{{ ctaLabel }}</NoirButton>
   </div>
 </template>
@@ -47,5 +51,11 @@ defineEmits<{ (e: 'next'): void }>()
   color: #a7f3d0;
   font-size: var(--text-sm);
   font-family: var(--font-mono);
+}
+.verdict {
+  color: var(--brass-400);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-caps);
 }
 </style>

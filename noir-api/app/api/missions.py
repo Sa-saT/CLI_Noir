@@ -24,6 +24,8 @@ class MissionSummary(BaseModel):
     title: str
     title_ja: str
     status: str
+    # スマート捜査ボーナス（機能 3）: クリア済みなら評価（score / commands / par / bonuses / elapsed_seconds）
+    score: dict | None = None
 
 
 class MissionDetail(BaseModel):
@@ -47,6 +49,15 @@ def _completed_ids(session: Session, user_id: int) -> set[int]:
     return set(row.data["mission_progress"]["completed"])
 
 
+def _scores(session: Session, user_id: int) -> dict:
+    row = session.exec(
+        select(PlayerState).where(PlayerState.user_id == user_id)
+    ).first()
+    if row is None:
+        return {}
+    return row.data["mission_progress"].get("scores", {})
+
+
 def _status_for(mission_id: int, completed: set[int]) -> str:
     """cleared: 完了 / open: 遊べる / locked: 前の Mission 未完了。
 
@@ -63,12 +74,14 @@ def list_missions(
     session: Session = Depends(get_session),
 ) -> list[MissionSummary]:
     completed = _completed_ids(session, current_user.id)
+    scores = _scores(session, current_user.id)
     return [
         MissionSummary(
             id=m.id,
             title=m.title,
             title_ja=m.title_ja,
             status=_status_for(m.id, completed),
+            score=scores.get(str(m.id)),
         )
         for m in all_missions()
     ]

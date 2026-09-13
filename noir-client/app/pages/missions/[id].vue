@@ -154,6 +154,35 @@ function onInterrupt(line: string) {
   store.pushEchoedInput(`${line}^C`, store.promptState)
 }
 
+// --- スマート捜査ボーナス / タイムアタック演出（ゲーム機能 3・7。表示のみ） ---
+function fmtSec(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+const BONUS_LABEL: Record<string, string> = { SMART: 'スマート捜査 +50', NEAR: '手際よし +20', PIPE: 'パイプ一閃 +20' }
+const verdict = computed(() => {
+  const sc = store.lastScore
+  if (!sc) return ''
+  const parts = [`${sc.commands} 手 / 目安 ${sc.par} 手`]
+  if (sc.elapsed_seconds != null) parts.push(fmtSec(sc.elapsed_seconds))
+  for (const b of sc.bonuses) parts.push(BONUS_LABEL[b] ?? b)
+  parts.push(`${sc.score} pt`)
+  return parts.join(' · ')
+})
+// 経過時間（演出のみ。目安を過ぎても失敗にはならない）
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | null = null
+onMounted(() => { clock = setInterval(() => { now.value = Date.now() }, 1000) })
+onBeforeUnmount(() => { if (clock) clearInterval(clock) })
+const elapsed = computed(() => {
+  if (!store.missionStartedAt || store.activeMissionId !== missionId.value) return null
+  const started = Date.parse(store.missionStartedAt)
+  if (Number.isNaN(started)) return null
+  return Math.max(0, Math.floor((now.value - started) / 1000))
+})
+const overTarget = computed(() => elapsed.value != null && elapsed.value > store.targetMinutes * 60)
+
 // --- 現場実習カード（ゲーム機能 11）: クリア演出（と辞令）の後に発行。クリア済み Mission のページからも再表示 ---
 // クリアした Mission のカードは、次 Mission のページに移った後に出すので詳細を別に取る
 const fieldCard = ref<{ tag: string, card: FieldCardData } | null>(null)
@@ -278,6 +307,10 @@ function onNext() {
         :subtitle="mission.title_ja"
         :rank="rank"
       />
+      <p v-if="elapsed != null" class="clock" :class="{ over: overTarget }">
+        ⏱ 経過 {{ fmtSec(elapsed) }} / 目安 {{ store.targetMinutes }}:00
+        <span v-if="overTarget">— 焦らなくていい。時間切れは無い</span>
+      </p>
       <p v-if="store.connected && missionMismatch" class="mismatch">
         <template v-if="store.activeMissionId != null">
           捜査中の事件は
@@ -333,7 +366,7 @@ function onNext() {
           @start-over="onStartOver"
         />
       </div>
-      <ClearEffect v-if="store.missionCleared" class="clear-overlay" @next="onNext" />
+      <ClearEffect v-if="store.missionCleared" class="clear-overlay" :verdict="verdict" @next="onNext" />
       <div v-else-if="store.pendingRankUp" class="rankup-overlay" @click="store.dismissRankUp">
         <RankUpEffect
           :from="`Lv.${store.pendingRankUp.from_level} ${store.pendingRankUp.from_rank_name}`"
@@ -425,6 +458,18 @@ function onNext() {
   grid-area: header;
   display: flex;
   flex-direction: column;
+}
+.clock {
+  margin: 0;
+  padding: 2px var(--space-6);
+  background: var(--poster-black);
+  color: var(--brass-400);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+}
+.clock.over {
+  color: var(--term-warn);
 }
 .mismatch {
   margin: 0;

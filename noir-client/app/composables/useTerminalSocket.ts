@@ -176,7 +176,7 @@ export function useTerminalSocket() {
 
   function handleEvent(frame: EventFrame) {
     if (frame.name === 'mission_clear') {
-      store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id)
+      store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id, frame.score ?? null)
     } else if (frame.name === 'rank_up') {
       // クリア演出（ClearEffect）を閉じた後に辞令（RankUpEffect）として見せる（DESIGN.md § 6）
       store.pendingRankUp = frame

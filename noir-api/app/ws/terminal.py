@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import codex, complete, evaluate, progress, rank, rewards, story
+from app.evaluator import codex, complete, evaluate, progress, rank, rewards, score, story
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -113,6 +113,10 @@ async def terminal_ws(
     state = row.data
     # 後から増えた世界の中身（隠しファイル等）を古いセーブに継ぎ足す
     progress.ensure_world_content(state)
+    # タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻が無ければ今を記録する
+    active = progress.active_mission_id(state["mission_progress"])
+    if active is not None and score.started_at(state, active) is None:
+        score.mark_started(state, active)
     initial_beats = story.start_beats(state)
     row.data = state
     _persist(session, row)
@@ -219,6 +223,8 @@ async def terminal_ws(
                             "name": "mission_clear",
                             "cleared_mission_id": prev_active,
                             "next_mission_id": next_active,
+                            # 機能 3・7: 手数 / 目安 / ボーナス / 所要秒
+                            "score": score.score_of(state, prev_active),
                         }
                     )
                     rank_up = rank.rank_up_event(prev_state, state)

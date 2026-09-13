@@ -25,6 +25,19 @@ export interface StateSummary {
   rank: Rank
   /** やらかし体験室（Mission29）で予備の機械に繋いでいる間 true（本物の世界は退避中） */
   sandbox?: boolean
+  /** タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻（ISO）と目安分。演出のみ、時間切れは無い */
+  mission_started_at?: string | null
+  target_minutes?: number
+}
+
+/** スマート捜査ボーナス（機能 3）。クリア時の評価 */
+export interface MissionScore {
+  commands: number
+  par: number
+  bonuses: string[]
+  score: number
+  elapsed_seconds: number | null
+  target_minutes: number
 }
 
 export interface CommitMeta {
@@ -102,6 +115,7 @@ export interface MissionClearEvent {
   name: 'mission_clear'
   cleared_mission_id: number
   next_mission_id: number | null
+  score?: MissionScore | null
 }
 
 /** `mission_clear` の直後・`story` の前に届く（ランクが上がったクリアのみ）。 */
