@@ -3,6 +3,15 @@
 出典: docs/Mission参照ファイル.md。title は英語名、title_ja は画面表示名。
 allowed_commands は各 Mission の必須コマンド + 共通の基本操作（ls/cd/cat/pwd/echo/git）。
 詳細正規表現・初期FS は実装時に本 MissionDef を拡張する（設計指示書 § 11 / § 5）。
+
+**プレイ順序と id の関係（重要）**: `MissionDef.id` は「安定した事件番号」であり、
+プレイ順序そのものではない。**プレイ順序は `_DEFS` リストの並び順**で決まる。
+Mission23〜28（後日、中盤〜終盤に挿入予定）は既存 Mission を採番し直さずに
+`_DEFS` の途中へ挿入できるようにするための設計で、`id == プレイ順序` という
+前提はどこにも置かない。`all_missions()` は常に `_DEFS` の並び順（= プレイ順序）で
+返す。ある Mission の「直前/直後の Mission」を知りたいときは
+`previous_mission_id()` / `next_mission_id()` を使うこと（`mission_id - 1` /
+`mission_id + 1` のような id 演算をしない）。
 """
 
 import copy
@@ -1057,6 +1066,9 @@ _DEFS: list[MissionDef] = [
             {"id": "clear", "when": "clear", "text": "三片なら手でも並べられた。百片なら？ 道具の価値は、数が増えたときに分かる。"},
         ],
     ),
+    # --- ここに Mission23〜25 相当（git-team 編。id は既存と衝突しない新規採番）を
+    #     挿入予定。_DEFS の並び順がそのままプレイ順序になる（このコメント直下 =
+    #     Mission11 の直後・Mission12 の直前）。---
     MissionDef(
         12, "Ghost Line", "幽霊回線を追え",
         "dig で IP を割り出し、ping で生存確認して ssh で突入する。",
@@ -1313,6 +1325,9 @@ _DEFS: list[MissionDef] = [
             {"id": "clear", "when": "clear", "text": "コマンドは魔法じゃなく、リスト（PATH）の中の住所から呼ばれる道具だった。\n——「そんなコマンドは知らない」と言われたら、まずリストを疑え。"},
         ],
     ),
+    # --- ここに Mission26〜28 相当（server 編。id は既存と衝突しない新規採番）を
+    #     挿入予定。_DEFS の並び順がそのままプレイ順序になる（このコメント直下 =
+    #     Mission21 の直後・Mission22（最終事件）の直前）。---
     MissionDef(
         22, "Case Closed", "最終事件 — すべてを繋げろ",
         "学んだ全技術を関所として突破し、黒幕の名を本部に提出する。",
@@ -1348,7 +1363,36 @@ def get_mission(mission_id: int) -> MissionDef | None:
 
 
 def all_missions() -> list[MissionDef]:
-    return [MISSIONS[i] for i in sorted(MISSIONS)]
+    """Mission 一覧をプレイ順序（= `_DEFS` の並び順）で返す。
+
+    `id` 順ではない点に注意（`id` は安定した事件番号であり並び順ではない）。
+    """
+    return list(_DEFS)
+
+
+def mission_index(mission_id: int) -> int:
+    """プレイ順序での 0-based 位置。未知の mission_id は ValueError。"""
+    for i, mission in enumerate(_DEFS):
+        if mission.id == mission_id:
+            return i
+    raise ValueError(f"unknown mission_id: {mission_id}")
+
+
+def first_mission_id() -> int:
+    """プレイ順序で最初の Mission の id。"""
+    return _DEFS[0].id
+
+
+def previous_mission_id(mission_id: int) -> int | None:
+    """プレイ順序で1つ前の Mission の id（先頭 Mission なら None）。"""
+    index = mission_index(mission_id)
+    return _DEFS[index - 1].id if index > 0 else None
+
+
+def next_mission_id(mission_id: int) -> int | None:
+    """プレイ順序で1つ後の Mission の id（末尾 Mission なら None）。"""
+    index = mission_index(mission_id)
+    return _DEFS[index + 1].id if index + 1 < len(_DEFS) else None
 
 
 # =============================================================================

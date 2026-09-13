@@ -8,22 +8,30 @@ Phase F で `MissionState` ごと廃止済み。本番の WS/API 層は永続統
 組み立てる本ヘルパーに揃えている（context/04_task_backlog.md § Part5 Phase F）。
 """
 
+from app.content.missions import all_missions, mission_index
 from app.evaluator import progress
 from app.evaluator.env import _DEFAULT_USER_ENV
 from app.models import default_world_state
 
 
 def state_at_mission(n: int) -> dict:
-    """Mission n が捜査中（1..n-1 クリア済み・n の区画が解放済み）の統合ワールド state。
+    """Mission n が捜査中（n より前のプレイ順序の Mission がクリア済み・n の区画が
+    解放済み）の統合ワールド state。
 
-    cwd は /root。Mission 1..n-1 は本物の `progress.advance_mission` で順番に
+    「n より前」は id の大小ではなく `_DEFS` の並び順（プレイ順序。
+    `app.content.missions.mission_index`）で決める（id とプレイ順序が独立に
+    なったため、`range(1, n)` は使えない）。
+
+    cwd は /root。先行 Mission は本物の `progress.advance_mission` で順番に
     クリア済みにする（区画解放・プロセス/cron 投入・/etc/hosts 追記などの副作用を
     ここで再実装せず、本番と同じロジックに委ねる）。
     """
     state = default_world_state()
-    for i in range(1, n):
-        progress.advance_mission(state, i)
-        if i == 21:
+    n_index = mission_index(n)
+    preceding = all_missions()[:n_index]
+    for mission in preceding:
+        progress.advance_mission(state, mission.id)
+        if mission.id == 21:
             # Mission21 は解放時に探偵の PATH が汚染され、クリア条件が「PATH を復旧して
             # いること」なので、21 をクリア済みにした state では復旧済みでなければ
             # 辻褄が合わない（advance_mission は判定を肩代わりしないため手で戻す）。

@@ -15,7 +15,7 @@ state（統合ワールド state = `default_world_state()`）は
 import copy
 
 from app.content import missions
-from app.content.missions import all_missions
+from app.content.missions import all_missions, first_mission_id, previous_mission_id
 from app.evaluator.env import _DEFAULT_USER_ENV
 
 
@@ -42,12 +42,15 @@ def completed_ids(mission_progress: dict) -> set[int]:
 def status_from_completed(mission_id: int, completed: set[int]) -> str:
     """cleared / open / locked を返す。
 
-    Mission1 は常に open。以降は直前 Mission の完了で順次解放される
-    （既存 app/api/missions.py::_status_for と同一ロジック）。
+    先頭 Mission（`first_mission_id()`）は常に open。以降はプレイ順序で
+    直前の Mission の完了で順次解放される（既存 app/api/missions.py::_status_for
+    と同一ロジック）。「直前」は id - 1 ではなく `_DEFS` の並び順で決まる
+    （Mission23 以降の挿入に備え、id とプレイ順序を独立に保つ）。
     """
     if mission_id in completed:
         return "cleared"
-    if mission_id == 1 or (mission_id - 1) in completed:
+    prev_id = previous_mission_id(mission_id)
+    if mission_id == first_mission_id() or (prev_id is not None and prev_id in completed):
         return "open"
     return "locked"
 

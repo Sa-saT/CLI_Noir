@@ -12,7 +12,7 @@
 1 セグメントだけを置き換える）。候補にはディレクトリなら末尾 `/` を付ける。
 """
 
-from app.content.missions import BASE_COMMANDS, all_missions
+from app.content.missions import BASE_COMMANDS, all_missions, mission_index
 from app.evaluator import fs, progress
 from app.evaluator.allowlist import ALLOWLIST
 from app.evaluator.registry import get_command
@@ -30,9 +30,12 @@ def mission_commands(state: dict) -> list[str]:
     探偵ランク（app/evaluator/rank.py）はこれの最高レベルで決まる。
     """
     active = progress.active_mission_id(state["mission_progress"])
+    # 「まだ手を付けていない Mission」の判定は id の大小ではなく _DEFS の並び順
+    # （プレイ順序）で行う（Mission23 以降の挿入で id とプレイ順序がずれるため）。
+    active_index = mission_index(active) if active is not None else None
     names: dict[str, None] = {cmd: None for cmd in BASE_COMMANDS}
-    for mission in all_missions():
-        if active is not None and mission.id > active:
+    for i, mission in enumerate(all_missions()):
+        if active_index is not None and i > active_index:
             continue
         for cmd in mission.extra_commands:
             names.setdefault(cmd, None)
