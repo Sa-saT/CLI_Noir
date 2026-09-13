@@ -181,7 +181,7 @@ components/
 
 | ルート | 内容 |
 |---|---|
-| `/missions` | Mission カード一覧（open / locked / cleared）。クリア済みには「リプレイ台帳」導線（Phase2） |
+| `/missions` | Mission カード一覧（open / locked / cleared）。MissionHeader の帯（tag=CLI_Noir / title=Case Files / rank=解決数）の下に、同じポスター意匠のカード（poster black の地・赤の斜め切り抜き・Jost 見出し・Josefin タグ・brass チップ）を並べる。cleared は切り抜きが mustard + 赤い "Closed" スタンプ、locked は grayscale で "Sealed"、捜査中は brass の縁取り + 「捜査中」チップ（2026-09-13。ClaudeDesign に mission-list コンポーネントは無く、トークン + MissionHeader の組み合わせで実装）。クリア済みには「リプレイ台帳」導線（Phase2） |
 | セーブ選択モーダル | ログイン後に初めて開いた `/missions/{id}` に重ねる（commit が 1 件以上あるとき）。push 済み commit は「クリア」バッジ、日時は `YYYY-MM-DD HH:mm`（ローカル時刻）。再開後、捜査中の Mission がページと違えばそのページへ移動する（2026-09-13） |
 | `/missions/{id}` | ゲーム画面（§ 3 のレイアウト）。右レールの「← 捜査ファイル一覧」で一覧へ戻れる（常時ターミナルなので接続・scrollback は保持）。独り言（MonologueLayer）はブリーフィングカード（事件ファイル）が開いている間は保留し、「捜査を開始する」で閉じてから流す（2026-09-13） |
 
