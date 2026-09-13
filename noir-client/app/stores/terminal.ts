@@ -49,6 +49,8 @@ export const useTerminalStore = defineStore('terminal', {
     codexFresh: [] as string[],
     /** クリア演出の後に見せる辞令（rank_up イベント）。閉じるまで独り言は保留 */
     pendingRankUp: null as RankUpEvent | null,
+    /** 辞令の後に発行する現場実習カード（クリアした Mission の id）。閉じるまで独り言は保留 */
+    pendingFieldCard: null as number | null,
     commits: [] as CommitMeta[],
     lines: [] as TerminalLine[],
     missionCleared: false,
@@ -155,6 +157,7 @@ export const useTerminalStore = defineStore('terminal', {
       this.missionCleared = true
       this.clearedMissionId = clearedMissionId
       this.nextMissionId = nextMissionId
+      this.pendingFieldCard = clearedMissionId
       this.storyCurrent = null
     },
     /** クリア演出を閉じる（「次のミッションへ」）。辞令が無ければ保留していた独り言を再開する。 */
@@ -162,14 +165,19 @@ export const useTerminalStore = defineStore('terminal', {
       this.missionCleared = false
       if (!this.storyCurrent) this.advanceStory()
     },
-    /** 辞令（RankUpEffect）を閉じる。保留していた独り言を再開する。 */
+    /** 辞令（RankUpEffect）を閉じる。実習カードが無ければ保留していた独り言を再開する。 */
     dismissRankUp() {
       this.pendingRankUp = null
       if (!this.storyCurrent) this.advanceStory()
     },
-    /** 次の独り言へ進める。キューが空、またはクリア演出・辞令の表示中なら何もしない。 */
+    /** 現場実習カードを受領した。保留していた独り言を再開する。 */
+    dismissFieldCard() {
+      this.pendingFieldCard = null
+      if (!this.storyCurrent) this.advanceStory()
+    },
+    /** 次の独り言へ進める。キューが空、またはクリア演出・辞令・実習カードの表示中なら何もしない。 */
     advanceStory() {
-      if (this.missionCleared || this.pendingRankUp) return
+      if (this.missionCleared || this.pendingRankUp || this.pendingFieldCard != null) return
       if (this.storyQueue.length === 0) return
       const next = this.storyQueue.shift()
       if (!next) return

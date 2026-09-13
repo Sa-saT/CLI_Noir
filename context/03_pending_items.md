@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 536 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 537 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -28,7 +28,7 @@
 - [x] Mission21 の PATH 汚染が統合ワールドで発生しない件（2026-09-13 発覚 → 同日修正）: `release_missions` が Mission21 解放時に探偵自身の PATH を汚す方式で確定（`01_decisions_log.md` 参照）
 - [x] Mission5 の `/root/vault/inner` の空部屋問題: 封印解除スクリプト `unseal.sh`（x ビット無し）を置き、`chmod +x` → `sh unseal.sh` を判定条件に追加して解決（2026-09-13）
 
-**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。536 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
+**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。537 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
 `>file`/`>>file` の空白なし表記 / `&&` `||` `;` は黙って一部実行せず `Error: invalid input`（引用符内は対象外。本実装は設計指示書 § 8 構文レベル外のため見送り）/ `~`・`~/...` 展開（`~user` は非対応）/ `cd -`（`OLDPWD`）/ `history` が `command_log` を bash 書式で表示。詳細は `docs/バックエンド_コマンド機能仕様.md`「共通構文」「cd」「history」、テストは `tests/test_shell_idioms.py`。
 - [ ] 残る意味不一致（BUG-HUNT-01）: `find` が常に絶対パスを出力する（Mission2 導線とセットで判断）/ `&&` `;` の本実装 / `git commit -m"msg"`（クォート隣接）
 
@@ -77,7 +77,7 @@
 - [ ] ゲーム機能 12 項目（設計指示書 § 11。Phase2 の 8 + 2026-07-07 追加の 4）の UI 設計
 - [x] やらかし体験室 → Mission29「消せ、と男は言った」として実装（2026-09-13。`sandbox.py`。本編 denylist 不変）
 - [x] エラー図鑑・道具図鑑（機能 2・10）を実装（2026-09-13。`app/content/codex.py` の翻訳文、`CodexLayer.vue`）
-- [ ] 現場実習カードの文面作成（安全コマンド限定 + macOS/Windows のターミナルの開き方）
+- [x] 現場実習カード（機能 11）を全 29 Mission 分起草・実装（2026-09-13。`app/content/field_cards.py` + `FieldCard.vue`）
 - [ ] `cowsay` / `figlet` の evaluator 定義（バックエンド_コマンド機能仕様への追加。隠し実績の解放条件設計も）
 
 ### 解消済みの旧課題
@@ -90,7 +90,7 @@
 ### ゲーム機能 9〜12 の未定項目（2026-07-07 採用に伴う）
 - ~~やらかし体験室の解放トリガー~~ → Mission29 として物語に組み込み（2026-09-13 確定）
 - ご褒美コマンド（cowsay/figlet）の隠し実績の条件（案: 隠しファイル収集数と連動。未確定）
-- Mission1〜3 の現場実習カード文面（実装時確定。Mission4〜22 も同様）
+- ~~現場実習カード文面~~ → 2026-09-13 全 Mission 起草済み
 
 ### SSH 接続先の未定項目
 - `corp_server` と `archive_node` は Mission 未割当のまま予約（Phase3 以降の拡張用）

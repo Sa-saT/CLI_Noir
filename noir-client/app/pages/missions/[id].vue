@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
 import type { CodexCommand, CodexError } from '~/types/ws'
+import type { FieldCardData } from '~/components/FieldCard.vue'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
@@ -25,6 +26,7 @@ interface MissionDetail {
   allowed_commands: string[]
   status: 'cleared' | 'open' | 'locked'
   hints: string[]
+  field_card: FieldCardData | null
 }
 
 const route = useRoute()
@@ -151,6 +153,33 @@ function onSelectCommand(name: string) {
 function onInterrupt(line: string) {
   store.pushEchoedInput(`${line}^C`, store.promptState)
 }
+
+// --- 現場実習カード（ゲーム機能 11）: クリア演出（と辞令）の後に発行。クリア済み Mission のページからも再表示 ---
+// クリアした Mission のカードは、次 Mission のページに移った後に出すので詳細を別に取る
+const fieldCard = ref<{ tag: string, card: FieldCardData } | null>(null)
+const fieldCardManual = ref(false)
+watch(() => [store.missionCleared, store.pendingRankUp, store.pendingFieldCard] as const, async ([cleared, rankUp, pending]) => {
+  if (cleared || rankUp || pending == null) return
+  if (fieldCard.value?.tag === `Mission ${pending}`) return
+  try {
+    const detail = await apiFetch<MissionDetail>(`/api/missions/${pending}/`)
+    if (detail.field_card) fieldCard.value = { tag: `Mission ${detail.id}`, card: detail.field_card }
+    else store.dismissFieldCard()
+  } catch {
+    store.dismissFieldCard()
+  }
+}, { immediate: true })
+function closeFieldCard() {
+  fieldCardManual.value = false
+  fieldCard.value = null
+  store.dismissFieldCard()
+}
+function showFieldCardAgain() {
+  if (!mission.value?.field_card) return
+  fieldCard.value = { tag: `Mission ${mission.value.id}`, card: mission.value.field_card }
+  fieldCardManual.value = true
+}
+const fieldCardVisible = computed(() => fieldCard.value != null && (fieldCardManual.value || (store.pendingFieldCard != null && !store.missionCleared && !store.pendingRankUp)))
 
 // --- 図鑑（ゲーム機能 2・10）: scene 上のレイヤー。開くときに一覧を取り直す ---
 async function toggleCodex() {
@@ -311,6 +340,9 @@ function onNext() {
         />
         <p class="rankup-hint">クリックして受領</p>
       </div>
+      <div v-else-if="fieldCardVisible && fieldCard" class="fieldcard-overlay">
+        <FieldCard :mission-tag="fieldCard.tag" :card="fieldCard.card" @close="closeFieldCard" />
+      </div>
     </div>
 
     <aside class="ga-rail rail">
@@ -318,6 +350,7 @@ function onNext() {
         <NoirButton variant="ghost" @click="router.push('/missions')">← 捜査ファイル一覧</NoirButton>
         <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
         <NoirButton variant="ghost" @click="toggleCodex">{{ store.codexOpen ? '図鑑を閉じる' : '図鑑（道具 / エラー）' }}</NoirButton>
+        <NoirButton v-if="mission.status === 'cleared' && mission.field_card" variant="ghost" @click="showFieldCardAgain">現場実習カード</NoirButton>
       </div>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail
@@ -435,6 +468,16 @@ function onNext() {
 .rankup-overlay :deep(.decree) {
   max-height: 100%;
   overflow: auto;
+}
+.fieldcard-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(10, 8, 6, 0.6);
 }
 .rankup-hint {
   margin: 0;

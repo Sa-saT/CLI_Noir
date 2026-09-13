@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user
+from app.content.field_cards import FIELD_CARDS
 from app.content.missions import all_missions, get_mission
 from app.evaluator import progress
 from app.models import PlayerState, User
@@ -33,6 +34,8 @@ class MissionDetail(BaseModel):
     allowed_commands: list[str]
     status: str
     hints: list[str]
+    # 現場実習カード（§ 11 機能 11）。None は未起草
+    field_card: dict | None = None
 
 
 def _completed_ids(session: Session, user_id: int) -> set[int]:
@@ -92,4 +95,5 @@ def mission_detail(
         allowed_commands=mission.allowed_commands,
         status=_status_for(mission.id, completed),
         hints=mission.hints,
+        field_card=FIELD_CARDS.get(mission.id),
     )

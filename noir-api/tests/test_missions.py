@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.api.deps import create_user
+from app.content.missions import all_missions
 from app.evaluator import progress
 from app.models import PlayerState, default_world_state
 
@@ -83,3 +84,17 @@ def test_detail_hints_are_authored_for_all_missions(
 
     mission22 = client.get("/api/missions/22/", headers=headers).json()
     assert len(mission22["hints"]) == 1
+
+
+def test_detail_carries_a_field_card_for_every_mission(
+    client: TestClient, session: Session
+) -> None:
+    """現場実習カード（§ 11 機能 11）: 全 Mission に安全な読み取り系の手順が付く。"""
+    create_user(session, "detective01", "secret")
+    headers = _auth_header(client)
+    for m in all_missions():
+        detail = client.get(f"/api/missions/{m.id}/", headers=headers).json()
+        card = detail["field_card"]
+        assert card and card["lead"] and card["steps"], m.id
+        for step in card["steps"]:
+            assert "rm " not in step["cmd"] and "dd " not in step["cmd"], (m.id, step)
