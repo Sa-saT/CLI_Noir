@@ -374,7 +374,12 @@ def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
     # があればそれを優先する。無ければ実 bash と同じく自分の操作履歴（command_log）を
     # `%5d  cmd` 書式で表示する（UX-01a）。実行中の history 自身は engine が成功後に
     # append するためまだ command_log に無く、含めない。
-    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    # 統合ワールド state は state["mission_id"] を持たないため mission_progress の
+    # アクティブ Mission へフォールバックする（run_case_file と同じフォールバック）。
+    mission_id = state.get("mission_id")
+    if mission_id is None:
+        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission = get_mission(mission_id) if mission_id else None
     informant_history = mission.informant_history if mission else None
     if informant_history:
         return [f"{i + 1}  {cmd}" for i, cmd in enumerate(informant_history)], state

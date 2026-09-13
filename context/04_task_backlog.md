@@ -709,7 +709,15 @@ UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`を
 ## Phase F: テスト移行
 
 ### P3-12 共通テストフィクスチャ: 「Mission Nまで進行済みの統合state」
-- [ ] 未着手
+- [x] 完了（2026-09-13、Sonnet 4 バッチ並列 + Opus レビュー）。`tests/helpers.py::state_at_mission(n)` を新設し、
+  `tests/test_mission2_3.py`〜`test_mission22.py` 全 20 ファイル + `test_story.py`/`test_shell_idioms.py` を統合ワールド基準へ。
+  移行で露見した**本番バグ 5 件**を同時に修正: ① judge の Mission10 パス（`/root/will_office/`）② `_MISSION15_HISTORY` のパス
+  ③ `_judge_mission15`/`history` が `state["mission_id"]` 依存で統合ワールドでは空振り ④ judge の Mission19 パス
+  （`/root/precinct_desk/patrol.sh`）⑤ `release_missions` が ssh 接続中は remote FS を見て例外（`_fs_stack[0]` を見るよう修正）。
+  意味が変わったテスト: Mission5（inner の case_file.sh ロックは統合ワールドに実体無し → pattern 判定へ）/ Mission7（Mission6 の
+  プロセスが残るため subset 比較）/ Mission16（warehouse に case_file.sh が無く 43→42）。
+  **未解決**: Mission21 の PATH 汚染が統合ワールドで一度も発生しない（`initial_env_vars` は旧 `build_initial_state` しか読まない。
+  su アカウント方式の配線・コンテンツが未実装。テストは `env_for(state)["PATH"]` を直接汚して判定ロジックのみ検証中）→ 次タスク
 
 `tests/helpers.py::state_at_mission(n)`を新設。`build_initial_world_state()`→ Mission `1..n-1`を実際の
 `advance_mission`関数（テスト専用の別実装を作らない）で順にクリア済みにし、Mission `n`が解放された状態を返す。
@@ -717,7 +725,11 @@ UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`を
 ファイル: `tests/helpers.py`（新規）, `tests/test_mission*.py`（全面差し替え）
 
 ### P3-13 テスト内の絶対パスリテラル更新
-- [ ] 未着手
+- [x] test_mission*.py 側は P3-12 と同時に完了（2026-09-13）。残: `default_state()` 形状に依存する汎用テスト
+  （`test_evaluator.py`/`test_glob.py`/`test_permissions.py`/`test_env_vars.py`/`test_resolved_log.py`/`test_text_commands.py`/
+  `test_git_and_judge.py`/`test_case_file.py`/`test_progress.py`/`test_mission11.py` の `default_state()` 利用箇所）を
+  `default_world_state()` へ寄せ、`MissionState`/`default_state()`/`build_initial_state()` を撤去（missionstate テーブル drop の
+  Alembic リビジョン込み）
 
 P3-03で移設した約7Mission分の絶対パス（`/root/tape.log`等）をテスト側でも更新。`default_state()`の形状に依存する
 テスト（`test_state.py`/`test_ws.py`等）は新フィールド（`resolved_command_log`/`mission_progress`/ユーザー別

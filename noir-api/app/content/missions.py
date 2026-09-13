@@ -400,8 +400,8 @@ _MISSION14_FS = {
 # Mission15: 情報屋の履歴（history が演出として表示）+ journal.log の足跡。
 # history どおりに再実行すると行き先（PIER 13）にたどり着く。
 _MISSION15_HISTORY = [
-    "tail -n 5 /root/journal.log",
-    "grep PIER /root/journal.log",
+    "tail -n 5 /root/informant_trail/journal.log",
+    "grep PIER /root/informant_trail/journal.log",
 ]
 
 _MISSION15_FS = {
@@ -1063,12 +1063,12 @@ _RELOCATIONS: dict[int, dict[str, str]] = {
 }
 
 # 移設によりカットオーバー（P3-08/P3-12/P3-13）で追随が要る旧パス参照:
-#   - judge.py `_MISSION10_ORIGINAL_PATH` / `_MISSION10_SUBMITTED_PATH`
-#     → /root/will_office/original.txt・submitted.txt
-#   - judge.py `_MISSION19_SCRIPT_PATH`（プレイヤーが作る patrol.sh の置き場）
-#     → /root/precinct_desk/patrol.sh
-#   - `_MISSION15_HISTORY`（情報屋の履歴）→ /root/informant_trail/journal.log
-# いずれも Mission 別 FS がまだ現役のためここでは変更しない（world 内の文章・
+#   - judge.py `_MISSION10_ORIGINAL_PATH` / `_MISSION10_SUBMITTED_PATH` は
+#     /root/will_office/original.txt・submitted.txt に追随済み（Phase F）。
+#   - judge.py `_MISSION19_SCRIPT_PATH`（プレイヤーが作る patrol.sh の置き場）は
+#     /root/precinct_desk/patrol.sh に追随済み（Phase F）。
+#   - `_MISSION15_HISTORY`（情報屋の履歴）→ /root/informant_trail/journal.log（対応済み。Phase F）
+# Mission10 以外は Mission 別 FS がまだ現役のためここでは変更しない（world 内の文章・
 # symlink が指すパスの実在は tests/test_world_fs.py が機械的に検査している）。
 
 # 複数 Mission が同じ場所を共有することを明示的に許可する絶対パス（→ 許可 mission_id）。

@@ -1,7 +1,14 @@
-"""Mission12「幽霊回線を追え」: dig/ping/ss と ghost.example への突入フロー。"""
+"""Mission12「幽霊回線を追え」: dig/ping/ss と ghost.example への突入フロー。
 
-from app.evaluator import evaluate
-from app.ws.terminal import build_initial_state
+Phase F: 統合ワールド state で検証する。ghost.example の SSH_HOSTS 定義
+（app/evaluator/commands.py）はワールド FS 構築（_build_world_fs）の対象外の
+静的な別テーブルのため、/den/case_file.sh は世界構築の case_file.sh 除去
+（_copy_without_case_files）の影響を受けず実体を保つ。そのため `sh case_file.sh`
+は ssh 接続後のカレントディレクトリ（/den 系）からの相対呼び出しのままで良い。
+"""
+
+from app.evaluator import evaluate, progress
+from tests.helpers import state_at_mission
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -9,49 +16,49 @@ def _run(state: dict, line: str) -> tuple[list[str], dict]:
 
 
 def test_dig_resolves_known_host() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "dig ghost.example")
     assert any("10.66.6.6" in ln for ln in out)
 
 
 def test_dig_unknown_host() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "dig nowhere.example")
     assert out == ["Host not found"]
 
 
 def test_host_command() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "host ghost.example")
     assert out == ["ghost.example has address 10.66.6.6"]
 
 
 def test_ping_known_host() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "ping ghost.example")
     assert "PING ghost.example (10.66.6.6): 56 data bytes" in out[0]
     assert any("0% packet loss" in ln for ln in out)
 
 
 def test_ping_unknown_host() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "ping nowhere.example")
     assert out == ["Host not found"]
 
 
 def test_ss_shows_listening_port() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, _ = _run(s, "ss -tln")
     assert any("22" in ln for ln in out)
 
 
 def test_ssh_by_hostname_and_by_ip() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     out, s2 = _run(s, "ssh ghost.example")
     assert out == ["Connected to ghost.example"]
     assert s2["current_path"] == "/den"
 
-    s3 = build_initial_state(12)
+    s3 = state_at_mission(12)
     out2, s4 = _run(s3, "ssh 10.66.6.6")
     assert out2 == ["Connected to 10.66.6.6"]
     assert s4["current_path"] == "/den"
@@ -61,7 +68,7 @@ def test_mission12_relative_path_passes_case_file() -> None:
     """P3-08c: ssh 接続後に `cd evidence` してから相対パスで `cat orders.txt`
     しても resolved_command_log 経由で判定が通ること。
     """
-    s = build_initial_state(12)
+    s = state_at_mission(12)
 
     _, s = _run(s, "dig ghost.example")
     _, s = _run(s, "ping ghost.example")
@@ -73,11 +80,11 @@ def test_mission12_relative_path_passes_case_file() -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
 
 def test_mission12_golden_transcript() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
 
     _, s = _run(s, "dig ghost.example")
     _, s = _run(s, "ping ghost.example")
@@ -88,28 +95,29 @@ def test_mission12_golden_transcript() -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
     _, s = _run(s, "git add .")
     _, s = _run(s, 'git commit -m "ghost traced"')
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
-    assert s["mission_flags"]["completed"] is True
+    assert 12 in s["mission_progress"]["completed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 13
 
 
 def test_mission12_ssh_before_investigation_blocks_clear() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     # dig/ping せずいきなり ssh してしまうと順序不成立。
     _, s = _run(s, "ssh ghost.example")
     _, s = _run(s, "cat /den/evidence/orders.txt")
     _, s = _run(s, 'echo "BOSS: Selene Vance" > report.txt')
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: investigate before you breach"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False
 
 
 def test_mission12_wrong_order_blocks_clear() -> None:
-    s = build_initial_state(12)
+    s = state_at_mission(12)
     # ping より先に ssh してしまうと順序不成立（dig はしている）。
     _, s = _run(s, "dig ghost.example")
     _, s = _run(s, "ssh ghost.example")

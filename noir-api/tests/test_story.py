@@ -9,8 +9,7 @@ from sqlmodel import Session
 
 from app.api.deps import create_user
 from app.evaluator import engine, story
-from app.models.tables import default_world_state
-from app.ws.terminal import build_initial_state
+from app.models.tables import default_state, default_world_state
 
 
 def _clear_mission1(state: dict) -> dict:
@@ -137,7 +136,11 @@ def test_after_beats_survey_only_fires_when_remote() -> None:
 
 
 def test_mission_separate_state_all_functions_return_empty() -> None:
-    state = build_initial_state(1)
+    """意図的に旧 Mission 別 state 形状（`mission_progress` を持たない
+    `default_state()`）を使う回帰テスト: story.py の3関数は `mission_progress`
+    の有無だけで対応形状を判定するため（story.py 冒頭のコメント参照）、
+    Mission 別 state ではいずれも空を返すことを確認する。"""
+    state = default_state()
     assert story.start_beats(state) == []
     assert story.after_beats(state, 1, "cd desk", [], None) == []
     assert story.clear_beats(state, 1) == []

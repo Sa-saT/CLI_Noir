@@ -1,8 +1,13 @@
-"""Mission11「切り裂かれた脅迫状」: sort/cut/paste/tr で断片を復元するフロー。"""
+"""Mission11「切り裂かれた脅迫状」: sort/cut/paste/tr で断片を復元するフロー。
 
-from app.evaluator import evaluate
-from app.ws.terminal import build_initial_state
+Phase F: Mission11 固有のテストは統合ワールド state（state_at_mission）で検証する。
+paste/tr は Mission に依存しない汎用コマンドのテストのため、従来どおり
+`default_state()`（Mission 概念を持たない素の state）を使う。
+"""
+
+from app.evaluator import evaluate, progress
 from app.models import default_state
+from tests.helpers import state_at_mission
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -61,13 +66,13 @@ def test_tr_mismatched_length_invalid() -> None:
 
 # --- Mission11 ---
 def test_mission11_sort_then_cut_reconstructs_text() -> None:
-    s = build_initial_state(11)
+    s = state_at_mission(11)
     out, _ = _run(s, "sort /root/scraps/pieces.txt | cut -d: -f2")
     assert out == ["MIDNIGHT AT THE OLD PIER", "BRING THE LEDGER", "ALONE"]
 
 
 def test_mission11_golden_transcript() -> None:
-    s = build_initial_state(11)
+    s = state_at_mission(11)
 
     _, s = _run(s, "sort /root/scraps/pieces.txt | cut -d: -f2")
     _, s = _run(
@@ -76,19 +81,20 @@ def test_mission11_golden_transcript() -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
     _, s = _run(s, "git add .")
     _, s = _run(s, 'git commit -m "note restored"')
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
-    assert s["mission_flags"]["completed"] is True
+    assert 11 in s["mission_progress"]["completed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 12
 
 
 def test_mission11_incomplete_text_blocks_clear() -> None:
-    s = build_initial_state(11)
+    s = state_at_mission(11)
     _, s = _run(s, "sort /root/scraps/pieces.txt | cut -d: -f2")
     _, s = _run(s, 'echo "MIDNIGHT AT THE OLD PIER" > report.txt')
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: pattern mismatch"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False

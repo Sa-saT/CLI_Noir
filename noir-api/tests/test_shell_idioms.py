@@ -16,7 +16,7 @@ import pytest
 
 from app.evaluator import evaluate
 from app.models.tables import default_state, default_world_state
-from app.ws.terminal import build_initial_state
+from tests.helpers import state_at_mission
 
 
 def _without_exit_status(s: dict) -> dict:
@@ -83,7 +83,7 @@ def test_glued_redirect_write_and_append_world(world_state: dict) -> None:
 
 def test_glued_stderr_redirect_not_broken() -> None:
     # 既存の Mission18 挙動（`2>/dev/null` 空白無し）が壊れていないことの確認。
-    s = build_initial_state(18)
+    s = state_at_mission(18)
     out, _ = evaluate('grep -r "witness" /root/archive 2>/dev/null', s)
     joined = "\n".join(out)
     assert "witness report" in joined
@@ -162,7 +162,7 @@ def test_tilde_expansion_world(world_state: dict) -> None:
 
 
 def test_ssh_cd_tilde_returns_to_login_dir() -> None:
-    s = build_initial_state(3)
+    s = state_at_mission(3)
     _, s = evaluate("ssh amusement_park", s)
     _, s = evaluate("cd booth", s)
     assert s["current_path"] == "/gate/booth"

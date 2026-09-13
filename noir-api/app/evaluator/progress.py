@@ -144,7 +144,12 @@ def release_missions(state: dict) -> None:
     completed = completed_ids(mission_progress)
     released = mission_progress.setdefault("released", [])
     released_set = set(released)
-    world = state.get("filesystem", {})
+    # Mission 区画はローカル（/root 以下）の概念なので、ssh 接続中で
+    # `state["filesystem"]` が remote 側に差し替わっていても、常に一番下の
+    # ローカル filesystem を見る（Mission12 で ssh したまま git push すると
+    # 存在しない区画を探しに行き例外になっていたバグの修正。Phase F）。
+    fs_stack = state.get("_fs_stack") or []
+    world = fs_stack[0]["filesystem"] if fs_stack else state.get("filesystem", {})
 
     for mission in all_missions():
         mission_id = mission.id

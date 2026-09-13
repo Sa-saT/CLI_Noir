@@ -1,7 +1,12 @@
-"""Mission20「この街の地図」: FHS の4区画（/etc /var/log /tmp /home）を巡るフロー。"""
+"""Mission20「この街の地図」: FHS の4区画（/etc /var/log /tmp /home）を巡るフロー。
 
-from app.evaluator import evaluate
-from app.ws.terminal import build_initial_state
+Phase F: 統合ワールド state で検証する。Mission20 の FHS（/etc・/var・/tmp・/bin）は
+街の常設インフラとして常時公開されており、黒幕の住居（/home/mr_black）だけが
+Mission20 の被ゲート区画（_MISSION_AREAS）。
+"""
+
+from app.evaluator import evaluate, progress
+from tests.helpers import state_at_mission
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -9,25 +14,25 @@ def _run(state: dict, line: str) -> tuple[list[str], dict]:
 
 
 def test_ls_root_shows_fhs_top_level() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     out, _ = _run(s, "ls /")
     assert set(out) == {"bin", "etc", "home", "root", "tmp", "var"}
 
 
 def test_cat_etc_hosts() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     out, _ = _run(s, "cat /etc/hosts")
     assert any("ghost.example" in ln for ln in out)
 
 
 def test_tail_entry_log_shows_black_trail() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     out, _ = _run(s, "tail -n 2 /var/log/entry.log")
     assert any("mr_black" in ln for ln in out)
 
 
 def test_mission20_golden_transcript() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
 
     _, s = _run(s, "cat /etc/hosts")
     _, s = _run(s, "tail /var/log/entry.log")
@@ -37,17 +42,18 @@ def test_mission20_golden_transcript() -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
     _, s = _run(s, "git add .")
     _, s = _run(s, 'git commit -m "black identified"')
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
-    assert s["mission_flags"]["completed"] is True
+    assert 20 in s["mission_progress"]["completed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 21
 
 
 def test_mission20_missing_zone_blocks_clear() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     # /tmp を探索していない。
     _, s = _run(s, "cat /etc/hosts")
     _, s = _run(s, "tail /var/log/entry.log")
@@ -55,24 +61,24 @@ def test_mission20_missing_zone_blocks_clear() -> None:
     _, s = _run(s, 'echo "mr_black" > report.txt')
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: the map is incomplete"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False
 
 
 def test_mission20_missing_report_blocks_clear() -> None:
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     _, s = _run(s, "cat /etc/hosts")
     _, s = _run(s, "tail /var/log/entry.log")
     _, s = _run(s, "cat /tmp/.forgotten")
     _, s = _run(s, "ls /home/mr_black")
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: pattern mismatch"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False
 
 
 def test_mission20_golden_transcript_via_relative_paths() -> None:
     """相対パス経路（P3-08d）: cd で移動してから引数なし ls / 相対パスの
     cat・tail・grep で4区画を探索しても案件書判定が通る。"""
-    s = build_initial_state(20)
+    s = state_at_mission(20)
 
     _, s = _run(s, "cd /etc")
     out, s = _run(s, "ls")
@@ -88,18 +94,19 @@ def test_mission20_golden_transcript_via_relative_paths() -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
     _, s = _run(s, "git add .")
     _, s = _run(s, 'git commit -m "black identified"')
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
-    assert s["mission_flags"]["completed"] is True
+    assert 20 in s["mission_progress"]["completed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 21
 
 
 def test_mission20_missing_zone_blocks_clear_with_relative_paths() -> None:
     """回帰: 3 区画だけ相対パスで探索しても未探索区画が残れば失敗する。"""
-    s = build_initial_state(20)
+    s = state_at_mission(20)
     _, s = _run(s, "cd /etc")
     _, s = _run(s, "ls")
     _, s = _run(s, "cd /var/log")
@@ -111,4 +118,4 @@ def test_mission20_missing_zone_blocks_clear_with_relative_paths() -> None:
     _, s = _run(s, 'echo "mr_black" > report.txt')
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: the map is incomplete"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False

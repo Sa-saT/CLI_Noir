@@ -131,8 +131,8 @@ def _judge_mission8(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
-_MISSION10_ORIGINAL_PATH = "/root/original.txt"
-_MISSION10_SUBMITTED_PATH = "/root/submitted.txt"
+_MISSION10_ORIGINAL_PATH = "/root/will_office/original.txt"
+_MISSION10_SUBMITTED_PATH = "/root/will_office/submitted.txt"
 
 
 def _judge_mission10(state: dict) -> tuple[list[str], dict]:
@@ -237,7 +237,13 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     """Mission15: informant_history の各行を command_log 上でそのまま再現し、
     かつ行き先を report（echo）したかを検査する。
     """
-    mission = get_mission(state.get("mission_id")) if state.get("mission_id") else None
+    # Mission 別 state は state["mission_id"] を持つが、統合ワールド state は
+    # 持たないため mission_progress のアクティブ Mission へフォールバックする
+    # （run_case_file と同じフォールバック。P3-04b）。
+    mission_id = state.get("mission_id")
+    if mission_id is None:
+        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission = get_mission(mission_id) if mission_id else None
     required = mission.informant_history if mission else []
     required = required or []
     log = state.get("command_log", [])
@@ -284,7 +290,7 @@ def _judge_mission16(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
-_MISSION19_SCRIPT_PATH = "/root/patrol.sh"
+_MISSION19_SCRIPT_PATH = "/root/precinct_desk/patrol.sh"
 
 
 def _judge_mission19(state: dict) -> tuple[list[str], dict]:
