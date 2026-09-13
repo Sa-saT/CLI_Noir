@@ -1,41 +1,18 @@
 """疑似 Git（#11）と Mission 判定 case_file.sh（#12）のテスト。
 
-Mission1 のゴールデントランスクリプト（設計指示書 § 10 の判定フロー）を通す。
+Mission1 のゴールデントランスクリプト（設計指示書 § 10 の判定フロー）を、
+統合ワールド state（state_at_mission(1)）で通す。
 """
 
 import pytest
 
-from app.evaluator import evaluate
-from app.models import default_state
+from app.evaluator import evaluate, progress
+from tests.helpers import state_at_mission
 
 
 @pytest.fixture
 def mission1_state() -> dict:
-    s = default_state()
-    s["mission_id"] = 1
-    root_children = s["filesystem"]["root"]["children"]
-    root_children["desk"] = {
-        "type": "dir",
-        "children": {
-            "businesscard.txt": {
-                "type": "file",
-                "content": "NAME: ???",
-                "mode": "rw-r--r--",
-                "owner": "detective",
-                "mtime": "2026-01-01T00:00:00Z",
-                "immutable": True,
-            }
-        },
-    }
-    root_children["case_file.sh"] = {
-        "type": "file",
-        "content": "# judge",
-        "mode": "rw-r--r--",
-        "owner": "detective",
-        "mtime": "2026-01-01T00:00:00Z",
-        "immutable": True,
-    }
-    return s
+    return state_at_mission(1)
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -50,7 +27,7 @@ def test_mission1_golden_transcript(mission1_state: dict) -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
     out, s = _run(s, "git status")
     # case_checked は立っているが commit が無いので、まずセーブを促す
@@ -67,7 +44,8 @@ def test_mission1_golden_transcript(mission1_state: dict) -> None:
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
     assert s["git_state"]["pushed"] is True
-    assert s["mission_flags"]["completed"] is True
+    assert 1 in s["mission_progress"]["completed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 2
 
 
 def test_case_file_mismatch_does_not_check(mission1_state: dict) -> None:
@@ -76,7 +54,7 @@ def test_case_file_mismatch_does_not_check(mission1_state: dict) -> None:
     _, s = _run(s, "cat /root/desk/businesscard.txt")
     out, s = _run(s, "sh case_file.sh")
     assert out == ["Warning: pattern mismatch"]
-    assert s["mission_flags"]["case_checked"] is False
+    assert progress.flags(s)["case_checked"] is False
 
 
 def test_commit_requires_staged(mission1_state: dict) -> None:
@@ -136,7 +114,7 @@ def test_mission1_relative_path_passes_case_file(mission1_state: dict) -> None:
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True
 
 
 def test_mission1_case_file_fallback_without_resolved_log(mission1_state: dict) -> None:
@@ -150,4 +128,4 @@ def test_mission1_case_file_fallback_without_resolved_log(mission1_state: dict) 
 
     out, s = _run(s, "sh case_file.sh")
     assert out == ["case_file.sh: all checks passed"]
-    assert s["mission_flags"]["case_checked"] is True
+    assert progress.flags(s)["case_checked"] is True

@@ -1,12 +1,11 @@
 """Mission11「切り裂かれた脅迫状」: sort/cut/paste/tr で断片を復元するフロー。
 
-Phase F: Mission11 固有のテストは統合ワールド state（state_at_mission）で検証する。
-paste/tr は Mission に依存しない汎用コマンドのテストのため、従来どおり
-`default_state()`（Mission 概念を持たない素の state）を使う。
+Phase F: 統合ワールド state（state_at_mission）で検証する。paste/tr は Mission に
+依存しない汎用コマンドのテストのため `default_world_state()` を使う。
 """
 
 from app.evaluator import evaluate, progress
-from app.models import default_state
+from app.models import default_world_state
 from tests.helpers import state_at_mission
 
 
@@ -16,7 +15,7 @@ def _run(state: dict, line: str) -> tuple[list[str], dict]:
 
 # --- paste ---
 def test_paste_joins_two_files_with_tab() -> None:
-    s = default_state()
+    s = default_world_state()
     root = s["filesystem"]["root"]["children"]
     root["a.txt"] = {
         "type": "file", "content": "1\n2", "mode": "rw-r--r--",
@@ -31,7 +30,7 @@ def test_paste_joins_two_files_with_tab() -> None:
 
 
 def test_paste_custom_delimiter() -> None:
-    s = default_state()
+    s = default_world_state()
     root = s["filesystem"]["root"]["children"]
     root["a.txt"] = {
         "type": "file", "content": "1", "mode": "rw-r--r--",
@@ -47,19 +46,19 @@ def test_paste_custom_delimiter() -> None:
 
 # --- tr ---
 def test_tr_transliterates() -> None:
-    s = default_state()
+    s = default_world_state()
     out, _ = _run(s, "echo abc | tr abc xyz")
     assert out == ["xyz"]
 
 
 def test_tr_delete() -> None:
-    s = default_state()
+    s = default_world_state()
     out, _ = _run(s, "echo 'h e l l o' | tr -d ' '")
     assert out == ["hello"]
 
 
 def test_tr_mismatched_length_invalid() -> None:
-    s = default_state()
+    s = default_world_state()
     out, _ = _run(s, "echo abc | tr ab xyz")
     assert out == ["Error: invalid input"]
 

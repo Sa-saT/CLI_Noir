@@ -1,14 +1,13 @@
 """env_vars のユーザー別 dict 対応（P3-04c）。
 
-state["env_vars"] はフラット形状（default_state()）とユーザー別形状
-（default_world_state()）の 2 通りがある。本テストは主に、統合ワールド state
-でも evaluator が通常どおりコマンドを実行できること（本タスクの主目的）と、
-su による PATH 汚染がアカウント単位に閉じ込められること（設計の肝）を検証する。
-フラット形状の回帰確認も併せて行う。
+state["env_vars"] はユーザー別 dict（default_world_state()）。本テストは、
+統合ワールド state でも evaluator が通常どおりコマンドを実行できること
+（本タスクの主目的）と、su による PATH 汚染がアカウント単位に閉じ込められる
+こと（設計の肝）を検証する。
 """
 
 from app.evaluator import evaluate
-from app.models import default_state, default_world_state
+from app.models import default_world_state
 
 
 # --- 統合ワールド state（ユーザー別形状）でコマンドが動くこと ---
@@ -104,45 +103,6 @@ def test_world_state_exit_status_stays_in_user_bucket() -> None:
 def test_world_state_cd_no_args_goes_home() -> None:
     state = default_world_state()
     _, state = evaluate("cd /root/desk", state)
-    out, state = evaluate("cd", state)
-    assert out == []
-    out, _ = evaluate("pwd", state)
-    assert out == ["/root"]
-
-
-# --- 回帰: フラット形状（default_state()）は従来どおり ---
-
-
-def test_flat_state_echo_path_unchanged() -> None:
-    state = default_state()
-    out, _ = evaluate("echo $PATH", state)
-    assert out == ["/usr/local/bin:/usr/bin:/bin"]
-
-
-def test_flat_state_export_and_unset_unchanged() -> None:
-    state = default_state()
-    _, state = evaluate("export FOO=bar", state)
-    out, state = evaluate("echo $FOO", state)
-    assert out == ["bar"]
-
-    _, state = evaluate("unset FOO", state)
-    out, _ = evaluate("echo $FOO", state)
-    assert out == [""]
-    assert "FOO" not in state["env_vars"]
-
-
-def test_flat_state_exit_status_top_level_unchanged() -> None:
-    state = default_state()
-    _, state = evaluate("pwd", state)
-    assert state["env_vars"]["?"] == "0"
-    # ユーザー別バケットは作られず、トップレベルに素の PATH/HOME/? のみが残る。
-    assert set(state["env_vars"].keys()) <= {"PATH", "HOME", "?"}
-
-
-def test_flat_state_cd_no_args_goes_home_unchanged() -> None:
-    state = default_state()
-    state["filesystem"]["root"]["children"]["desk"] = {"type": "dir", "children": {}}
-    _, state = evaluate("cd /desk", state)
     out, state = evaluate("cd", state)
     assert out == []
     out, _ = evaluate("pwd", state)

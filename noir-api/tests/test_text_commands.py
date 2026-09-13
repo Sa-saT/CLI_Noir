@@ -3,11 +3,11 @@
 import pytest
 
 from app.evaluator import evaluate
-from app.models import default_state
+from app.models import default_world_state
 
 
 def _with_file(content: str, name: str = "data.txt") -> dict:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"][name] = {
         "type": "file",
         "content": content,

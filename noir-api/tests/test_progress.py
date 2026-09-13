@@ -8,7 +8,7 @@ import copy
 from app.content import missions as missions_content
 from app.content.missions import all_missions
 from app.evaluator import progress
-from app.models.tables import default_state, default_world_state
+from app.models.tables import default_world_state
 
 _ALL_IDS = [m.id for m in all_missions()]
 
@@ -173,12 +173,6 @@ def test_flags_world_state_returns_mission_progress_flags() -> None:
     assert result == {"case_checked": False}
 
 
-def test_flags_mission_state_returns_mission_flags() -> None:
-    state = default_state()
-    result = progress.flags(state)
-    assert result is state["mission_flags"]
-
-
 def test_flags_mission_state_creates_mission_flags_if_missing() -> None:
     state: dict = {}
     result = progress.flags(state)
@@ -212,9 +206,10 @@ def _dir_gate(state: dict, abs_path: str) -> tuple[str, str]:
     return node["mode"], node["owner"]
 
 
-def test_release_missions_noop_for_mission_state() -> None:
-    """mission_progress を持たない state（Mission 別 state）には一切触らない。"""
-    state = default_state()
+def test_release_missions_noop_for_state_without_mission_progress() -> None:
+    """mission_progress を持たない state には一切触らない（no-op）。"""
+    state = default_world_state()
+    del state["mission_progress"]
     before = copy.deepcopy(state)
     progress.release_missions(state)
     assert state == before

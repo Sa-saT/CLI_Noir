@@ -1,43 +1,38 @@
-"""evaluator コア（denylist/allowlist・MVP コマンド・リダイレクト・ssh）のテスト。"""
+"""evaluator コア（denylist/allowlist・MVP コマンド・リダイレクト・ssh）のテスト。
+
+Phase F: 統合ワールド state（default_world_state()）で検証する。businesscard.txt
+は Mission1 区画（/root/desk）に既に用意されている（世界の初期配置）ため、
+独自フィクスチャは不要。ssh は Mission3 で解放されるホストなので
+`state_at_mission(3)` を使う。
+"""
+
+import copy
 
 import pytest
 
 from app.evaluator import evaluate
-from app.models import default_state
+from app.evaluator.env import env_for
+from app.models import default_world_state
+from tests.helpers import state_at_mission
 
 
 def _without_exit_status(s: dict) -> dict:
-    """env_vars["?"]（P2-15 の $? 記録）を除いた state を返す（不変性比較用）。"""
-    s2 = dict(s)
-    s2["env_vars"] = {k: v for k, v in s["env_vars"].items() if k != "?"}
+    """env_vars[user]["?"]（P2-15 の $? 記録）を除いた state を返す（不変性比較用）。"""
+    s2 = copy.deepcopy(s)
+    env_for(s2).pop("?", None)
     return s2
 
 
 @pytest.fixture
 def state() -> dict:
-    s = default_state()
-    # /root/desk/businesscard.txt を用意
-    s["filesystem"]["root"]["children"]["desk"] = {
-        "type": "dir",
-        "children": {
-            "businesscard.txt": {
-                "type": "file",
-                "content": "NAME: ???\nROLE: detective",
-                "mode": "rw-r--r--",
-                "owner": "detective",
-                "mtime": "2026-01-01T00:00:00Z",
-                "immutable": True,
-            }
-        },
-    }
-    return s
+    return default_world_state()
 
 
 def test_denylist_rejected(state: dict) -> None:
     out, new = evaluate("rm -rf /", state)
     assert out == ["Error: command not allowed"]
     assert _without_exit_status(new) == _without_exit_status(state)
-    assert new["env_vars"]["?"] == "1"
+    assert env_for(new)["?"] == "1"
 
 
 def test_unknown_command_rejected(state: dict) -> None:
@@ -47,7 +42,7 @@ def test_unknown_command_rejected(state: dict) -> None:
 
 def test_ls_and_cd_and_pwd(state: dict) -> None:
     out, _ = evaluate("ls", state)
-    assert out == ["desk"]
+    assert out == ["case_file.sh", "desk"]
 
     out, s2 = evaluate("cd desk", state)
     assert s2["current_path"] == "/root/desk"
@@ -135,7 +130,8 @@ def test_find_name(state: dict) -> None:
     assert out == ["/root/desk/businesscard.txt"]
 
 
-def test_ssh_and_exit_swaps_filesystem(state: dict) -> None:
+def test_ssh_and_exit_swaps_filesystem() -> None:
+    state = state_at_mission(3)
     out, s2 = evaluate("ssh amusement_park", state)
     assert out == ["Connected to amusement_park"]
     assert s2["remote_mode"] is True
@@ -152,9 +148,10 @@ def test_ssh_and_exit_swaps_filesystem(state: dict) -> None:
     assert "desk" in s3["filesystem"]["root"]["children"]
 
 
-def test_cd_no_argument_while_ssh_returns_to_login_dir(state: dict) -> None:
+def test_cd_no_argument_while_ssh_returns_to_login_dir() -> None:
     # ssh 接続中の引数無し cd は接続先のログインディレクトリへ戻る
     # （env_vars["HOME"] は local のままなので使えない。P3-07 / BUG-02）。
+    state = state_at_mission(3)
     _, s2 = evaluate("ssh amusement_park", state)
     assert s2["current_path"] == "/gate"
 

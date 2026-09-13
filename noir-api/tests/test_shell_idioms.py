@@ -7,50 +7,24 @@
   4. `cd -`（OLDPWD へ移動・移動先を1行表示）
   5. `history`（command_log を bash 書式で表示。Mission15 は informant_history 優先）
 
-default_state()（Mission 別 state）・default_world_state()（統合ワールド state）の
-両方の state 形状で主要ケースが通ることを確認する（P3-04c で env_for() が両形状を
-吸収する設計のため、取りこぼしが無いか両方で見る）。
+統合ワールド state（default_world_state()。/root/desk は最初から解放済み）で検証する。
 """
 
-import pytest
-
 from app.evaluator import evaluate
-from app.models.tables import default_state, default_world_state
+from app.evaluator.env import env_for
+from app.models.tables import default_world_state
 from tests.helpers import state_at_mission
 
 
 def _without_exit_status(s: dict) -> dict:
-    """env_vars["?"]（$? 記録）を除いた env_vars を返す（不変性比較の補助）。"""
+    """env_vars[user]["?"]（$? 記録）を除いた env_vars を返す（不変性比較の補助）。"""
     env = s["env_vars"]
-    if any(isinstance(v, dict) for v in env.values()):
-        user = s.get("current_user", "detective")
-        bucket = {k: v for k, v in env.get(user, {}).items() if k != "?"}
-        return {**env, user: bucket}
-    return {k: v for k, v in env.items() if k != "?"}
+    user = s.get("current_user", "detective")
+    bucket = {k: v for k, v in env.get(user, {}).items() if k != "?"}
+    return {**env, user: bucket}
 
 
-@pytest.fixture
 def state() -> dict:
-    """default_state() + /root/desk/businesscard.txt（test_evaluator.py と同じ配置）。"""
-    s = default_state()
-    s["filesystem"]["root"]["children"]["desk"] = {
-        "type": "dir",
-        "children": {
-            "businesscard.txt": {
-                "type": "file",
-                "content": "NAME: ???\nROLE: detective",
-                "mode": "rw-r--r--",
-                "owner": "detective",
-                "mtime": "2026-01-01T00:00:00Z",
-                "immutable": True,
-            }
-        },
-    }
-    return s
-
-
-@pytest.fixture
-def world_state() -> dict:
     """default_world_state()。Mission1 区画（/root/desk）は最初から解放済み。"""
     return default_world_state()
 
@@ -58,8 +32,9 @@ def world_state() -> dict:
 # --- 1. `>file` / `>>file`（空白無し） ---
 
 
-def test_glued_redirect_write_and_append(state: dict) -> None:
-    _, s2 = evaluate("echo hi >x.txt", state)
+def test_glued_redirect_write_and_append() -> None:
+    s = state()
+    _, s2 = evaluate("echo hi >x.txt", s)
     node = s2["filesystem"]["root"]["children"]["x.txt"]
     assert node["content"] == "hi"
     out, _ = evaluate("cat x.txt", s2)
@@ -70,8 +45,9 @@ def test_glued_redirect_write_and_append(state: dict) -> None:
     assert node3["content"] == "hi\nbye"
 
 
-def test_glued_redirect_write_and_append_world(world_state: dict) -> None:
-    _, s2 = evaluate("cd /root/desk", world_state)
+def test_glued_redirect_write_and_append_in_subdir() -> None:
+    s = state()
+    _, s2 = evaluate("cd /root/desk", s)
     _, s3 = evaluate("echo hi >x.txt", s2)
     node = s3["filesystem"]["root"]["children"]["desk"]["children"]["x.txt"]
     assert node["content"] == "hi"
@@ -93,72 +69,59 @@ def test_glued_stderr_redirect_not_broken() -> None:
 # --- 2. `&&` / `||` / `;` を黙って無視しない ---
 
 
-def test_double_ampersand_rejected_and_cd_not_applied(state: dict) -> None:
-    out, new = evaluate("cd desk && pwd", state)
+def test_double_ampersand_rejected_and_cd_not_applied() -> None:
+    s = state()
+    out, new = evaluate("cd desk && pwd", s)
     assert out == ["Error: invalid input"]
     # 最重要: cd だけ黙って実行してしまわないこと（current_path 不変）。
-    assert new["current_path"] == state["current_path"]
-    assert new["env_vars"]["?"] == "1"
+    assert new["current_path"] == s["current_path"]
+    assert env_for(new)["?"] == "1"
 
 
-def test_double_ampersand_rejected_world(world_state: dict) -> None:
-    out, new = evaluate("cd /root/desk && pwd", world_state)
+def test_semicolon_glued_rejected() -> None:
+    s = state()
+    out, new = evaluate("pwd; ls", s)
     assert out == ["Error: invalid input"]
-    assert new["current_path"] == world_state["current_path"]
+    assert env_for(new)["?"] == "1"
 
 
-def test_semicolon_glued_rejected(state: dict) -> None:
-    out, new = evaluate("pwd; ls", state)
+def test_or_operator_rejected() -> None:
+    s = state()
+    out, new = evaluate("ls || pwd", s)
     assert out == ["Error: invalid input"]
-    assert new["env_vars"]["?"] == "1"
+    assert env_for(new)["?"] == "1"
 
 
-def test_or_operator_rejected(state: dict) -> None:
-    out, new = evaluate("ls || pwd", state)
-    assert out == ["Error: invalid input"]
-    assert new["env_vars"]["?"] == "1"
-
-
-def test_quoted_operator_is_plain_text(state: dict) -> None:
+def test_quoted_operator_is_plain_text() -> None:
+    s = state()
     # 引用符の中の `;` `&&` は演算子ではなく文字列（`sed 's/x/y/;'` 等を壊さない）。
-    out, new = evaluate('echo "a; b && c"', state)
+    out, new = evaluate('echo "a; b && c"', s)
     assert out == ["a; b && c"]
-    assert new["env_vars"]["?"] == "0"
+    assert env_for(new)["?"] == "0"
 
 
 # --- 3. チルダ展開 ---
 
 
-def test_tilde_expansion(state: dict) -> None:
-    out, s2 = evaluate("cd ~", state)
+def test_tilde_expansion() -> None:
+    s = state()
+    out, s2 = evaluate("cd ~", s)
     assert out == []
     assert s2["current_path"] == "/root"
 
-    out, _ = evaluate("echo ~", state)
+    out, _ = evaluate("echo ~", s)
     assert out == ["/root"]
 
     # シングルクォートは展開しない。
-    out, _ = evaluate("echo '~'", state)
+    out, _ = evaluate("echo '~'", s)
     assert out == ["~"]
 
     # `~user` 形式は非対応（展開しない）。
-    out, _ = evaluate("echo ~foo", state)
+    out, _ = evaluate("echo ~foo", s)
     assert out == ["~foo"]
 
-    out, _ = evaluate("cat ~/desk/businesscard.txt", state)
+    out, _ = evaluate("cat ~/desk/businesscard.txt", s)
     assert out == ["NAME: ???", "ROLE: detective"]
-
-
-def test_tilde_expansion_world(world_state: dict) -> None:
-    out, s2 = evaluate("cd ~", world_state)
-    assert out == []
-    assert s2["current_path"] == "/root"
-
-    out, _ = evaluate("echo ~", world_state)
-    assert out == ["/root"]
-
-    out, _ = evaluate("cat ~/desk/businesscard.txt", world_state)
-    assert out[0].startswith("NAME:")
 
 
 def test_ssh_cd_tilde_returns_to_login_dir() -> None:
@@ -175,8 +138,9 @@ def test_ssh_cd_tilde_returns_to_login_dir() -> None:
 # --- 4. `cd -` ---
 
 
-def test_cd_dash_round_trip(state: dict) -> None:
-    _, s2 = evaluate("cd desk", state)
+def test_cd_dash_round_trip() -> None:
+    s = state()
+    _, s2 = evaluate("cd desk", s)
     out, s3 = evaluate("cd -", s2)
     assert out == ["/root"]
     assert s3["current_path"] == "/root"
@@ -186,36 +150,33 @@ def test_cd_dash_round_trip(state: dict) -> None:
     assert s4["current_path"] == "/root/desk"
 
 
-def test_cd_dash_round_trip_world(world_state: dict) -> None:
-    _, s2 = evaluate("cd /root/desk", world_state)
-    out, s3 = evaluate("cd -", s2)
-    assert out == ["/root"]
-    assert s3["current_path"] == "/root"
-
-
-def test_cd_dash_without_oldpwd_errors(state: dict) -> None:
-    out, new = evaluate("cd -", state)
+def test_cd_dash_without_oldpwd_errors() -> None:
+    s = state()
+    out, new = evaluate("cd -", s)
     assert out == ["Error: directory not found"]
-    assert _without_exit_status(new) == _without_exit_status(state)
+    assert _without_exit_status(new) == _without_exit_status(s)
 
 
 # --- 5. history ---
 
 
-def test_history_shows_command_log_bash_format(state: dict) -> None:
-    _, s2 = evaluate("cd desk", state)
+def test_history_shows_command_log_bash_format() -> None:
+    s = state()
+    _, s2 = evaluate("cd desk", s)
     _, s3 = evaluate("pwd", s2)
     out, _ = evaluate("history", s3)
     assert out == ["    1  cd desk", "    2  pwd"]
 
 
-def test_history_shows_command_log_bash_format_world(world_state: dict) -> None:
-    _, s2 = evaluate("cd /root/desk", world_state)
+def test_history_shows_command_log_bash_format_absolute_path() -> None:
+    s = state()
+    _, s2 = evaluate("cd /root/desk", s)
     _, s3 = evaluate("pwd", s2)
     out, _ = evaluate("history", s3)
     assert out == ["    1  cd /root/desk", "    2  pwd"]
 
 
-def test_history_empty_when_no_prior_commands(state: dict) -> None:
-    out, _ = evaluate("history", state)
+def test_history_empty_when_no_prior_commands() -> None:
+    s = state()
+    out, _ = evaluate("history", s)
     assert out == []

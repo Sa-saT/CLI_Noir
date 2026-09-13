@@ -7,7 +7,7 @@ purely evaluator 層のみを対象にし、DB・API/WS 層は一切使わない
 
 from app.content.missions import get_mission
 from app.evaluator import engine, progress
-from app.models.tables import default_state, default_world_state
+from app.models.tables import default_world_state
 from tests.helpers import state_at_mission
 
 
@@ -129,17 +129,6 @@ def test_ssh_to_locked_mission12_host_and_ip_alias_both_hidden() -> None:
     state2 = default_world_state()
     out2, _ = _run(state2, "ssh 10.66.6.6")
     assert out2 == ["Host not found"]
-
-
-def test_ssh_gate_does_not_apply_to_mission_scoped_state() -> None:
-    """Mission 別 state（mission_progress を持たない）では従来どおりゲートしない
-    （現行 API/WS がまだこの形状を使うため回帰防止）。
-    """
-    state = default_state()
-
-    out, state = _run(state, "ssh amusement_park")
-    assert out == ["Connected to amusement_park"]
-    assert state["remote_mode"] is True
 
 
 def test_release_mission21_poisons_only_detective_path() -> None:

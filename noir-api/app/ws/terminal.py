@@ -19,9 +19,8 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.content.missions import get_mission
 from app.evaluator import evaluate, progress, story
-from app.models import PlayerState, User, default_state, default_world_state
+from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
 from app.ws.frames import AuthFrame, ExecFrame, ResumeFrame, state_summary, style_for
@@ -30,29 +29,6 @@ router = APIRouter()
 
 AUTH_TIMEOUT_SEC = 5.0
 MAX_LINES = 1000
-
-
-def build_initial_state(mission_id: int) -> dict:
-    """Mission 別の初期 state を生成する（default + Mission 固有の初期FS）。
-
-    テスト/移行期用（`tests/test_mission*.py` 等が使う）。WS/API 層は P3-10/P3-11
-    で `PlayerState`（統合ワールド）へ切り替え済みでこの関数は使わない。
-    Phase F で MissionState ごと廃止する際、テストヘルパーへ移す予定。
-    """
-    state = default_state()
-    state["mission_id"] = mission_id
-    mission = get_mission(mission_id)
-    if mission is not None and mission.initial_filesystem is not None:
-        state["filesystem"] = copy.deepcopy(mission.initial_filesystem)
-    if mission is not None and mission.initial_current_path is not None:
-        state["current_path"] = mission.initial_current_path
-    if mission is not None and mission.initial_processes is not None:
-        state["processes"] = copy.deepcopy(mission.initial_processes)
-    if mission is not None and mission.initial_cron_jobs is not None:
-        state["cron_jobs"] = copy.deepcopy(mission.initial_cron_jobs)
-    if mission is not None and mission.initial_env_vars is not None:
-        state["env_vars"] = copy.deepcopy(mission.initial_env_vars)
-    return state
 
 
 def _authenticate(token: str, session: Session) -> User | None:

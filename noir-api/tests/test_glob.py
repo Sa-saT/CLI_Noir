@@ -1,14 +1,19 @@
 """engine の glob 展開（* ? []）のテスト。"""
 
 from app.evaluator import evaluate
-from app.models import default_state
+from app.models import default_world_state
 
 
 def _with_files(names: list[str]) -> dict:
-    s = default_state()
-    root = s["filesystem"]["root"]["children"]
+    """統合ワールド state に専用ディレクトリ /root/glob_test を掘り、そこへ files を
+    並べて cwd をそこにする（world 直下の desk 等の既存ファイルと衝突・干渉しない
+    よう隔離する）。
+    """
+    s = default_world_state()
+    workdir: dict = {"type": "dir", "children": {}}
+    s["filesystem"]["root"]["children"]["glob_test"] = workdir
     for i, name in enumerate(names):
-        root[name] = {
+        workdir["children"][name] = {
             "type": "file",
             "content": f"content {i}",
             "mode": "rw-r--r--",
@@ -16,6 +21,7 @@ def _with_files(names: list[str]) -> dict:
             "mtime": "2026-01-01T00:00:00Z",
             "immutable": False,
         }
+    s["current_path"] = "/root/glob_test"
     return s
 
 
@@ -46,7 +52,7 @@ def test_no_match_stays_literal() -> None:
 def test_glob_not_applied_to_command_name() -> None:
     # コマンド名自体は展開対象外（glob 文字を含む実在コマンドは存在しないので
     # command not allowed になることを確認する）。
-    s = default_state()
+    s = default_world_state()
     out, _ = evaluate("c*t x", s)
     assert out == ["Error: command not allowed"]
 
@@ -65,7 +71,7 @@ def test_glob_with_pipe() -> None:
 
 
 def test_quoted_filename_with_space_preserved() -> None:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"]["top secret.txt"] = {
         "type": "file",
         "content": "CODE: 4821",
@@ -82,5 +88,5 @@ def test_find_name_quoted_pattern_still_works() -> None:
     # find -name "*.txt" は find 自身のパターンマッチであり、glob 展開の影響を
     # 受けないことを確認する回帰テスト（cwd 直下に一致ファイルがある場合）。
     s = _with_files(["a.txt"])
-    out, _ = evaluate('find /root -name "*.txt"', s)
-    assert out == ["/root/a.txt"]
+    out, _ = evaluate('find /root/glob_test -name "*.txt"', s)
+    assert out == ["/root/glob_test/a.txt"]

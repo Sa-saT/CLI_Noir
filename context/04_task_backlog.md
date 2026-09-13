@@ -725,11 +725,11 @@ UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`を
 ファイル: `tests/helpers.py`（新規）, `tests/test_mission*.py`（全面差し替え）
 
 ### P3-13 テスト内の絶対パスリテラル更新
-- [x] test_mission*.py 側は P3-12 と同時に完了（2026-09-13）。残: `default_state()` 形状に依存する汎用テスト
-  （`test_evaluator.py`/`test_glob.py`/`test_permissions.py`/`test_env_vars.py`/`test_resolved_log.py`/`test_text_commands.py`/
-  `test_git_and_judge.py`/`test_case_file.py`/`test_progress.py`/`test_mission11.py` の `default_state()` 利用箇所）を
-  `default_world_state()` へ寄せ、`MissionState`/`default_state()`/`build_initial_state()` を撤去（missionstate テーブル drop の
-  Alembic リビジョン込み）
+- [x] 完了（2026-09-13）。汎用テスト 13 ファイルを `default_world_state()`/`state_at_mission` へ移行し、旧形状専用のテスト 13 件
+  （flat env_vars・静的 case_file.sh・legacy 分岐の回帰）を削除、重複 3 件を統合（462 → 446 tests）。`MissionState`/`default_state()`/
+  `build_initial_state()` を撤去し Alembic `63217880f0a0` で `missionstate` を drop（dev の noir.db にも適用済み）。
+  **残（P3-14 と併せて）**: evaluator の旧形状分岐（`env.py::env_for` のフラット分岐、`progress.flags` の mission_flags 分岐、
+  `story.py` の guard、`git_ops` の `is_world`、`ws/terminal._handle_resume` の else）は死んだコードになったので簡素化する
 
 P3-03で移設した約7Mission分の絶対パス（`/root/tape.log`等）をテスト側でも更新。`default_state()`の形状に依存する
 テスト（`test_state.py`/`test_ws.py`等）は新フィールド（`resolved_command_log`/`mission_progress`/ユーザー別

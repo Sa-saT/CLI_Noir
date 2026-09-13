@@ -1,7 +1,7 @@
 """DB エンジン / セッション（SQLModel）。
 
 settings.database_url からエンジンを生成し、FastAPI の依存として get_session を提供する。
-テーブル定義は同 package 内（User / MissionState）に追加していく。
+テーブル定義は同 package 内（User / PlayerState）に追加していく。
 """
 
 from collections.abc import Generator

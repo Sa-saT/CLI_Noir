@@ -1,11 +1,18 @@
-"""ls -l / chmod / mode 検査（読み取り・実行権限）のテスト。"""
+"""ls -l / chmod / mode 検査（読み取り・実行権限）のテスト。
+
+Phase F: 統合ワールド state（default_world_state()）で検証する。世界の /root
+直下には既に desk 等が存在するため、ディレクトリの列挙結果を厳密に比較する
+テストは専用の空ディレクトリ（/root/permtest）に隔離する。
+"""
+
+import copy
 
 import pytest
 
-from app.content.missions import build_world_filesystem
 from app.evaluator import evaluate
 from app.evaluator import fs
-from app.models import default_state
+from app.evaluator.env import env_for
+from app.models import default_world_state
 
 
 def _with_file(
@@ -16,7 +23,7 @@ def _with_file(
     immutable: bool = False,
     name: str = "note.txt",
 ) -> dict:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"][name] = {
         "type": "file",
         "content": content,
@@ -24,6 +31,37 @@ def _with_file(
         "owner": owner,
         "mtime": "2026-01-01T00:00:00Z",
         "immutable": immutable,
+    }
+    return s
+
+
+def _with_isolated_file(
+    content: str = "secret",
+    *,
+    mode: str = "rw-r--r--",
+    owner: str = "detective",
+    immutable: bool = False,
+    name: str = "note.txt",
+    dir_name: str = "permtest",
+) -> dict:
+    """/root/<dir_name> という専用の空ディレクトリの中にファイルを1つだけ置く。
+
+    world の /root 直下には desk 等が既に存在するため、`ls`/`ls -l` の結果を
+    厳密に（それ1件だけ）比較したいテストはこちらを使う。
+    """
+    s = default_world_state()
+    s["filesystem"]["root"]["children"][dir_name] = {
+        "type": "dir",
+        "children": {
+            name: {
+                "type": "file",
+                "content": content,
+                "mode": mode,
+                "owner": owner,
+                "mtime": "2026-01-01T00:00:00Z",
+                "immutable": immutable,
+            }
+        },
     }
     return s
 
@@ -40,24 +78,28 @@ def test_ls_long_file() -> None:
 
 
 def test_ls_long_directory() -> None:
-    s = _with_file()
-    out, _ = evaluate("ls -l /root", s)
+    s = _with_isolated_file()
+    out, _ = evaluate("ls -l /root/permtest", s)
     assert len(out) == 1
     assert out[0].startswith("-rw-r--r--")
     assert out[0].endswith("note.txt")
 
 
 def test_ls_long_dir_entry_shows_d_prefix() -> None:
-    s = default_state()
-    s["filesystem"]["root"]["children"]["box"] = {"type": "dir", "children": {}}
-    out, _ = evaluate("ls -l /root", s)
+    s = default_world_state()
+    s["filesystem"]["root"]["children"]["permtest"] = {"type": "dir", "children": {}}
+    s["filesystem"]["root"]["children"]["permtest"]["children"]["box"] = {
+        "type": "dir",
+        "children": {},
+    }
+    out, _ = evaluate("ls -l /root/permtest", s)
     assert out[0].startswith("d")
     assert out[0].endswith("box")
 
 
 def test_ls_without_l_unaffected() -> None:
-    s = _with_file()
-    assert evaluate("ls /root", s)[0] == ["note.txt"]
+    s = _with_isolated_file()
+    assert evaluate("ls /root/permtest", s)[0] == ["note.txt"]
 
 
 # --- chmod ---
@@ -96,9 +138,11 @@ def test_chmod_invalid_spec() -> None:
     s = _with_file()
     out, new = evaluate("chmod zzz /root/note.txt", s)
     assert out == ["Error: invalid input"]
-    new_env = {k: v for k, v in new["env_vars"].items() if k != "?"}
-    old_env = {k: v for k, v in s["env_vars"].items() if k != "?"}
-    assert {**new, "env_vars": new_env} == {**s, "env_vars": old_env}
+    new_no_status = copy.deepcopy(new)
+    old_no_status = copy.deepcopy(s)
+    env_for(new_no_status).pop("?", None)
+    env_for(old_no_status).pop("?", None)
+    assert new_no_status == old_no_status
 
 
 def test_chmod_missing_path() -> None:
@@ -154,10 +198,11 @@ def test_sh_permission_denied_without_exec_bit() -> None:
 
 
 def test_sh_immutable_default_bypasses_exec_check() -> None:
-    # Mission1〜4 の case_file.sh は mode に x を持たないが immutable=True のため実行可。
-    s = _with_file("# judge", mode="rw-r--r--", immutable=True, name="case_file.sh")
-    out, _ = evaluate("sh /root/case_file.sh", s)
-    # no checks configured (mission_id 未設定) だが permission denied にはならない。
+    # immutable=True なら mode に x が無くても実行可（Mission1〜4 の case_file.sh
+    # と同じ仕組み）。統合ワールドでは /root/case_file.sh 自体は動的合成される
+    # ため、ここでは別名ファイルで同じロジックを検証する。
+    s = _with_file("# judge", mode="rw-r--r--", immutable=True, name="notice.sh")
+    out, _ = evaluate("sh /root/notice.sh", s)
     assert out != ["Error: permission denied"]
 
 
@@ -181,8 +226,12 @@ def _with_gated_dir(
     file_name: str = "secret.txt",
     file_content: str = "classified",
 ) -> dict:
-    """/root/<dir_name> にディレクトリ権限ゲートを設定した state を作る（配下に1ファイル）。"""
-    s = default_state()
+    """/root/<dir_name> にディレクトリ権限ゲートを設定した state を作る（配下に1ファイル）。
+
+    "box" は world の /root 直下に存在しない名前で、'b' 始まりの唯一の可視候補
+    になる（Mission 区画の "bar" は既定でロックされ glob 候補から消えるため）。
+    """
+    s = default_world_state()
     s["filesystem"]["root"]["children"][dir_name] = {
         "type": "dir",
         "children": {
@@ -228,28 +277,28 @@ def test_can_traverse_open_dir_allows_owner_and_other() -> None:
 
 # 回帰: mode 未設定ディレクトリ（既存 22 Mission 分の区画）は従来どおり見える・入れる。
 def test_regression_unset_mode_dir_visible_in_ls() -> None:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"]["box"] = {"type": "dir", "children": {}}
     out, _ = evaluate("ls /root", s)
     assert "box" in out
 
 
 def test_regression_unset_mode_dir_enterable_by_cd() -> None:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"]["box"] = {"type": "dir", "children": {}}
     _, s2 = evaluate("cd /root/box", s)
     assert s2["current_path"] == "/root/box"
 
 
 def test_regression_unset_mode_dir_found_by_find() -> None:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"]["box"] = {"type": "dir", "children": {}}
     out, _ = evaluate("find /root -name box", s)
     assert out == ["/root/box"]
 
 
 def test_regression_unset_mode_dir_matches_glob() -> None:
-    s = default_state()
+    s = default_world_state()
     s["filesystem"]["root"]["children"]["box"] = {"type": "dir", "children": {}}
     out, _ = evaluate("ls /root/b*", s)
     assert out == []  # box は空ディレクトリなので中身は無いが、glob 自体は box に展開される
@@ -308,8 +357,9 @@ def test_find_descends_into_released_directory() -> None:
 def test_glob_does_not_expand_into_locked_directory() -> None:
     s = _with_gated_dir(locked=True)
     out, _ = evaluate("ls /root/b*", s)
-    # box が候補から消えるためマッチ無し。bash の nullglob 無効と同じくリテラルの
-    # まま渡り、実在しないパスとして扱われる。
+    # box が候補から消えるためマッチ無し（Mission 区画の "bar" もロック中で候補に
+    # 出ない）。bash の nullglob 無効と同じくリテラルのまま渡り、実在しない
+    # パスとして扱われる。
     assert out == ["Error: path not found"]
 
 
@@ -441,15 +491,13 @@ def test_redirect_into_released_directory_succeeds() -> None:
 
 # --- 統合ワールド（Part5 P3-03）レベルの確認 ---
 def test_world_mission1_area_enterable() -> None:
-    s = default_state()
-    s["filesystem"] = build_world_filesystem()
+    s = default_world_state()
     _, s2 = evaluate("cd /root/desk", s)
     assert s2["current_path"] == "/root/desk"
 
 
 def test_world_unreleased_mission_area_not_enterable() -> None:
-    s = default_state()
-    s["filesystem"] = build_world_filesystem()
+    s = default_world_state()
     out, _ = evaluate("cd /root/park", s)  # Mission2 の区画。初期状態では未解放。
     assert out == ["Error: directory not found"]
     out2, _ = evaluate("ls /root", s)
@@ -458,8 +506,7 @@ def test_world_unreleased_mission_area_not_enterable() -> None:
 
 def test_world_unreleased_mission_area_direct_target_not_readable_or_writable() -> None:
     # /root/park を cd ではなく直接名指ししても中身は見えず、書き込みもできない。
-    s = default_state()
-    s["filesystem"] = build_world_filesystem()
+    s = default_world_state()
     assert evaluate("ls /root/park", s)[0] == ["Error: path not found"]
     assert evaluate("find /root/park", s)[0] == ["Error: path not found"]
     assert evaluate("touch /root/park/x.txt", s)[0] == ["Error: path not found"]

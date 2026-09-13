@@ -26,8 +26,8 @@ CLI_Noir/
 
 **Mission1〜22 すべて実プレイ可能**（241 tests green / ruff clean）。詳細は `context/01_decisions_log.md`「Phase2 バックエンド実装」節・`context/03_pending_items.md` Backend 節を参照。
 
-- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は **P3-10/P3-11（2026-09-12）で `PlayerState`（統合ワールド）参照へ切替済み**。`/ws/terminal`（クエリ無し）、`GET /api/state/`。`build_initial_state(mission_id)`・`MissionState` はテスト用に残置
-- `app/models/tables.py`: User / MissionState / `default_state()` に加え、**Part5 用の `PlayerState`（user_id UNIQUE の統合ワールド）と `default_world_state()` を追加済み（P3-01, 2026-08-16）**。現時点では追加のみで API/WS はまだ MissionState を読み書きしている（両テーブル並存。`missionstate` の drop はカットオーバー後の別 Alembic リビジョン）
+- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は **P3-10/P3-11（2026-09-12）で `PlayerState`（統合ワールド）参照へ切替済み**。`/ws/terminal`（クエリ無し）、`GET /api/state/`。`build_initial_state(mission_id)`・`MissionState` は **2026-09-13 Phase F で撤去**（テストは `tests/helpers.py::state_at_mission(n)` で統合ワールドを組む）
+- `app/models/tables.py`: User / `PlayerState`（user_id UNIQUE の統合ワールド）/ `default_world_state()`。旧 MissionState / `default_state()` は 2026-09-13 Phase F で撤去（Alembic `63217880f0a0` で `missionstate` テーブル drop）
 - `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
 - `app/evaluator/`:
   - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）+ **パス解決の記録シンク（`start_recording`/`drain_recording`。`contextvars.ContextVar` 方式。P3-08a）**
