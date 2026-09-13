@@ -9,6 +9,7 @@ Mission 固有の `initial_filesystem`/`initial_current_path` 等）を組み立
 """
 
 from app.evaluator import progress
+from app.evaluator.env import _DEFAULT_USER_ENV
 from app.models import default_world_state
 
 
@@ -22,5 +23,10 @@ def state_at_mission(n: int) -> dict:
     state = default_world_state()
     for i in range(1, n):
         progress.advance_mission(state, i)
+        if i == 21:
+            # Mission21 は解放時に探偵の PATH が汚染され、クリア条件が「PATH を復旧して
+            # いること」なので、21 をクリア済みにした state では復旧済みでなければ
+            # 辻褄が合わない（advance_mission は判定を肩代わりしないため手で戻す）。
+            state["env_vars"]["detective"]["PATH"] = _DEFAULT_USER_ENV["PATH"]
     state["current_path"] = "/root"
     return state

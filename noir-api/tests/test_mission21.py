@@ -1,14 +1,10 @@
 """Mission21「消えた道具箱」: 汚染された PATH の診断・裏取り・復旧のフロー。
 
 Phase F: 統合ワールド state で検証する（hint.txt は /root/toolbox_room に移設済み）。
-
-統合ワールドの env_vars はユーザー別 dict で、detective 自身の PATH は常に正常値
-（PATH汚染を世界全体に波及させないための設計。app/evaluator/env.py::env_for /
-context/04_task_backlog.md § Part3 P3-04c 参照）。本番側にはまだ「Mission21 進行時
-に特定アカウントの PATH を汚染値で初期化する」配線（release_missions 等）が無い
-ため、ここでは env_for(state) 経由で検査対象ユーザー（= 現行ユーザー）の PATH を
-直接汚染してから各コマンド/判定ロジックを検証する（judge.py・engine.py 側の
-「現在ユーザーの env バケットを見る」という実装自体は既に本番と同じもの）。
+PATH 汚染は Mission21 解放時に `progress.release_missions` が探偵自身の env バケットへ
+書き込む（2026-09-13 確定。「事務所に戻ると道具が使えない」異常事態で開幕）。
+`state_at_mission(21)` はその解放を本物の advance_mission で通るので、ここでは
+汚染を手で仕込まない。
 """
 
 from app.evaluator import evaluate, progress
@@ -25,9 +21,9 @@ def _run(state: dict, line: str) -> tuple[list[str], dict]:
 
 
 def _mission21_state() -> dict:
-    """Mission21 開始時点 + PATH 汚染済みの state。"""
+    """Mission21 開始時点の state（解放時の汚染で detective の PATH は既に壊れている）。"""
     s = state_at_mission(21)
-    env_for(s)["PATH"] = _BAD_PATH
+    assert env_for(s)["PATH"] == _BAD_PATH
     return s
 
 

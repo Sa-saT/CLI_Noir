@@ -20,6 +20,7 @@ import copy
 
 from app.content import missions
 from app.content.missions import all_missions
+from app.evaluator.env import _DEFAULT_USER_ENV
 
 
 def flags(state: dict) -> dict:
@@ -130,6 +131,10 @@ def release_missions(state: dict) -> None:
         存在しないパスをテストで気づけるよう、黙って飛ばさず例外にする）
       - `initial_processes`/`initial_cron_jobs` があれば owning_mission_id を
         付けて state["processes"]/state["cron_jobs"] に追加する
+      - `initial_env_vars` があれば探偵自身（"detective"）の環境変数バケットに
+        上書きする（Mission21 の PATH 汚染。「事務所に戻ると道具が使えない」異常
+        事態で開幕させるため、本人の環境を汚す。2026-09-13 確定。Mission は順番制
+        なので他 Mission へは波及せず、`export PATH=…` で直せば以後は正常）
       - Mission12 なら /etc/hosts に GHOST_HOSTS_LINE を追記する（既にあれば何もしない）
       - 最後に released へ mission_id を追加する
 
@@ -180,6 +185,14 @@ def release_missions(state: dict) -> None:
             cron_jobs = state.setdefault("cron_jobs", [])
             for job in mission.initial_cron_jobs:
                 cron_jobs.append({**copy.deepcopy(job), "owning_mission_id": mission_id})
+
+        # 環境変数の異常事態（Mission21 の PATH 汚染）を探偵本人のバケットに書く。
+        # `env_for` は current_user のバケットを返すため（su 中の解放に備えて）
+        # ここでは "detective" を名指しする。
+        if mission.initial_env_vars:
+            env_vars = state.setdefault("env_vars", {})
+            bucket = env_vars.setdefault("detective", dict(_DEFAULT_USER_ENV))
+            bucket.update(copy.deepcopy(mission.initial_env_vars))
 
         # Mission12（幽霊回線）解放時に /etc/hosts へ ghost.example 行を追記する
         # （初期ワールドには含めない。dig で見つける体験を守るため解放時のみ追加）。

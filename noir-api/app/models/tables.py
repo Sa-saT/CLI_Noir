@@ -138,8 +138,9 @@ def default_world_state() -> dict:
         "processes": [],
         # 仮想 cron テーブル（crontab -l の対象）。閲覧のみ（rm 禁止と同じ方針）。
         "cron_jobs": [],
-        # ユーザー別 dict（旧: フラットな PATH/HOME dict）。Mission21 の PATH汚染を
-        # su 先アカウントに閉じ込めるための変更（detective 自身は常に正常な PATH）。
+        # ユーザー別 dict（旧: フラットな PATH/HOME dict）。su 先アカウントごとに
+        # 環境を分けるための形状。Mission21 の PATH 汚染は解放時に detective 自身の
+        # バケットへ書かれる（release_missions。2026-09-13 に「本人の環境を汚す」で確定）。
         "env_vars": {
             "detective": {
                 "PATH": "/usr/local/bin:/usr/bin:/bin",

@@ -20,6 +20,7 @@ Part5 統合ワールド化の Phase D（WS/API を `PlayerState` へ切替）�
 - **Mission2 の報告書は机（`/root/desk/report.txt`）に書く**（2026-09-13 ユーザー確定）: 判定は履歴の echo 行ではなくファイルの中身を読む（実 Linux の検査スクリプトと同じ意味）。「公園で調べて机で書く」導線に合わせ独り言 `read`（机へ戻れ）/ `desk` / `wrote` / `fail_report` を追加。Mission 別 state には desk が無いため `tests/test_mission2_3.py` の Mission2 は統合ワールド基準へ移行（Phase F の先取り）
 - **独り言はブリーフィングを閉じてから**（2026-09-13 ユーザー要望）: `[id].vue` が `briefingOpen` の間 MonologueLayer に beat を渡さない（保留。閉じると先頭から再生）。`MonologueLayer` は beat=null のとき自動送り/自動クローズを発火しないよう防御（空文字が即 done 扱いになり保留中の beat を捨てていた）
 - **Mission 画面から一覧へ戻るボタン**（2026-09-13）: 右レール最上段「← 捜査ファイル一覧」。接続・scrollback は保持（常時ターミナル）
+- **Mission21 の PATH 汚染は探偵自身の環境に書く**（2026-09-13 確定。2026-08-12 の su 別アカウント案を変更）: Phase F で「統合ワールドでは汚染が一度も起きない」ことが発覚。順番制のため他 Mission へ波及せず、「事務所に戻ると道具が使えない」筋書きと LPIC 103.1 の学び（自分のシェルの PATH を `echo $PATH` → `/bin/ls` → `export` で直す）に一致するため、`release_missions` が Mission21 解放時に `env_vars["detective"]` へ `initial_env_vars` を上書きする方式にした。実装は 1 箇所（`progress.release_missions`）。テストヘルパー `state_at_mission(n>21)` は 21 クリア＝PATH 復旧済みとして戻す。su 案の利点（詰んでも exit で逃げられる安全弁）は「やらかし体験室」（ゲーム機能 9）側で活かす
 - **クリア演出中は独り言を保留**（2026-09-13）: サーバーの送出順を `mission_clear` → `story` に変更し、フロントは ClearEffect を閉じるまで `storyQueue` を止める（表示途中の beat は捨てる）。「次のミッションへ」→ 次ページ → クリア独り言 → start 独り言の順。演出中はブリーフィングカードも閉じる
 
 ---

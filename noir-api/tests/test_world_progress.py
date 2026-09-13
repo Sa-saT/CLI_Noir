@@ -6,8 +6,9 @@ purely evaluator 層のみを対象にし、DB・API/WS 層は一切使わない
 """
 
 from app.content.missions import get_mission
-from app.evaluator import engine
+from app.evaluator import engine, progress
 from app.models.tables import default_state, default_world_state
+from tests.helpers import state_at_mission
 
 
 def _run(state: dict, line: str) -> tuple[list[str], dict]:
@@ -139,3 +140,20 @@ def test_ssh_gate_does_not_apply_to_mission_scoped_state() -> None:
     out, state = _run(state, "ssh amusement_park")
     assert out == ["Connected to amusement_park"]
     assert state["remote_mode"] is True
+
+
+def test_release_mission21_poisons_only_detective_path() -> None:
+    """Mission21 解放時に探偵自身の PATH が汚染される（それ以前は正常のまま）。"""
+    state = state_at_mission(20)
+    assert state["env_vars"]["detective"]["PATH"] == "/usr/local/bin:/usr/bin:/bin"
+
+    progress.advance_mission(state, 20)
+    assert state["env_vars"]["detective"]["PATH"] == "/tmp/.stolen"
+    # HOME は Mission 定義どおり /root のまま。他ユーザーのバケットは作られない
+    assert state["env_vars"]["detective"]["HOME"] == "/root"
+    assert set(state["env_vars"]) == {"detective"}
+
+    # 二度目の解放走査（git push の重複等）で再汚染しない: 直してから再走査しても正常のまま
+    state["env_vars"]["detective"]["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+    progress.release_missions(state)
+    assert state["env_vars"]["detective"]["PATH"] == "/usr/local/bin:/usr/bin:/bin"

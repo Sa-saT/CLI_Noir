@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 461 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 462 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -24,7 +24,7 @@
 - [ ] resume 後も `command_log`/`resolved_command_log` は巻き戻さないため、後で打ったコマンドの記録が判定に残る（Mission 別 state 時代からの既知挙動。リプレイ台帳の設計時に扱いを決める）
 - [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
 - [x] P3-03 の移設に伴う旧パス参照の追随（Mission10/15/19。2026-09-13 Phase F で修正。あわせて `_judge_mission15`/`history` の `state["mission_id"]` 依存、ssh 中の `release_missions` 例外も修正）
-- [ ] **Mission21 の PATH 汚染が統合ワールドで発生しない**（2026-09-13 Phase F で発覚）: `initial_env_vars` を読むのは旧 `build_initial_state` だけで、`release_missions` は env_vars に触れない。2026-08-12 に決めた「別アカウントに閉じ込めて `su` で入る」方式の配線とコンテンツ（アカウント名・合言葉の置き場・独り言・judge の対象バケット）が未設計。方式の再確認をユーザーに要する
+- [x] Mission21 の PATH 汚染が統合ワールドで発生しない件（2026-09-13 発覚 → 同日修正）: `release_missions` が Mission21 解放時に探偵自身の PATH を汚す方式で確定（`01_decisions_log.md` 参照）
 - [ ] Mission5 の `/root/vault/inner` が統合ワールドでは空部屋になる（`case_file.sh` を動的生成へ移す方針＝Part5 の確定事項により、そこにあった解錠ギミックが廃止されたため）。`locked_evidence.txt` の本文が `inner` を指しているので、部屋に何を置くか（あるいは本文を書き換えるか）のコンテンツ判断が要る。P3-04 の `case_file.sh` 動的生成とあわせて決める
 
 **疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。446 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。

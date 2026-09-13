@@ -327,7 +327,7 @@
 - 必須: `echo $PATH` または `printenv`, `export PATH=…`, 復旧後のコマンド実行成功
 - クリア条件: PATH 復旧フラグ（`env_vars.PATH` の正常値一致）+ 復旧後の allowlist コマンド成功 + 偽 PATH 値の記述一致
 - ゲーム性: 「コマンドが打てない」異常事態そのものが謎。絶対パス実行という抜け道が「PATH = コマンド探索経路」の意味を裏から証明する。Mission20（街の地図）の「/bin = 道具街」の比喩をそのまま回収
-- 備考: state の `env_vars` を汚染値で初期化する（設計指示書 § 4「環境変数」）。`unset` の体験は加点要素
+- 備考: 統合ワールドでは Mission21 解放時（Mission20 クリアの `git push`）に `release_missions` が**探偵自身**の `env_vars["detective"]["PATH"]` を汚染値 `/tmp/.stolen` に上書きする（2026-09-13 確定。2026-08-12 の「別アカウントに閉じ込めて su で入る」案は、Mission が順番制で他 Mission へ波及しないこと・「自分の道具箱が盗まれる」筋書きと LPIC の学び（自分の環境の PATH を直す）に一致することから、本人の環境を汚す方式へ変更）。`unset` の体験は加点要素
 
 ### Mission22: Case Closed「最終事件 — すべてを繋げろ」
 - 学習テーマ: 総合演習（Level 1〜11 の複合・卒業試験）

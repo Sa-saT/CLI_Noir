@@ -717,7 +717,7 @@ UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`を
   意味が変わったテスト: Mission5（inner の case_file.sh ロックは統合ワールドに実体無し → pattern 判定へ）/ Mission7（Mission6 の
   プロセスが残るため subset 比較）/ Mission16（warehouse に case_file.sh が無く 43→42）。
   **未解決**: Mission21 の PATH 汚染が統合ワールドで一度も発生しない（`initial_env_vars` は旧 `build_initial_state` しか読まない。
-  su アカウント方式の配線・コンテンツが未実装。テストは `env_for(state)["PATH"]` を直接汚して判定ロジックのみ検証中）→ 次タスク
+  su アカウント方式の配線・コンテンツが未実装）→ 同日、探偵自身の PATH を解放時に汚す方式で解決（`progress.release_missions`）
 
 `tests/helpers.py::state_at_mission(n)`を新設。`build_initial_world_state()`→ Mission `1..n-1`を実際の
 `advance_mission`関数（テスト専用の別実装を作らない）で順にクリア済みにし、Mission `n`が解放された状態を返す。

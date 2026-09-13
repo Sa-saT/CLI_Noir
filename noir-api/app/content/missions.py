@@ -610,6 +610,8 @@ _MISSION20_FS = {
 
 # Mission21 の初期 env_vars: PATH が汚染され allowlist コマンドが軒並み使えない
 # （組み込み=echo/export/printenv/which/type 等と絶対パス実行だけが生き残る）。
+# 統合ワールドでは Mission21 解放時に progress.release_missions が探偵自身の
+# バケットへ上書きする（本人の道具箱が盗まれる、が筋書き）。
 _MISSION21_BAD_PATH = "/tmp/.stolen"
 _MISSION21_GOOD_PATH = "/usr/local/bin:/usr/bin:/bin"
 _MISSION21_ENV_VARS = {"PATH": _MISSION21_BAD_PATH, "HOME": "/root"}
