@@ -19,7 +19,7 @@ CLI_Noir/
 ├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
 ├ noir-client/   … Nuxt 4 フロント実装（実バックエンド接続済み。app/components/*.vue + pages/missions）
-├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み・統合ワールド。459 tests green / ruff clean）
+├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み・統合ワールド。460 tests green / ruff clean）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```

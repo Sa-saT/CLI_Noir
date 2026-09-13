@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 459 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 460 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -20,7 +20,7 @@
 
 **Part5 永続統合ワールド化 Phase A〜D（P3-01〜P3-11、2026-09-12 Phase D 完了）の残タスク**（WS/API 層は `PlayerState` に切替済み。`MissionState`/`build_initial_state` はテスト用に残置）:
 - [ ] `missionstate` テーブルの drop（Alembic 別リビジョン）と `MissionState`/`default_state()`/`build_initial_state()` の撤去。Phase F（P3-12/P3-13）でテストの参照を外した後に実施
-- [x] フロント追随（FE3-01/02、2026-09-12 完了。「常時ターミナル」設計）。残: SaveSelectModal の `when` が ISO 文字列のまま（表示整形は未）、フルリロード時もセーブ選択が出る（接続の張り直し＝仕様として許容）
+- [x] フロント追随（FE3-01/02、2026-09-12 完了。「常時ターミナル」設計）。残: フルリロード時もセーブ選択が出る（接続の張り直し＝仕様として許容）。`when` の表示整形は 2026-09-13 に実施済み
 - [ ] resume 後も `command_log`/`resolved_command_log` は巻き戻さないため、後で打ったコマンドの記録が判定に残る（Mission 別 state 時代からの既知挙動。リプレイ台帳の設計時に扱いを決める）
 - [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
 - [ ] P3-03 の移設（`/root` 直下の裸置きファイル → Mission 専用サブディレクトリ）に伴う旧パス参照の追随。**統合ワールドでのみパスが変わり、Mission 別 FS は現役のため今は変更しない**（P3-08/P3-12/P3-13 で対応。一覧は `app/content/missions.py` の `_RELOCATIONS` 直下のコメントにも記載）:
@@ -35,7 +35,8 @@
 
 **フロントエンド 実バックエンド接続 完了（2026-08-12）**: FE-01〜FE-08 を1 task = 1 commit + push で完遂。noir-client は実 noir-api に接続済みで、ログイン → Mission1〜3 の通しプレイがブラウザで動く（下記 Frontend / テスト節参照）。残る主な未着手は「Phase2 拡張の実装タスク」節に残る細目（awk 定義・仮想ユーザーテーブル・アーカイブ入れ子表現の一般化・cowsay/figlet 等のご褒美コマンド・ゲーム機能9〜12 の UI 等）と、下記の場所別画像アセット・Tab補完・ライン編集の残りキーマップ。
 
-- [ ] **疑似ターミナルの動作不良（2026-09-13 ユーザー報告・症状未聴取）**: 次回冒頭で確認・修正。候補は `04_task_backlog.md`「次回セッションの入り方」参照
+- [x] **セーブから再開すると Mission1 に逆戻りし Mission2 の park が消える（2026-09-13 ユーザー報告 → 同日修正）**: 原因は「commit は push の前に作られる」ため最新セーブが常に直前 Mission のクリア前 snapshot だったこと。`git push` 成功時に commit へ `pushed=True` の印を付け、印付き commit への resume は snapshot 復元後に `advance_mission` を再適用してクリア直後から再開するようにした（`git_ops._push` / `ws/terminal._handle_resume`、`tests/test_ws.py::test_ws_resume_to_pushed_commit_lands_after_clear`）。フロントは resume 後に捜査中 Mission のページへ移動、モーダルに「クリア」バッジ + 日時整形。「Mission1 でコマンドが効かない」は再現せず（Playwright で resume 後の ls/cd/sh は正常）。dev の HMR で `useTerminalSocket` のモジュールスコープ `ws` が消えた可能性が高いため `exec` 時に未接続なら `connect()` を試みる自己修復を追加。再発したら画面の表示（`Error: not connected` の有無）を聞く
+- [x] **クリア演出と次 Mission のタイプライターが重なって読めない（同日修正）**: サーバーの送出順を `mission_clear` → `story` に変更し、フロントは演出中 `storyQueue` を保留（`holdStoryForClear` / `dismissClear`）。「次のミッションへ」で次ページへ移ってからクリア独り言 → start 独り言。演出中はブリーフィングカードも閉じる
 
 ### Frontend（実バックエンド接続。2026-08-11 着手。詳細は `context/04_task_backlog.md` Part2 FE-01〜08）
 - [x] 認証UI（ログイン画面 `app/pages/login.vue` + `useAuth.ts` composable。JWT を localStorage 保存 + 未ログインガード `middleware/auth.ts`。FE-01）

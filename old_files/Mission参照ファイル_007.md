@@ -13,7 +13,7 @@
 - 疑似 Git: `git add -> git commit -m "<msg>" -> git push` 順序必須
 - `git commit` = ゲームセーブ（1 Mission 中に何度でも可。再開時にセーブ選択可）
 - `git push` = クリア判定（最新 commit の状態で合否判定）
-- commit 履歴はプレイ全体で 1 本（Mission 遷移で消去しない）。push が通った commit は印付きで、再開するとクリア直後から
+- 次 Mission 遷移時、前 Mission のクリア前 commit は全消去
 - commit message: 1 文字以上（MVP はパターン制約なし）
 - 実 Git 連携なし（内部 `git_state` で判定）
 - エラーメッセージは `設計指示書.md` § 12 を正とする

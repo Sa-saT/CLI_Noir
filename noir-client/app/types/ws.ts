@@ -25,6 +25,8 @@ export interface CommitMeta {
   message: string
   created_at: string | null
   mission_id: number | null
+  /** この commit で `git push` が通った（= その Mission のクリア判定に使われた）。resume するとクリア直後の世界に戻る */
+  pushed?: boolean
 }
 
 /** 進行案内「独り言レイヤー」（STORY-01）。text は `\n` 区切りで最大 2 行。話者ラベルは付けない。 */
@@ -79,7 +81,7 @@ export interface RankUpEvent {
   unlocked: string[]
 }
 
-/** `result` の直後・`mission_clear` の前に届く（STORY-01）。 */
+/** `result` の直後に届く（STORY-01）。クリア時は `mission_clear` の**後**（演出中は独り言を保留するため）。 */
 export interface StoryEvent {
   type: 'event'
   name: 'story'

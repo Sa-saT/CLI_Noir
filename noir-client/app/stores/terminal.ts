@@ -43,6 +43,8 @@ export const useTerminalStore = defineStore('terminal', {
     clearedMissionId: null as number | null,
     nextMissionId: null as number | null,
     pendingResume: false,
+    /** resume 応答（hello）を受けるたびに増える。Mission ページが捜査中 Mission へ移動する合図 */
+    resumeSeq: 0,
     _nextLineId: 1,
     // --- STORY-01: 進行案内「独り言レイヤー」 ---
     storyQueue: [] as StoryBeat[],
@@ -103,15 +105,33 @@ export const useTerminalStore = defineStore('terminal', {
         this.storyLog.splice(0, this.storyLog.length - STORY_LOG_LIMIT)
       }
     },
-    /** 独り言をキューへ積む。表示中が無ければ即座に先頭を表示へ回す。 */
+    /** 独り言をキューへ積む。表示中が無ければ即座に先頭を表示へ回す（クリア演出中は保留）。 */
     enqueueStory(beats: StoryBeat[]) {
       this.storyQueue.push(...beats)
       if (!this.storyCurrent && this.storyQueue.length > 0) {
         this.advanceStory()
       }
     },
-    /** 次の独り言へ進める。キューが空なら何もしない。 */
+    /**
+     * Mission クリア: 演出（ClearEffect）を出し、その間は独り言を止める。表示途中の beat は
+     * 捨てる（演出の下で読めないまま残るより、閉じた後にクリア独り言から始まる方が自然）。
+     * サーバーは mission_clear → story の順で送るので、クリア独り言と次 Mission の start
+     * 独り言はキューに溜まり、`dismissClear()` で流れ出す。
+     */
+    holdStoryForClear(clearedMissionId: number, nextMissionId: number | null) {
+      this.missionCleared = true
+      this.clearedMissionId = clearedMissionId
+      this.nextMissionId = nextMissionId
+      this.storyCurrent = null
+    },
+    /** クリア演出を閉じる（「次のミッションへ」）。保留していた独り言を再開する。 */
+    dismissClear() {
+      this.missionCleared = false
+      if (!this.storyCurrent) this.advanceStory()
+    },
+    /** 次の独り言へ進める。キューが空、またはクリア演出中なら何もしない。 */
     advanceStory() {
+      if (this.missionCleared) return
       if (this.storyQueue.length === 0) return
       const next = this.storyQueue.shift()
       if (!next) return

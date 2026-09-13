@@ -113,6 +113,7 @@ export function useTerminalSocket() {
     if (awaitingResumeHello) {
       // resume フレームへの応答（§ 7）。再接続ではなくセーブ復元の確認。
       awaitingResumeHello = false
+      store.resumeSeq++
       store.pushLine('system', '-- セーブから再開しました --')
     } else if (everConnected) {
       store.pushLine('system', '-- reconnected --')
@@ -144,9 +145,7 @@ export function useTerminalSocket() {
 
   function handleEvent(frame: EventFrame) {
     if (frame.name === 'mission_clear') {
-      store.missionCleared = true
-      store.clearedMissionId = frame.cleared_mission_id
-      store.nextMissionId = frame.next_mission_id
+      store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id)
     } else if (frame.name === 'rank_up') {
       // バックエンド未実装（types/ws.ts 冒頭コメント参照）。実装され次第、テキスト表示ではなく
       // RankUpEffect.vue（未接続）へ繋ぎ直すこと。
@@ -166,6 +165,9 @@ export function useTerminalSocket() {
     store.pushEchoedInput(command, store.promptState)
     if (!ws || ws.readyState !== WebSocket.OPEN || !store.connected) {
       store.pushLine('system', 'Error: not connected')
+      // 接続が無いのに exec が来た = 張り直しの契機が失われている（dev の HMR でこの
+      // モジュールが差し替わり `ws` が消えた等）。冪等なので張り直しを試みる。
+      connect()
       return
     }
     ws.send(JSON.stringify({ type: 'exec', id: execId++, command }))

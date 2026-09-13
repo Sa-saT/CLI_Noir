@@ -7,8 +7,9 @@
 進行案内「独り言レイヤー」（STORY-01）: `hello` は `"story"`（アクティブ Mission の
 未発火 start beat のリスト）を持つ。`exec` の `result` の直後には、発火した beat が
 あれば `{"type": "event", "name": "story", "beats": [...]}` が届く（Mission クリア時は
-続けて `mission_clear` イベント）。beat の発火・文言は `app/evaluator/story.py` が
-`MissionDef.story_beats` を元に決める。
+`mission_clear` イベントが**先**、story が後。フロントがクリア演出中は独り言を保留する
+ため）。beat の発火・文言は `app/evaluator/story.py` が `MissionDef.story_beats` を
+元に決める。
 """
 
 from typing import Literal

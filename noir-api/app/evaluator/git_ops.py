@@ -140,6 +140,12 @@ def _push(state: dict) -> tuple[list[str], dict]:
         raise CommandError("Error: mission requirements not met")
 
     git["pushed"] = True
+    # push が通った commit に印を付ける（実 git の「origin に載った commit」に相当）。
+    # 履歴がプレイ全体で 1 本になった結果、最新セーブは常に「直前 Mission のクリア前
+    # スナップショット」になり、resume で選ぶと進捗ごと巻き戻ってしまっていた
+    # （2026-09-13 ユーザー報告: 再開後に Mission2 の park が消える）。resume 側は
+    # この印を見て、クリア判定（advance_mission）まで含めて復元する。
+    latest["pushed"] = True
     if is_world:
         progress.advance_mission(state, current_active)
     else:

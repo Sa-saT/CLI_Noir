@@ -16,6 +16,8 @@ Part5 統合ワールド化の Phase D（WS/API を `PlayerState` へ切替）�
 - **疑似ターミナルの使用感（UX-01）**: 普段 CUI を使う人が不自然に思わないよう `>file`/`~`/`cd -`/`history`/`&&;` の明示エラー、↑↓履歴・Ctrl キー・`clear` を実装。`&&`/`;` の本実装は設計指示書 § 8 構文レベル外のため見送り
 - **`git status` は現状 + 次の一手の案内行**（UX-02）: 実 git の `(use "git add …")` 相当なので意味一致の範囲内。commit 済みで `No commits yet` を返していた反転バグを修正
 - 見送り・記録のみ: `find` の常時絶対パス出力（Mission2 導線と絡む）、Tab 補完、Ctrl+R
+- **push 済み commit への resume はクリア直後から再開**（2026-09-13 修正）: 履歴が 1 本になった Part5 では commit は必ず push の前に作られるため、最新セーブ＝直前 Mission のクリア前 snapshot となり、選ぶと `completed`/`released` ごと逆戻りして次 Mission の区画が消えていた（ユーザーの実プレイで発覚）。実 Git の「origin に載った commit」に倣い `git push` 成功時に commit へ `pushed=true` を刻み、resume 時は snapshot 復元 → `advance_mission` 再適用。旧仕様の「次 Mission 遷移で前 Mission のクリア前 commit を全消去」は Part5 の 1 本履歴と矛盾していたため設計指示書 § 4/§ 10 から撤去。resume 後は捜査中 Mission のページへ自動移動
+- **クリア演出中は独り言を保留**（2026-09-13）: サーバーの送出順を `mission_clear` → `story` に変更し、フロントは ClearEffect を閉じるまで `storyQueue` を止める（表示途中の beat は捨てる）。「次のミッションへ」→ 次ページ → クリア独り言 → start 独り言の順。演出中はブリーフィングカードも閉じる
 
 ---
 

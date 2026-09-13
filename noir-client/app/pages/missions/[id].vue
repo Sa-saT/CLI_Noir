@@ -122,6 +122,12 @@ watch(missionId, (id) => {
   loadMission(id)
 })
 
+// 事件が解決したらブリーフィングカードは閉じる（クリア演出は中心が半透明で、開いたままだと
+// 「MISSION COMPLETE!」の下にカードが透けて読めない）。
+watch(() => store.missionCleared, (cleared) => {
+  if (cleared) briefingOpen.value = false
+})
+
 function closeBriefing() {
   if (!mission.value || mission.value.status === 'locked') return
   briefingOpen.value = false
@@ -145,12 +151,20 @@ function onInterrupt(line: string) {
 const missionMismatch = computed(() => store.activeMissionId !== missionId.value)
 
 // --- FE-07: セーブ選択（再ログイン時の commit 一覧） ---
+function formatWhen(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 const saves = computed<SaveEntry[]>(() => store.commits.map((c, idx) => ({
   hash: `#${c.id}`,
   message: c.message || '(無題のセーブ)',
-  when: c.created_at ?? '',
+  when: formatWhen(c.created_at),
   mission: c.mission_id != null ? `Mission ${c.mission_id}` : '',
   latest: idx === store.commits.length - 1,
+  pushed: c.pushed === true,
 })))
 
 function onResume(hash: string) {
@@ -160,6 +174,12 @@ function onResume(hash: string) {
 function onStartOver() {
   socket.skipResume()
 }
+// resume で世界が巻き戻ったら、捜査中の Mission のページへ移る（Mission2 のページを
+// 見たまま Mission1 のセーブに戻ると「park が無い」ように見える。2026-09-13 報告）。
+watch(() => store.resumeSeq, () => {
+  const active = store.activeMissionId
+  if (active != null && active !== missionId.value) router.push(`/missions/${active}`)
+})
 
 // --- FE-06: 場面画像の current_path 連動（DESIGN.md § 1。前方一致の最長一致） ---
 const SCENE_IMAGES: Record<string, string> = {
@@ -186,9 +206,10 @@ const sceneImage = computed(() => resolveScene(store.displayHost, store.currentP
 
 function onNext() {
   const next = store.nextMissionId
-  store.missionCleared = false
   if (next) router.push(`/missions/${next}`)
   else router.push('/missions')
+  // 演出を閉じてから保留中の独り言（クリア独り言 → 次 Mission の start）を流す
+  store.dismissClear()
 }
 </script>
 
@@ -242,7 +263,7 @@ function onNext() {
       <div v-if="store.pendingResume" class="resume-overlay">
         <SaveSelectModal
           title="セーブを選んで再開"
-          subtitle="記録された commit から選択してください"
+          subtitle="選んだ commit の時点まで世界が巻き戻ります（クリア印付きはクリア直後から）"
           :saves="saves"
           @resume="onResume"
           @start-over="onStartOver"

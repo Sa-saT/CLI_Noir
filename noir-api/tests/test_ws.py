@@ -27,14 +27,15 @@ def _exec(ws, id_, command, *, expect_story=False, expect_clear=False):
     assert result["type"] == "result"
     story_event = None
     clear_event = None
-    if expect_story:
-        story_event = ws.receive_json()
-        assert story_event["type"] == "event"
-        assert story_event["name"] == "story"
+    # クリア時は mission_clear が story より先（フロントが演出中の独り言を保留するため）
     if expect_clear:
         clear_event = ws.receive_json()
         assert clear_event["type"] == "event"
         assert clear_event["name"] == "mission_clear"
+    if expect_story:
+        story_event = ws.receive_json()
+        assert story_event["type"] == "event"
+        assert story_event["name"] == "story"
     return result, story_event, clear_event
 
 
@@ -199,3 +200,58 @@ def test_ws_resume_rewinds_world_progress(client: TestClient, session: Session) 
             ws, 101, "cat /root/desk/businesscard.txt", expect_story=True
         )
         assert "Sam Spade" not in "\n".join(ln["text"] for ln in res["lines"])
+
+
+def test_ws_resume_to_pushed_commit_lands_after_clear(
+    client: TestClient, session: Session
+) -> None:
+    """push が通った commit へ resume すると、その Mission をクリアした直後に戻る。
+
+    commit は push の前に作られるため、印（pushed）を見ずに snapshot だけ戻すと
+    Mission1 に逆戻りして Mission2 の区画（park）が消える（2026-09-13 ユーザー報告）。
+    """
+    create_user(session, "detective01", "secret")
+    token = _token(client)
+    with client.websocket_connect("/ws/terminal") as ws:
+        ws.send_json({"type": "auth", "token": token})
+        ws.receive_json()
+        transcript = [
+            ("cat /root/desk/businesscard.txt", True, False),
+            ('echo "NAME: Sam Spade" > /root/desk/businesscard.txt', True, False),
+            ("sh case_file.sh", True, False),
+            ("git add .", False, False),
+            ('git commit -m "solved"', False, False),
+            ("git push", True, True),
+        ]
+        for i, (cmd, expect_story, expect_clear) in enumerate(transcript):
+            _exec(ws, i, cmd, expect_story=expect_story, expect_clear=expect_clear)
+        # Mission2 で少し進めてから（commit せずに）再開する = 最新セーブは push 済み commit #1
+        _exec(ws, 10, "cd /root/park", expect_story=True)
+
+        ws.send_json({"type": "resume", "commit_id": 1})
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
+        assert hello["commits"] == [
+            {
+                "id": 1,
+                "message": "solved",
+                "created_at": hello["commits"][0]["created_at"],
+                "mission_id": 1,
+                "pushed": True,
+            }
+        ]
+        # 世界はクリア直後: Mission2 が捜査中で park が見える。cwd は commit 時点（/root）
+        assert hello["state"]["active_mission_id"] == 2
+        assert hello["state"]["current_path"] == "/root"
+        # story_fired も commit 時点に戻るので Mission2 の start 独り言が再び届く
+        assert [b["id"] for b in hello["story"]] == ["start"]
+        assert hello["story"][0]["mission_id"] == 2
+        res, _, _ = _exec(ws, 100, "ls")
+        assert "park" in [ln["text"] for ln in res["lines"]]
+        # 印の無い（push 前の）commit が最新でも、push は現在の Mission と照合される
+        res, _, _ = _exec(ws, 101, "git push")
+        assert res["ok"] is False
+
+    # DB にも印が残る（再ログイン後の hello でも pushed が見える）
+    row = session.exec(select(PlayerState)).one()
+    assert row.data["git_state"]["commits"][0]["pushed"] is True

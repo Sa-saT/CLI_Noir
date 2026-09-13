@@ -84,6 +84,7 @@ def _commit_meta(state: dict) -> list[dict]:
             "message": c.get("message", ""),
             "created_at": c.get("created_at"),
             "mission_id": c.get("mission_id"),
+            "pushed": c.get("pushed", False),
         }
         for c in state.get("git_state", {}).get("commits", [])
     ]
@@ -197,10 +198,9 @@ async def terminal_ws(
                         "state": state_summary(state),
                     }
                 )
-                if beats:
-                    await websocket.send_json(
-                        {"type": "event", "name": "story", "beats": beats}
-                    )
+                # mission_clear を story より先に送る: フロントはクリア演出を出している間
+                # 独り言を保留し、演出を閉じてからクリア独り言 → 次 Mission の start 独り言
+                # を流す（逆順だと演出の下でタイプライターが走って読めない。2026-09-13）。
                 if next_active != prev_active:
                     await websocket.send_json(
                         {
@@ -209,6 +209,10 @@ async def terminal_ws(
                             "cleared_mission_id": prev_active,
                             "next_mission_id": next_active,
                         }
+                    )
+                if beats:
+                    await websocket.send_json(
+                        {"type": "event", "name": "story", "beats": beats}
                     )
     except WebSocketDisconnect:
         return
@@ -222,6 +226,12 @@ def _handle_resume(msg: dict, state: dict) -> dict:
     processes / cron_jobs / current_user / remote_mode / ssh_host。command_log /
     resolved_command_log / git_state は復元しない（履歴と commit 一覧は残す）。
     Mission 別 state（mission_flags）は従来どおり復元する。
+
+    push が通った commit（`pushed=True`。git_ops._push が印を付ける）へ resume した
+    場合は、スナップショット復元後に `progress.advance_mission` を再適用し、その commit
+    でクリアした直後（次 Mission が解放された状態）に戻す。commit は push の前に
+    作られるので、印を見ずに snapshot だけ戻すと「クリア済みのはずの Mission に
+    逆戻りし、次 Mission の区画が消える」（2026-09-13 ユーザー報告）。
     """
     try:
         frame = ResumeFrame.model_validate(msg)
@@ -245,6 +255,8 @@ def _handle_resume(msg: dict, state: dict) -> dict:
                 ):
                     if key in snap:
                         restored[key] = copy.deepcopy(snap[key])
+                if commit.get("pushed") and commit.get("mission_id") is not None:
+                    progress.advance_mission(restored, commit["mission_id"])
             else:
                 restored["current_path"] = snap.get("current_path", state["current_path"])
                 restored["filesystem"] = copy.deepcopy(

@@ -9,6 +9,8 @@ export interface SaveEntry {
   when: string
   mission?: string
   latest?: boolean
+  /** git push が通った commit。選ぶとその Mission をクリアした直後の世界に戻る */
+  pushed?: boolean
 }
 
 const props = withDefaults(defineProps<{
@@ -21,7 +23,7 @@ const props = withDefaults(defineProps<{
   saves: () => [
     { hash: 'a1f9c2e', message: '桟橋の足跡を照合', when: '2026-07-05 23:41', mission: 'Mission 3', latest: true },
     { hash: '7bd0410', message: 'ssh amusement_park に接続', when: '2026-07-05 23:12', mission: 'Mission 3' },
-    { hash: '3e5aa88', message: 'case_file.sh を実行', when: '2026-07-05 22:58', mission: 'Mission 2' },
+    { hash: '3e5aa88', message: 'case_file.sh を実行', when: '2026-07-05 22:58', mission: 'Mission 2', pushed: true },
   ],
 })
 
@@ -52,6 +54,7 @@ const selected = ref(props.saves.find(s => s.latest)?.hash ?? props.saves[0]?.ha
           <span class="title">{{ s.message }}</span>
           <span class="when">{{ s.when }}</span>
         </span>
+        <span v-if="s.pushed" class="pushed">クリア</span>
         <span v-if="s.latest" class="latest">最新</span>
       </li>
     </ul>
@@ -136,6 +139,14 @@ li.selected {
   font-size: var(--text-xs);
   color: var(--text-faint);
   font-family: var(--font-mono);
+}
+.pushed {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  color: var(--term-success);
+  border: 1px solid var(--term-success);
+  border-radius: var(--radius-sm);
+  padding: 1px var(--space-2);
 }
 .latest {
   font-size: var(--text-xs);
