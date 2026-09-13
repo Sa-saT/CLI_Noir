@@ -25,6 +25,7 @@ import re
 
 from app.evaluator import commands as _commands  # noqa: F401  registry 登録のため import
 from app.evaluator import fs
+from app.evaluator import gh as _gh  # noqa: F401  registry 登録のため import
 from app.evaluator import git_ops as _git_ops  # noqa: F401  registry 登録のため import
 from app.evaluator import progress
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
@@ -39,7 +40,7 @@ _GLOB_CHARS = "*?["
 # これが無いと Mission21 で PATH が壊れている間に echo $PATH すら打てなくなる。
 _BUILTINS = {
     "cd", "pwd", "echo", "export", "unset", "printenv", "which", "type",
-    "history", "clear", "exit", "git",
+    "history", "clear", "exit", "git", "gh",
 }
 _PATH_BIN_DIRS = ("/bin", "/usr/bin", "/usr/local/bin")
 

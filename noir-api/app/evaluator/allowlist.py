@@ -12,7 +12,7 @@ ALLOWLIST: set[str] = {
     "grep", "find", "sort", "uniq", "awk",
     "egrep", "fgrep",
     "ssh", "exit",
-    "git",
+    "git", "gh",
     "chmod", "chown", "curl",
     # Level 5: テキスト処理・パイプ
     "head", "tail", "wc", "cut", "paste", "tr", "sed", "diff", "nl", "tee", "xargs",

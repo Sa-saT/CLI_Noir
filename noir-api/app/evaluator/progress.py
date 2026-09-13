@@ -199,6 +199,30 @@ def release_missions(state: dict) -> None:
                 if missions.GHOST_HOSTS_LINE not in lines:
                     hosts_node["content"] = "\n".join([*lines, missions.GHOST_HOSTS_LINE])
 
+        # 追加エピソード（git-team 編 Mission23〜25 想定。バックエンド_コマンド機能仕様
+        # § 5b）解放時フック: git_state.repo の新規作成 + 追加ブランチ投入。
+        # git_ops は progress を import しているため、循環 import を避けて遅延 import
+        # する（この関数が呼ばれる頃には両モジュールとも読み込み済み）。
+        if mission.initial_repo is not None or mission.initial_branches:
+            from app.evaluator import git_ops
+
+            if mission.initial_repo is not None:
+                git_ops.init_repo(
+                    state,
+                    mission.initial_repo["root"],
+                    mission.initial_repo["branch"],
+                    mission.initial_repo["message"],
+                )
+            if mission.initial_branches:
+                for branch_name, spec in mission.initial_branches.items():
+                    git_ops.add_branch(
+                        state,
+                        branch_name,
+                        spec["base_from"],
+                        spec["tree"],
+                        spec["message"],
+                    )
+
         released.append(mission_id)
         released_set.add(mission_id)
 

@@ -109,8 +109,241 @@ SSH_HOSTS: dict[str, dict] = {
             }
         },
     },
+    # サーバー編（Mission26〜28。バックエンド_コマンド機能仕様 § 5c、2026-09-13 確定）。
+    # Mission26/27/28 はまだ _DEFS に無いため required_mission_id は未来の id を指す
+    # （cmd_ssh 側で「未知 mission_id = 未解放」として扱うので、実装が揃うまでは
+    # 誰も到達できない予約済みホストとして安全に存在できる）。
+    "archive_node": {
+        "required_mission_id": 26,
+        "initial_path": "/srv",
+        "hostname": "archive-node-01",
+        "uname": (
+            "Linux archive-node-01 6.1.0-18-amd64 #1 SMP Debian 6.1.76-1 x86_64 GNU/Linux"
+        ),
+        "disk": [
+            {"fs": "/dev/sda1", "size": "40G", "used": "12G", "avail": "26G", "pct": 32,
+             "mount": "/"},
+            {"fs": "/dev/sdb1", "size": "20G", "used": "19.6G", "avail": "400M", "pct": 98,
+             "mount": "/var"},
+        ],
+        "sizes": {
+            "/var/log/spool.log": "17G",
+            "/var/log/syslog": "220M",
+            "/var/log/auth.log": "12M",
+        },
+        "ip": [{"iface": "eth0", "addr": "192.168.10.5/24"}],
+        "metadata": None,
+        "cron_jobs": [
+            {"schedule": "0 2 * * *", "command": "/usr/local/bin/backup.sh",
+             "malicious": False},
+            {"schedule": "*/30 * * * *", "command": "/usr/bin/healthcheck.sh",
+             "malicious": False},
+        ],
+        "services": {
+            "archive-indexer": {
+                "state": "failed",
+                "description": "Archive indexer",
+                "port": None,
+                "journal": [
+                    "Mar 03 02:14:05 archive-node-01 archive-indexer[812]: "
+                    "indexing /srv/backup",
+                    "Mar 03 02:14:07 archive-node-01 archive-indexer[812]: "
+                    "write /var/lib/index/db: No space left on device",
+                    "Mar 03 02:14:07 archive-node-01 systemd[1]: "
+                    "archive-indexer.service: Failed with result 'exit-code'.",
+                ],
+            },
+            "sshd": {
+                "state": "active",
+                "description": "OpenSSH server",
+                "port": 22,
+                "journal": [
+                    "Mar 03 02:00:00 archive-node-01 sshd[900]: "
+                    "Server listening on 0.0.0.0 port 22.",
+                ],
+            },
+            "backup": {
+                "state": "active",
+                "description": "Nightly backup sync",
+                "port": None,
+                "journal": [
+                    "Mar 03 02:00:01 archive-node-01 backup: "
+                    "starting nightly sync to corp_server",
+                    "Mar 03 02:00:02 archive-node-01 backup: "
+                    "ssh: connect to host corp_server port 22: Connection refused",
+                    "Mar 03 02:00:02 archive-node-01 backup: sync failed",
+                ],
+            },
+        },
+        "filesystem": {
+            "srv": {
+                "type": "dir",
+                "children": {
+                    "backup": {
+                        "type": "dir",
+                        "children": {
+                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11"),
+                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12"),
+                        },
+                    },
+                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                },
+            },
+            "var": {
+                "type": "dir",
+                "children": {
+                    "log": {
+                        "type": "dir",
+                        "children": {
+                            "spool.log": _rfile(
+                                "spool: queued job 4471 for corp_server\n"
+                                "spool: queued job 4472 for corp_server\n"
+                                "spool: disk write failed: No space left on device"
+                            ),
+                            "syslog": _rfile(
+                                "Mar 03 02:00:00 archive-node-01 systemd[1]: "
+                                "Started Archive indexer."
+                            ),
+                            "auth.log": _rfile(
+                                "Mar 03 02:00:00 archive-node-01 sshd[900]: "
+                                "Accepted publickey for park"
+                            ),
+                        },
+                    },
+                },
+            },
+            "etc": {
+                "type": "dir",
+                "children": {
+                    "os-release": _rfile(
+                        'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"\n'
+                        'NAME="Debian GNU/Linux"\n'
+                        'VERSION_ID="12"'
+                    ),
+                },
+            },
+        },
+    },
+    "corp_server": {
+        "required_mission_id": 27,
+        "initial_path": "/opt/app",
+        "hostname": "corp-web-01",
+        "uname": "Linux corp-web-01 6.8.0-31-generic #31-Ubuntu SMP x86_64 GNU/Linux",
+        "disk": [
+            {"fs": "/dev/sda1", "size": "40G", "used": "16G", "avail": "22G", "pct": 41,
+             "mount": "/"},
+        ],
+        "sizes": {
+            "/var/log/app.log": "340M",
+            "/var/backups": "1.8G",
+        },
+        "ip": [{"iface": "eth0", "addr": "10.0.3.17/24"}],
+        "metadata": {
+            "instance-id": "i-0f3e9a7c2b1d4e5f6",
+            "region": "ap-northeast-1",
+            "local-ipv4": "10.0.3.17",
+            "instance-type": "t3.small",
+        },
+        "cron_jobs": [
+            {"schedule": "0 3 * * *", "command": "/usr/bin/certbot renew", "malicious": False},
+        ],
+        "services": {
+            "app-web": {
+                "state": "active",
+                "description": "Company web app",
+                "port": 8080,
+                "journal": [
+                    "Mar 03 03:00:00 corp-web-01 app-web[500]: listening on 0.0.0.0:8080",
+                ],
+            },
+            "sshd": {
+                "state": "failed",
+                "description": "OpenSSH server",
+                "port": 22,
+                "journal": [
+                    "Mar 03 03:00:01 corp-web-01 sshd: "
+                    "/etc/ssh/sshd_config: line 12: Bad configuration option",
+                    "Mar 03 03:00:01 corp-web-01 systemd[1]: "
+                    "sshd.service: Failed with result 'exit-code'.",
+                ],
+            },
+            "backdoor-relay": {
+                "state": "active",
+                "description": "relay",
+                "port": 4444,
+                "journal": [
+                    "Mar 03 03:00:02 corp-web-01 relay: listening on 0.0.0.0:4444",
+                    "Mar 03 03:00:02 corp-web-01 relay: forwarding to 10.66.6.6",
+                ],
+            },
+        },
+        "filesystem": {
+            "opt": {
+                "type": "dir",
+                "children": {
+                    "app": {
+                        "type": "dir",
+                        "children": {
+                            "app.py": _rfile("# app placeholder\n"),
+                            "README.txt": _rfile("Company web app.\n"),
+                            "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                        },
+                    },
+                },
+            },
+            "var": {
+                "type": "dir",
+                "children": {
+                    "backups": {
+                        "type": "dir",
+                        "children": {
+                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11"),
+                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12"),
+                        },
+                    },
+                    "log": {
+                        "type": "dir",
+                        "children": {
+                            "app.log": _rfile("app: started on :8080\napp: healthy"),
+                        },
+                    },
+                },
+            },
+            "etc": {
+                "type": "dir",
+                "children": {
+                    "os-release": _rfile(
+                        'PRETTY_NAME="Ubuntu 24.04 LTS"\nNAME="Ubuntu"\nVERSION_ID="24.04"'
+                    ),
+                },
+            },
+        },
+    },
 }
 SSH_HOSTS["10.66.6.6"] = SSH_HOSTS["ghost.example"]
+
+
+def current_host_def(state: dict) -> dict | None:
+    """remote_mode 中の接続先ホスト定義（`SSH_HOSTS[ssh_host]`）を返す。local なら None。"""
+    if not state.get("remote_mode"):
+        return None
+    return SSH_HOSTS.get(state.get("ssh_host"))
+
+
+def service_state(state: dict, host: str, name: str) -> dict | None:
+    """`host` の `services[name]` に `state["remote_services"][host][name]`
+    （`systemctl start/stop/restart` の記録）を重ねたサービス定義を返す。
+    ホスト自体、またはそのサービス名が無ければ None。
+    """
+    host_info = SSH_HOSTS.get(host)
+    if host_info is None:
+        return None
+    base = host_info.get("services", {}).get(name)
+    if base is None:
+        return None
+    merged = dict(base)
+    merged.update(state.get("remote_services", {}).get(host, {}).get(name, {}))
+    return merged
 
 
 def _content_lines(node: dict) -> list[str]:
@@ -983,7 +1216,11 @@ def cmd_uptime(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str
 
 # --- ネットワーク（Level 9） ---
 # 静的なホスト表（設計指示書 § 5。ghost.example は Mission12 実装時に確定）。
-NET_HOSTS: dict[str, str] = {"ghost.example": "10.66.6.6"}
+NET_HOSTS: dict[str, str] = {
+    "ghost.example": "10.66.6.6",
+    "archive_node": "192.168.10.5",
+    "corp_server": "10.0.3.17",
+}
 
 
 def _resolve_ip(target: str) -> str | None:
@@ -1041,10 +1278,17 @@ def cmd_ping(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str],
 
 @command("ss")
 def cmd_ss(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
-    return [
-        "Netid  State   Local Address:Port   Peer Address:Port",
-        "tcp    LISTEN  0.0.0.0:22           0.0.0.0:*",
-    ], state
+    header = "Netid  State   Local Address:Port   Peer Address:Port"
+    host_def = current_host_def(state)
+    if host_def is None:
+        return [header, "tcp    LISTEN  0.0.0.0:22           0.0.0.0:*"], state
+    host = state["ssh_host"]
+    rows = [header]
+    for name in host_def.get("services", {}):
+        merged = service_state(state, host, name)
+        if merged is not None and merged.get("state") == "active" and merged.get("port"):
+            rows.append(f"tcp    LISTEN  0.0.0.0:{merged['port']}           0.0.0.0:*")
+    return rows, state
 
 
 # --- 自動化（Level 10） ---
@@ -1054,10 +1298,219 @@ def cmd_crontab(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
     # judge 側で「正解ジョブの発動日時を報告」できたかどうかで判定する）。
     if "-l" not in argv[1:]:
         raise CommandError("Error: invalid input")
-    jobs = state.get("cron_jobs", [])
+    host_def = current_host_def(state)
+    jobs = host_def.get("cron_jobs", []) if host_def is not None else state.get("cron_jobs", [])
     if not jobs:
         return ["no crontab for detective"], state
     return [f"{j['schedule']} {j['command']}" for j in jobs], state
+
+
+# --- サーバー編の基盤（Level 12。バックエンド_コマンド機能仕様 § 5c） ---
+_LOCAL_UNAME = "Linux office 6.1.0-18-amd64 #1 SMP x86_64 GNU/Linux"
+_METADATA_URL_PREFIX = "http://169.254.169.254/latest/meta-data/"
+_SYSTEMCTL_ACTIONS = {"status", "start", "stop", "restart"}
+_SYSTEMCTL_SINCE = "Thu 2026-01-01 00:00:00 UTC"
+_JOURNAL_BEGIN = "-- Logs begin at Thu 2026-01-01 00:00:00 UTC --"
+
+
+@command("hostname")
+def cmd_hostname(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    host_def = current_host_def(state)
+    name = host_def["hostname"] if host_def is not None else "office"
+    return [name], state
+
+
+@command("uname")
+def cmd_uname(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    flags = _flag_chars(argv)
+    host_def = current_host_def(state)
+    full = host_def["uname"] if host_def is not None else _LOCAL_UNAME
+    if "a" in flags:
+        return [full], state
+    # -a 無しはカーネル名（先頭トークン `Linux`）のみ。
+    return [full.split(" ", 1)[0]], state
+
+
+def _df_row(row: dict) -> str:
+    return (
+        f"{row['fs']:<14} {row['size']:>5} {row['used']:>5} {row['avail']:>5} "
+        f"{row['pct']:>3}% {row['mount']}"
+    )
+
+
+@command("df")
+def cmd_df(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    host_def = current_host_def(state)
+    rows = host_def["disk"] if host_def is not None else [
+        {"fs": "/dev/sda1", "size": "40G", "used": "9G", "avail": "31G", "pct": 23, "mount": "/"},
+    ]
+    header = "Filesystem     Size  Used Avail Use% Mounted on"
+    return [header, *[_df_row(row) for row in rows]], state
+
+
+def _content_size(node: dict) -> int:
+    if node.get("type") != "dir":
+        return len(node.get("content", ""))
+    return sum(_content_size(child) for child in node.get("children", {}).values())
+
+
+def _human_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    unit = "B"
+    for candidate in ("K", "M", "G"):
+        if size < 1024:
+            break
+        size /= 1024
+        unit = candidate
+    if unit == "B":
+        return f"{int(size)}{unit}"
+    return f"{size:.1f}{unit}"
+
+
+@command("du")
+def cmd_du(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    host_def = current_host_def(state)
+    sizes = host_def.get("sizes", {}) if host_def is not None else {}
+    lines: list[str] = []
+    for target in operands:
+        abs_path = fs.normalize(state["current_path"], target)
+        human = sizes.get(abs_path)
+        if human is None:
+            node = fs.get_node(state, abs_path)
+            if node is None:
+                raise CommandError("Error: path not found")
+            human = _human_size(_content_size(node))
+        lines.append(f"{human}\t{target}")
+    return lines, state
+
+
+def _ip_lines(ifaces: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for idx, item in enumerate(ifaces, start=1):
+        iface = item["iface"]
+        is_lo = iface == "lo"
+        flags = "LOOPBACK,UP,LOWER_UP" if is_lo else "BROADCAST,MULTICAST,UP,LOWER_UP"
+        mtu = 65536 if is_lo else 1500
+        scope = "host" if is_lo else "global"
+        lines.append(f"{idx}: {iface}: <{flags}> mtu {mtu}")
+        lines.append(f"    inet {item['addr']} scope {scope} {iface}")
+    return lines
+
+
+@command("ip")
+def cmd_ip(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands or operands[0] not in ("a", "addr"):
+        raise CommandError("Error: invalid input")
+    host_def = current_host_def(state)
+    if host_def is not None:
+        ifaces = [{"iface": "lo", "addr": "127.0.0.1/8"}, *host_def.get("ip", [])]
+    else:
+        ifaces = [
+            {"iface": "lo", "addr": "127.0.0.1/8"},
+            {"iface": "eth0", "addr": "10.0.0.2/24"},
+        ]
+    return _ip_lines(ifaces), state
+
+
+def _systemctl_status_lines(svc: str, merged: dict) -> list[str]:
+    lines = [f"● {svc}.service - {merged.get('description', svc)}"]
+    state_value = merged.get("state", "inactive")
+    if state_value == "active":
+        lines.append(f"   Active: active (running) since {_SYSTEMCTL_SINCE}")
+    elif state_value == "failed":
+        lines.append("   Active: failed (Result: exit-code)")
+    else:
+        lines.append(f"   Active: inactive (dead) since {_SYSTEMCTL_SINCE}")
+    lines.extend(merged.get("journal", [])[-3:])
+    return lines
+
+
+@command("systemctl")
+def cmd_systemctl(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if len(operands) < 2 or operands[0] not in _SYSTEMCTL_ACTIONS:
+        raise CommandError("Error: invalid input")
+    action, svc = operands[0], operands[1]
+
+    if action != "status":
+        # start/stop/restart はサーバーでだけ触れる（事務所には触れるサービスが無い）。
+        if not state.get("remote_mode"):
+            raise CommandError("Error: command not allowed")
+        host = state["ssh_host"]
+        host_info = SSH_HOSTS[host]
+        if svc not in host_info.get("services", {}):
+            raise CommandError(f"Unit {svc}.service could not be found.")
+        overrides = state.setdefault("remote_services", {}).setdefault(host, {})
+        new_state_value = "inactive" if action == "stop" else "active"
+        overrides[svc] = {**overrides.get(svc, {}), "state": new_state_value}
+        return [], state
+
+    host = state.get("ssh_host") if state.get("remote_mode") else None
+    merged = service_state(state, host, svc) if host else None
+    if merged is None:
+        raise CommandError(f"Unit {svc}.service could not be found.")
+    return _systemctl_status_lines(svc, merged), state
+
+
+@command("journalctl")
+def cmd_journalctl(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    tokens = argv[1:]
+    svc: str | None = None
+    n: int | None = None
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok == "-u" and i + 1 < len(tokens):
+            svc = tokens[i + 1]
+            i += 2
+            continue
+        if tok == "-n" and i + 1 < len(tokens) and tokens[i + 1].isdigit():
+            n = int(tokens[i + 1])
+            i += 2
+            continue
+        raise CommandError("Error: invalid input")
+    if svc is None:
+        raise CommandError("Error: invalid input")
+
+    host = state.get("ssh_host") if state.get("remote_mode") else None
+    merged = service_state(state, host, svc) if host else None
+    if merged is None:
+        raise CommandError(f"Unit {svc}.service could not be found.")
+    journal = merged.get("journal", [])
+    if n is not None:
+        journal = journal[-n:] if n > 0 else []
+    return [_JOURNAL_BEGIN, *journal], state
+
+
+def _url_host(url: str) -> str:
+    without_scheme = url.split("://", 1)[-1]
+    return without_scheme.split("/", 1)[0]
+
+
+@command("curl")
+def cmd_curl(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("Error: invalid input")
+    url = operands[0]
+    if not url.startswith(_METADATA_URL_PREFIX):
+        raise CommandError(f"curl: (6) Could not resolve host: {_url_host(url)}")
+
+    host_def = current_host_def(state)
+    metadata = host_def.get("metadata") if host_def is not None else None
+    if metadata is None:
+        raise CommandError("curl: (7) Failed to connect to 169.254.169.254 port 80")
+
+    key = url[len(_METADATA_URL_PREFIX):]
+    if key == "":
+        return sorted(metadata.keys()), state
+    if key not in metadata:
+        raise CommandError("404 - Not Found")
+    return [str(metadata[key])], state
 
 
 @command("date")
@@ -1129,12 +1582,17 @@ def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     if info is None:
         raise CommandError("Host not found")
     # 未解放 Mission のホストは存在自体を隠す（同じ文言の Host not found で返す）。
+    # サーバー編（archive_node/corp_server）は _DEFS にまだ無い mission_id を指すことが
+    # あるため、status_for が ValueError（unknown mission_id）を投げるケースも「未解放」
+    # として扱う（Mission 実装が揃うまでは誰も到達できない予約済みホストのまま）。
     required_mission_id = info.get("required_mission_id")
-    if (
-        required_mission_id is not None
-        and progress.status_for(required_mission_id, state["mission_progress"]) == "locked"
-    ):
-        raise CommandError("Host not found")
+    if required_mission_id is not None:
+        try:
+            locked = progress.status_for(required_mission_id, state["mission_progress"]) == "locked"
+        except ValueError:
+            locked = True
+        if locked:
+            raise CommandError("Host not found")
     # 現在（local または上位 remote）の FS とパスを退避してから remote FS を載せる。
     stack = state.setdefault("_fs_stack", [])
     stack.append(

@@ -3,11 +3,15 @@
 設計指示書 § 10 / バックエンド_コマンド機能仕様 § 5:
   git status / add / commit -m "<msg>" / push。
 実 Git 連携なし。git は engine が第1トークンで判定後、ここでサブコマンド分岐する。
+
+§ 5b（ブランチ・マージ・PR、git-team 編 Mission23〜25 想定）の
+branch/checkout/log/diff/merge は app/evaluator/git_branches.py に実装し、ここから
+呼び出す（git_ops を読みやすく保つため。init_repo/add_branch も同モジュール）。
 """
 
 import copy
 
-from app.evaluator import progress
+from app.evaluator import git_branches, progress
 from app.evaluator.errors import CommandError
 from app.evaluator.fs import now_iso
 from app.evaluator.registry import command
@@ -15,6 +19,11 @@ from app.evaluator.registry import command
 COMMIT_CAP = 30  # git_state.commits の上限 / Mission（設計指示書 § 4）
 # 統合ワールドの filesystem は約 19KB（JSON）。30 commit で 1 ユーザー約 570KB。
 # SQLite JSON カラムで許容範囲（2026-09-12 実測）。
+
+# re-export（release_missions・テストから `git_ops.init_repo` / `git_ops.add_branch`
+# として呼べるように）。
+init_repo = git_branches.init_repo
+add_branch = git_branches.add_branch
 
 
 @command("git")
@@ -28,7 +37,41 @@ def cmd_git(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
         return _commit(state, argv)
     if sub == "push":
         return _push(state)
+    if sub == "branch":
+        return git_branches.branch_list(state), state
+    if sub == "checkout":
+        return _checkout(state, argv)
+    if sub == "log":
+        return git_branches.log(state), state
+    if sub == "diff":
+        return _git_diff(state, argv)
+    if sub == "merge":
+        return _merge(state, argv)
     raise CommandError("Error: command not allowed")
+
+
+def _checkout(state: dict, argv: list[str]) -> tuple[list[str], dict]:
+    rest = argv[2:]
+    if rest[:1] == ["-b"]:
+        if len(rest) < 2:
+            raise CommandError("Error: invalid input")
+        return git_branches.checkout_new(state, rest[1]), state
+    if not rest:
+        raise CommandError("Error: invalid input")
+    return git_branches.checkout_switch(state, rest[0]), state
+
+
+def _git_diff(state: dict, argv: list[str]) -> tuple[list[str], dict]:
+    operands = argv[2:]
+    if len(operands) != 2:
+        raise CommandError("Error: invalid input")
+    return git_branches.diff_branches(state, operands[0], operands[1]), state
+
+
+def _merge(state: dict, argv: list[str]) -> tuple[list[str], dict]:
+    if len(argv) < 3:
+        raise CommandError("Error: invalid input")
+    return git_branches.merge_branch(state, argv[2]), state
 
 
 def _status(state: dict) -> list[str]:
@@ -37,16 +80,26 @@ def _status(state: dict) -> list[str]:
     実 git も `(use "git add <file>..." ...)` のような案内行を出すので、
     案内行を添えるのは意味一致の範囲内（UX-02, 2026-09-13。それまでは commit 済み
     なのに `No commits yet` を返す反転バグがあり、プレイヤーが次の一手を見失っていた）。
+    § 5b: repo があれば `On branch <name>`（+ merging 中なら警告行）を先頭に足す。
     """
     git = state["git_state"]
+    prefix = git_branches.status_prefix(state)
     checked = progress.flags(state).get("case_checked", False)
     if git["staged"]:
-        return ["Changes staged", '  (use "git commit -m <message>" to save)']
+        return [*prefix, "Changes staged", '  (use "git commit -m <message>" to save)']
     if not git["commits"]:
-        return ["No commits yet", '  (use "git add ." then "git commit -m <message>" to save)']
+        return [
+            *prefix,
+            "No commits yet",
+            '  (use "git add ." then "git commit -m <message>" to save)',
+        ]
     if checked:
-        return ["Ready to push", '  (use "git push" to submit the case)']
-    return ["Nothing to commit", '  (run "sh case_file.sh" to check the case before "git push")']
+        return [*prefix, "Ready to push", '  (use "git push" to submit the case)']
+    return [
+        *prefix,
+        "Nothing to commit",
+        '  (run "sh case_file.sh" to check the case before "git push")',
+    ]
 
 
 def _add(state: dict, argv: list[str]) -> tuple[list[str], dict]:
@@ -106,6 +159,11 @@ def _commit(state: dict, argv: list[str]) -> tuple[list[str], dict]:
     if len(git["commits"]) > COMMIT_CAP:
         del git["commits"][0 : len(git["commits"]) - COMMIT_CAP]
     git["staged"] = []
+
+    # § 5b: repo があれば現在の枝の tree を作業ディレクトリの中身で更新し、log に積む
+    # （merging 中なら "Merge branch '<name>'" に差し替えて merging を消す）。
+    git_branches.finalize_commit(state, message)
+
     return [f"[saved #{next_id}] {message}"], state
 
 

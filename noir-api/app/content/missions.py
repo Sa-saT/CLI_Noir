@@ -749,6 +749,21 @@ class MissionDef:
     # 3段階ヒント（相棒キャラクターの語り。設計指示書 § 11 機能4 / Mission参照 § 1-D）。
     # 空 = 未配線（Mission4〜22 は今回対象外。フロントはボタン自体を非表示にする）。
     hints: list[str] = field(default_factory=list)
+    # 追加エピソード（git-team 編 Mission23〜25 想定。バックエンド_コマンド機能仕様
+    # § 5b）向けの解放時フック。unlock 時に `git_state.repo` を新規作成する
+    # （None ならリポジトリを作らない）。例:
+    #   {"root": "/root/team_desk", "branch": "main", "message": "initial case notes"}
+    # `root` は unlock 時点で既にワールドに存在するディレクトリでなければならない
+    # （progress.release_missions がそのディレクトリの現在の children を tree として
+    # スナップショットする）。
+    initial_repo: dict | None = None
+    # `initial_repo` 作成直後に追加のブランチを作る（None なら追加しない）。例:
+    #   {"reed/statement": {"base_from": "main", "tree": {...children...},
+    #                        "message": "reed's statement"}}
+    # 各ブランチは `base_from` で指した既存ブランチの、その時点の tree を
+    # deepcopy して `base`（三方マージの共通祖先）に持つ。`tree` は与えられた
+    # children をそのまま使う（base_from の現在の tree とは独立）。
+    initial_branches: dict | None = None
     # 進行案内「独り言レイヤー」（STORY-01。Mission参照ファイル § 独り言（story_beats）と
     # ヒントの共通仕様）。各要素: {"id", "when": "start"|"after"|"clear",
     # "text", "line"(任意・正規表現), "output"(任意・正規表現), "remote"(任意・bool)}。
