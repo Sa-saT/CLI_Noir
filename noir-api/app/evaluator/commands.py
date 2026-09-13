@@ -1681,3 +1681,62 @@ def cmd_sh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
     if "FOUND" in out_lines:
         progress.flags(new_state)["script_found"] = True
     return out_lines, new_state
+
+
+# --- 捜査ハンドブック（ゲーム機能 6。全レベル共通） ---
+@command("man")
+def cmd_man(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    from app.content.manpages import MANPAGES, MANPAGES_BY_SECTION, render
+
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("What manual page do you want?")
+    section = None
+    if len(operands) >= 2 and operands[0].isdigit():
+        section, name = operands[0], operands[1]
+    else:
+        name = operands[0]
+    if section is not None:
+        page = MANPAGES_BY_SECTION.get((section, name))
+        if page is None:
+            raise CommandError(f"No manual entry for {name} in section {section}")
+        return render(name, page, section), state
+    page = MANPAGES.get(name)
+    if page is None:
+        raise CommandError(f"No manual entry for {name}")
+    return render(name, page), state
+
+
+@command("whatis")
+def cmd_whatis(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    from app.content.manpages import MANPAGES
+
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("whatis what?")
+    out: list[str] = []
+    for name in operands:
+        page = MANPAGES.get(name)
+        if page is None:
+            out.append(f"{name}: nothing appropriate.")
+        else:
+            out.append(f"{name} (1)               - {page['summary']}")
+    return out, state
+
+
+@command("apropos")
+def cmd_apropos(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
+    from app.content.manpages import MANPAGES
+
+    operands = _operands(argv)
+    if not operands:
+        raise CommandError("apropos what?")
+    key = " ".join(operands).lower()
+    hits = [
+        f"{name} (1)               - {page['summary']}"
+        for name, page in sorted(MANPAGES.items())
+        if key in name or key in page["summary"].lower()
+    ]
+    if not hits:
+        raise CommandError(f"{key}: nothing appropriate.")
+    return hits, state

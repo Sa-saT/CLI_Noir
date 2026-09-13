@@ -43,6 +43,8 @@ _GLOB_CHARS = "*?["
 _BUILTINS = {
     "cd", "pwd", "echo", "export", "unset", "printenv", "which", "type",
     "history", "clear", "exit", "git", "gh",
+    # 捜査ハンドブック（機能 6）: PATH が壊れていても「困ったら man」が打てるように
+    "man", "whatis", "apropos",
 }
 _PATH_BIN_DIRS = ("/bin", "/usr/bin", "/usr/local/bin")
 
