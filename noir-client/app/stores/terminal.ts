@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CommitMeta, StoryBeat, Style, StateSummary } from '~/types/ws'
+import type { CommitMeta, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
@@ -37,6 +37,10 @@ export const useTerminalStore = defineStore('terminal', {
     sshHost: null as string | null,
     activeMissionId: null as number | null,
     currentUser: 'detective',
+    /** 探偵ランク（hello/result の state.rank。設計指示書 § 8） */
+    rank: null as Rank | null,
+    /** クリア演出の後に見せる辞令（rank_up イベント）。閉じるまで独り言は保留 */
+    pendingRankUp: null as RankUpEvent | null,
     commits: [] as CommitMeta[],
     lines: [] as TerminalLine[],
     missionCleared: false,
@@ -97,6 +101,7 @@ export const useTerminalStore = defineStore('terminal', {
       this.sshHost = state.ssh_host
       this.activeMissionId = state.active_mission_id
       this.currentUser = state.current_user
+      this.rank = state.rank ?? null
     },
     /** 表示済みログへ積む（上限 200。古いものから捨てる）。 */
     _pushStoryLog(beat: StoryBeat) {
@@ -124,14 +129,19 @@ export const useTerminalStore = defineStore('terminal', {
       this.nextMissionId = nextMissionId
       this.storyCurrent = null
     },
-    /** クリア演出を閉じる（「次のミッションへ」）。保留していた独り言を再開する。 */
+    /** クリア演出を閉じる（「次のミッションへ」）。辞令が無ければ保留していた独り言を再開する。 */
     dismissClear() {
       this.missionCleared = false
       if (!this.storyCurrent) this.advanceStory()
     },
-    /** 次の独り言へ進める。キューが空、またはクリア演出中なら何もしない。 */
+    /** 辞令（RankUpEffect）を閉じる。保留していた独り言を再開する。 */
+    dismissRankUp() {
+      this.pendingRankUp = null
+      if (!this.storyCurrent) this.advanceStory()
+    },
+    /** 次の独り言へ進める。キューが空、またはクリア演出・辞令の表示中なら何もしない。 */
     advanceStory() {
-      if (this.missionCleared) return
+      if (this.missionCleared || this.pendingRankUp) return
       if (this.storyQueue.length === 0) return
       const next = this.storyQueue.shift()
       if (!next) return

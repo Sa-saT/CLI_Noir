@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.evaluator import progress
+from app.evaluator import progress, rank
 
 
 class AuthFrame(BaseModel):
@@ -59,6 +59,8 @@ def state_summary(state: dict) -> dict:
         "ssh_host": state.get("ssh_host"),
         "active_mission_id": active_mission_id,
         "current_user": state.get("current_user", "detective"),
+        # 探偵ランク（§ 8 レベル表。解放済みコマンドの最高レベル）。ヘッダー表示用
+        "rank": rank.rank_of(state),
     }
 
 

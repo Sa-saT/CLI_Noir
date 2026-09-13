@@ -49,7 +49,7 @@
 - [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
 - [x] Tab 補完（2026-09-13。`app/evaluator/complete.py` + WS `complete`/`completions` + `TerminalView` の `completer` prop。DESIGN.md § 10-4）
 - [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。`Ctrl+R` 逆検索と Tab 補完も 2026-09-13 実装済み
-- [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
+- [x] `RankUpEffect.vue` の実配線（2026-09-13。バックエンドに探偵ランク `app/evaluator/rank.py` を実装し、`state.rank` と `rank_up` イベントを追加。クリア演出 → 辞令 → 独り言の順）。残: 右パネルの新コマンド点灯アニメーション（DESIGN § 6）
 
 - [x] 捜査ファイル一覧（`pages/missions/index.vue`）を MissionHeader と同じポスター意匠に組み直し（2026-09-13。見た目の良否はユーザー確認待ち）
 - [x] Mission2 の報告書を机（`/root/desk/report.txt`）に移し、独り言で机へ誘導（2026-09-13）。独り言はブリーフィングを閉じてから再生、右レールに「← 捜査ファイル一覧」追加

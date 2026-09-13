@@ -93,7 +93,12 @@ const detail = computed(() => {
   if (!selectedCommand.value) return null
   return { name: selectedCommand.value, ...commandDetailFor(selectedCommand.value) }
 })
-const rank = computed(() => (mission.value ? rankLabelFor(mission.value.allowed_commands) : ''))
+// ヘッダーのランクは接続中はプレイヤーの現在ランク（state.rank）、未接続時は Mission の
+// allowed_commands から推定する旧ロジックにフォールバック
+const rank = computed(() => {
+  if (store.rank) return `Lv.${store.rank.level} ${store.rank.name}`
+  return mission.value ? rankLabelFor(mission.value.allowed_commands) : ''
+})
 
 async function loadMission(id: number) {
   loadError.value = ''
@@ -277,6 +282,14 @@ function onNext() {
         />
       </div>
       <ClearEffect v-if="store.missionCleared" class="clear-overlay" @next="onNext" />
+      <div v-else-if="store.pendingRankUp" class="rankup-overlay" @click="store.dismissRankUp">
+        <RankUpEffect
+          :from="`Lv.${store.pendingRankUp.from_level} ${store.pendingRankUp.from_rank_name}`"
+          :to="`Lv.${store.pendingRankUp.level} ${store.pendingRankUp.rank_name}`"
+          :unlocks="store.pendingRankUp.unlocked"
+        />
+        <p class="rankup-hint">クリックして受領</p>
+      </div>
     </div>
 
     <aside class="ga-rail rail">
@@ -382,6 +395,32 @@ function onNext() {
   position: absolute;
   inset: 0;
   z-index: 45; /* MonologueLayer（40）より上、SaveSelectModal（50）より下 */
+}
+.rankup-overlay {
+  /* 辞令はクリア演出の後・独り言の前（DESIGN.md § 6）。scene 領域に重ね、クリックで受領 */
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(10, 8, 6, 0.6);
+  cursor: pointer;
+}
+.rankup-overlay :deep(.decree) {
+  max-height: 100%;
+  overflow: auto;
+}
+.rankup-hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  color: var(--poster-cream);
+  opacity: 0.8;
 }
 .resume-overlay {
   /* fixed: 画面全体を覆い、選択が済むまでターミナル操作をさせない（scene 領域内の

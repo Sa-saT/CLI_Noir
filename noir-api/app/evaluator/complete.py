@@ -24,21 +24,30 @@ _ALWAYS_AVAILABLE = ["history", "clear", "exit"]
 _SEPARATORS = " \t|;<>&"
 
 
-def released_commands(state: dict) -> list[str]:
-    """今のプレイヤーが使えるコマンド名（解放済み Mission の allowed_commands の和）。
+def mission_commands(state: dict) -> list[str]:
+    """解放済み Mission の allowed_commands の和（BASE + 捜査中までの各 Mission の extra）。
 
-    ランク制度（設計指示書 § 11 ゲーム機能 1）が入るまでの近似。allowlist に無い
-    もの・evaluator 未実装のものは候補に出さない（打っても動かないため）。
+    探偵ランク（app/evaluator/rank.py）はこれの最高レベルで決まる。
     """
     active = progress.active_mission_id(state["mission_progress"])
-    names: dict[str, None] = {cmd: None for cmd in [*BASE_COMMANDS, *_ALWAYS_AVAILABLE]}
+    names: dict[str, None] = {cmd: None for cmd in BASE_COMMANDS}
     for mission in all_missions():
         if active is not None and mission.id > active:
             continue
         for cmd in mission.extra_commands:
             names.setdefault(cmd, None)
+    return list(names)
+
+
+def released_commands(state: dict) -> list[str]:
+    """今のプレイヤーが打てるコマンド名（補完候補）。
+
+    mission_commands + 最初から使える基本操作。allowlist に無いもの・evaluator
+    未実装のものは候補に出さない（打っても動かないため）。
+    """
+    names = [*mission_commands(state), *_ALWAYS_AVAILABLE]
     return sorted(
-        n for n in names if n in ALLOWLIST and get_command(n) is not None
+        {n for n in names if n in ALLOWLIST and get_command(n) is not None}
     )
 
 

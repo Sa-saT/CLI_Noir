@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import complete, evaluate, progress, story
+from app.evaluator import complete, evaluate, progress, rank, story
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -170,6 +170,7 @@ async def terminal_ws(
                     continue
                 prev_active = progress.active_mission_id(state["mission_progress"])
                 prev_log_len = len(state.get("resolved_command_log", []))
+                prev_state = state
                 out_raw, state = evaluate(frame.command, state)
 
                 # そのコマンドで resolved_command_log に append されたときだけ
@@ -201,6 +202,7 @@ async def terminal_ws(
                 # mission_clear を story より先に送る: フロントはクリア演出を出している間
                 # 独り言を保留し、演出を閉じてからクリア独り言 → 次 Mission の start 独り言
                 # を流す（逆順だと演出の下でタイプライターが走って読めない。2026-09-13）。
+                # ランクアップ（辞令）はクリア演出の後・独り言の前に見せるので、その間に送る。
                 if next_active != prev_active:
                     await websocket.send_json(
                         {
@@ -210,6 +212,9 @@ async def terminal_ws(
                             "next_mission_id": next_active,
                         }
                     )
+                    rank_up = rank.rank_up_event(prev_state, state)
+                    if rank_up is not None:
+                        await websocket.send_json(rank_up)
                 if beats:
                     await websocket.send_json(
                         {"type": "event", "name": "story", "beats": beats}

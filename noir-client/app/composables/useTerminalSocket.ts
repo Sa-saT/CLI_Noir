@@ -163,9 +163,8 @@ export function useTerminalSocket() {
     if (frame.name === 'mission_clear') {
       store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id)
     } else if (frame.name === 'rank_up') {
-      // バックエンド未実装（types/ws.ts 冒頭コメント参照）。実装され次第、テキスト表示ではなく
-      // RankUpEffect.vue（未接続）へ繋ぎ直すこと。
-      store.pushLine('system', `-- ランクアップ: Level ${frame.level}（新規解放: ${frame.unlocked.join(', ')}） --`)
+      // クリア演出（ClearEffect）を閉じた後に辞令（RankUpEffect）として見せる（DESIGN.md § 6）
+      store.pendingRankUp = frame
     } else if (frame.name === 'story') {
       store.enqueueStory(frame.beats)
     }

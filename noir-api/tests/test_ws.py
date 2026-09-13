@@ -35,6 +35,9 @@ def _exec(ws, id_, command, *, expect_story=False, expect_clear=False):
     if expect_story:
         story_event = ws.receive_json()
         assert story_event["type"] == "event"
+        if story_event["name"] == "rank_up":
+            # ランクが上がるクリアでは mission_clear と story の間に辞令が挟まる（test_rank.py）
+            story_event = ws.receive_json()
         assert story_event["name"] == "story"
     return result, story_event, clear_event
 

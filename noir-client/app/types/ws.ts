@@ -3,14 +3,18 @@
  * クライアント→サーバー（AuthFrame/ExecFrame/ResumeFrame）は `noir-api/app/ws/frames.py` の
  * Pydantic モデルと 1:1（技術スタック § 2）。
  * サーバー→クライアントは `noir-api/app/ws/terminal.py` が実際に送るのは hello / result /
- * event(name="mission_clear") のみ（2026-08-12 時点）。StreamFrame と RankUpEvent は
- * バックエンド未実装の先行型（探偵ランク制度＝設計指示書 § 11 ゲーム機能1。実装され次第
- * 検証すること。それまではこのパスは未到達＝テスト不能）。
+ * event(name="mission_clear" / "story" / "rank_up") と completions。StreamFrame は
+ * バックエンド未実装の先行型（tail -f 監視。実装され次第検証すること）。
+ * 探偵ランク（設計指示書 § 8 レベル表 / § 11 ゲーム機能1）は 2026-09-13 に実装:
+ * `StateSummary.rank` が現在ランク、クリアでランクが上がると `mission_clear` の後に `rank_up`。
  * `StoryBeat` / `HelloFrame.story` / `event(name="story")`（STORY-01・進行案内「独り言レイヤー」）
  * はバックエンドと並行実装中の契約（2026-09-13 時点で先行導入。実装され次第検証すること）。
  */
 
 export type Style = 'normal' | 'error' | 'warning' | 'emphasis' | 'success'
+
+/** 探偵ランク（設計指示書 § 8 レベル表。解放済みコマンドの最高レベル） */
+export interface Rank { level: number, name: string }
 
 export interface StateSummary {
   current_path: string
@@ -18,6 +22,7 @@ export interface StateSummary {
   ssh_host: string | null
   active_mission_id: number | null
   current_user: string
+  rank: Rank
 }
 
 export interface CommitMeta {
@@ -84,10 +89,14 @@ export interface MissionClearEvent {
   next_mission_id: number | null
 }
 
+/** `mission_clear` の直後・`story` の前に届く（ランクが上がったクリアのみ）。 */
 export interface RankUpEvent {
   type: 'event'
   name: 'rank_up'
   level: number
+  rank_name: string
+  from_level: number
+  from_rank_name: string
   unlocked: string[]
 }
 

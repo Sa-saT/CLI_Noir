@@ -74,15 +74,26 @@ export function buildCommandEntries(allowed: string[]): CommandEntry[] {
   return out
 }
 
-// 設計指示書 § 8 レベル表（探偵ランク）。Mission1〜3 の範囲（Level 1・3）を中心に収録。
+// 設計指示書 § 8 レベル表（探偵ランク）。正はバックエンド app/evaluator/rank.py（state.rank）で、
+// ここは未接続時のフォールバック表示用。
 const LEVEL_MAP: Record<string, number> = {
   ls: 1, cd: 1, pwd: 1, touch: 1, mkdir: 1, cat: 1, echo: 1, clear: 1,
   less: 2, history: 2,
   grep: 3, find: 3, sort: 3, uniq: 3, egrep: 3, fgrep: 3,
   awk: 4,
+  head: 5, tail: 5, wc: 5, cut: 5, paste: 5, tr: 5, sed: 5, diff: 5, nl: 5, tee: 5, xargs: 5,
+  ps: 6, top: 6, kill: 6, pgrep: 6, jobs: 6, free: 6, uptime: 6,
+  chmod: 7, chown: 7, umask: 7, su: 7, whoami: 7, id: 7, who: 7,
+  cp: 8, mv: 8, tar: 8, gzip: 8, gunzip: 8, zip: 8, unzip: 8, ln: 8, file: 8,
+  which: 8, locate: 8, du: 8, df: 8, md5sum: 8, sha256sum: 8, stat: 8,
+  ping: 9, ip: 9, ss: 9, dig: 9, host: 9, hostname: 9, traceroute: 9,
+  crontab: 10, at: 10, date: 10, cal: 10, systemctl: 10, journalctl: 10, uname: 10, env: 10, alias: 10,
+  export: 10, unset: 10, printenv: 10, type: 10,
+  sh: 11, test: 11, read: 11, basename: 11, dirname: 11, seq: 11,
 }
 const RANK_NAMES: Record<number, string> = {
-  1: '見習い探偵', 2: '新米探偵', 3: '捜査員', 4: '分析官',
+  1: '見習い探偵', 2: '新米探偵', 3: '捜査員', 4: '分析官', 5: '情報屋', 6: '監視者',
+  7: '潜入捜査官', 8: '証拠管理官', 9: '追跡者', 10: '主任探偵', 11: '参謀',
 }
 
 /** allowed_commands から現在の探偵ランク表示を算出する（最も高いレベルのコマンドを基準）。 */

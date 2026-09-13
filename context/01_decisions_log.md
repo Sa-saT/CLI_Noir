@@ -21,6 +21,7 @@ Part5 統合ワールド化の Phase D（WS/API を `PlayerState` へ切替）�
 - **独り言はブリーフィングを閉じてから**（2026-09-13 ユーザー要望）: `[id].vue` が `briefingOpen` の間 MonologueLayer に beat を渡さない（保留。閉じると先頭から再生）。`MonologueLayer` は beat=null のとき自動送り/自動クローズを発火しないよう防御（空文字が即 done 扱いになり保留中の beat を捨てていた）
 - **Mission 画面から一覧へ戻るボタン**（2026-09-13）: 右レール最上段「← 捜査ファイル一覧」。接続・scrollback は保持（常時ターミナル）
 - **Mission21 の PATH 汚染は探偵自身の環境に書く**（2026-09-13 確定。2026-08-12 の su 別アカウント案を変更）: Phase F で「統合ワールドでは汚染が一度も起きない」ことが発覚。順番制のため他 Mission へ波及せず、「事務所に戻ると道具が使えない」筋書きと LPIC 103.1 の学び（自分のシェルの PATH を `echo $PATH` → `/bin/ls` → `export` で直す）に一致するため、`release_missions` が Mission21 解放時に `env_vars["detective"]` へ `initial_env_vars` を上書きする方式にした。実装は 1 箇所（`progress.release_missions`）。テストヘルパー `state_at_mission(n>21)` は 21 クリア＝PATH 復旧済みとして戻す。su 案の利点（詰んでも exit で逃げられる安全弁）は「やらかし体験室」（ゲーム機能 9）側で活かす
+- **探偵ランク＝解放済みコマンドの最高レベル**（2026-09-13 実装。§ 11 ゲーム機能 1）: Mission の Level が単調でないため「最高レベル」で決め、ランクは下がらない。Mission1 開始時は Lv.1 見習い探偵、Mission1 クリアで grep/find/awk 解放 → Lv.4 分析官。`state.rank` で常時返し、上がったクリアだけ `rank_up`（`mission_clear` の直後・`story` の前）。フロントは ClearEffect → RankUpEffect（辞令、クリックで受領）→ 独り言の順に見せる
 - **クリア演出中は独り言を保留**（2026-09-13）: サーバーの送出順を `mission_clear` → `story` に変更し、フロントは ClearEffect を閉じるまで `storyQueue` を止める（表示途中の beat は捨てる）。「次のミッションへ」→ 次ページ → クリア独り言 → start 独り言の順。演出中はブリーフィングカードも閉じる
 
 ---
