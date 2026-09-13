@@ -15,34 +15,36 @@ from app.evaluator.env import env_for
 # Mission ごとの専用判定（誤答メッセージを個別化する Mission だけ登録）。
 # 汎用 AND-regex では表現しづらい「絶対パス必須」「特定キー抽出」等をここで扱う。
 _CATINFO_ABS = "/root/park/swing/catinfo.txt"
+# 報告書の置き場。机（Mission1 の名刺と同じ /root/desk）に書かせる（2026-09-13 確定。
+# それまでは echo 行の履歴だけを見ていて、ファイルの置き場を問わなかった）。
+_MISSION2_REPORT_PATH = "/root/desk/report.txt"
 
 
 def _judge_mission2(state: dict) -> tuple[list[str], dict]:
-    """Mission2: find 使用・報告書の絶対パス記載・STATUS 抽出の 3 点を検査する。
+    """Mission2: find 使用・報告書（/root/desk/report.txt）の絶対パス記載・STATUS 記載を検査する。
 
     読み方（cat/grep）は絶対パスでも `cd` 後の相対パスでも実 Linux と同じ意味なので
-    自由（P3-08e）。絶対パスが必須なのは報告書に書く一行（`echo`）のみ——
-    「swing の catinfo」では読んだ人がどの swing か辿れない、という絶対パスの
-    存在理由そのものを判定条件にする。誤答メッセージは Mission参照ファイル § 3 の
-    確定文言に一致させる。
+    自由（P3-08e）。絶対パスが必須なのは報告書に書く一行のみ——「swing の catinfo」
+    では読んだ人がどの swing か辿れない、という絶対パスの存在理由そのものを判定条件に
+    する。判定は履歴ではなく机の上の報告書ファイルの**中身**を読む（実 Linux の検査
+    スクリプトと同じ意味）。誤答メッセージは Mission参照ファイル § 3 の確定文言に一致させる。
     """
     log = state.get("command_log", [])
     used_find = any(re.match(r"\s*find\b", line) for line in log)
-    reported_abs_path = any(
-        _CATINFO_ABS in line for line in log if re.match(r"\s*echo\b", line)
-    )
-    # STATUS 抽出: grep/echo 等で STATUS キーまたはその値 stray を含む行があるか。
-    read_status = any(
-        re.search(r"STATUS", line, re.IGNORECASE) or "stray" in line for line in log
-    )
+    report = fs.get_node(state, _MISSION2_REPORT_PATH)
+    content = report.get("content", "") if fs.is_file(report) else None
 
     if not used_find:
         progress.flags(state)["case_checked"] = False
         return ["Warning: use find to locate clues"], state
-    if not reported_abs_path:
+    if content is None:
+        progress.flags(state)["case_checked"] = False
+        return [f"Error: report not found — write {_MISSION2_REPORT_PATH}"], state
+    if _CATINFO_ABS not in content:
         progress.flags(state)["case_checked"] = False
         return ["Error: absolute path required — report the path from /"], state
-    if not read_status:
+    # STATUS 記載: キー（STATUS）またはその値（stray）が報告書に写されているか。
+    if not (re.search(r"STATUS", content, re.IGNORECASE) or "stray" in content):
         progress.flags(state)["case_checked"] = False
         return ["Error: required cat status not found"], state
 

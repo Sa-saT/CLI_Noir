@@ -17,6 +17,9 @@ Part5 統合ワールド化の Phase D（WS/API を `PlayerState` へ切替）�
 - **`git status` は現状 + 次の一手の案内行**（UX-02）: 実 git の `(use "git add …")` 相当なので意味一致の範囲内。commit 済みで `No commits yet` を返していた反転バグを修正
 - 見送り・記録のみ: `find` の常時絶対パス出力（Mission2 導線と絡む）、Tab 補完、Ctrl+R
 - **push 済み commit への resume はクリア直後から再開**（2026-09-13 修正）: 履歴が 1 本になった Part5 では commit は必ず push の前に作られるため、最新セーブ＝直前 Mission のクリア前 snapshot となり、選ぶと `completed`/`released` ごと逆戻りして次 Mission の区画が消えていた（ユーザーの実プレイで発覚）。実 Git の「origin に載った commit」に倣い `git push` 成功時に commit へ `pushed=true` を刻み、resume 時は snapshot 復元 → `advance_mission` 再適用。旧仕様の「次 Mission 遷移で前 Mission のクリア前 commit を全消去」は Part5 の 1 本履歴と矛盾していたため設計指示書 § 4/§ 10 から撤去。resume 後は捜査中 Mission のページへ自動移動
+- **Mission2 の報告書は机（`/root/desk/report.txt`）に書く**（2026-09-13 ユーザー確定）: 判定は履歴の echo 行ではなくファイルの中身を読む（実 Linux の検査スクリプトと同じ意味）。「公園で調べて机で書く」導線に合わせ独り言 `read`（机へ戻れ）/ `desk` / `wrote` / `fail_report` を追加。Mission 別 state には desk が無いため `tests/test_mission2_3.py` の Mission2 は統合ワールド基準へ移行（Phase F の先取り）
+- **独り言はブリーフィングを閉じてから**（2026-09-13 ユーザー要望）: `[id].vue` が `briefingOpen` の間 MonologueLayer に beat を渡さない（保留。閉じると先頭から再生）。`MonologueLayer` は beat=null のとき自動送り/自動クローズを発火しないよう防御（空文字が即 done 扱いになり保留中の beat を捨てていた）
+- **Mission 画面から一覧へ戻るボタン**（2026-09-13）: 右レール最上段「← 捜査ファイル一覧」。接続・scrollback は保持（常時ターミナル）
 - **クリア演出中は独り言を保留**（2026-09-13）: サーバーの送出順を `mission_clear` → `story` に変更し、フロントは ClearEffect を閉じるまで `storyQueue` を止める（表示途中の beat は捨てる）。「次のミッションへ」→ 次ページ → クリア独り言 → start 独り言の順。演出中はブリーフィングカードも閉じる
 
 ---

@@ -254,8 +254,10 @@ function onNext() {
           {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
         </NoirButton>
       </SceneOverlay>
+      <!-- 独り言はブリーフィング（事件ファイル）を閉じてから流す。開いている間は beat を渡さず
+           保留する（閉じると先頭から再生される。2026-09-13 ユーザー要望） -->
       <MonologueLayer
-        :beat="store.storyCurrent"
+        :beat="briefingOpen ? null : store.storyCurrent"
         :has-next="store.storyHasNext"
         @advance="store.advanceStory"
         @complete="store.completeStory"
@@ -273,7 +275,10 @@ function onNext() {
     </div>
 
     <aside class="ga-rail rail">
-      <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
+      <div class="rail-nav">
+        <NoirButton variant="ghost" @click="router.push('/missions')">← 捜査ファイル一覧</NoirButton>
+        <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
+      </div>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail
         v-if="detail"
@@ -397,6 +402,11 @@ function onNext() {
    パネルが縮んで中身が切れてしまう。子は縮めず rail 側をスクロールさせる（UX-02）。 */
 .ga-rail > * {
   flex-shrink: 0;
+}
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .ga-rail :deep(.panel) {
   width: 100%;

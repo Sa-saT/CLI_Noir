@@ -777,24 +777,27 @@ _DEFS: list[MissionDef] = [
     ),
     MissionDef(
         2, "Park Cat Search", "公園の猫を探せ",
-        "公園で猫ファイルを find で探し出し、報告書に絶対パスと状態を書いて完了する。",
+        "公園で猫ファイルを find で探し出し、机の報告書（/root/desk/report.txt）に絶対パスと状態を書いて完了する。",
         ["find", "grep", "awk", "sort", "uniq"],
-        # 判定は judge.py の Mission2 専用ロジック（find 使用・報告書（echo 行）の
-        # 絶対パス記載・STATUS 抽出）で行うため expected_script_patterns は空にする
-        # （誤答メッセージを個別化するため）。読み方（cat/grep）は絶対パスでも
-        # cd 後の相対パスでも自由（P3-08e）。
+        # 判定は judge.py の Mission2 専用ロジック（find 使用・机の報告書
+        # /root/desk/report.txt の絶対パス記載・STATUS 記載）で行うため
+        # expected_script_patterns は空にする（誤答メッセージを個別化するため）。
+        # 読み方（cat/grep）は絶対パスでも cd 後の相対パスでも自由（P3-08e）。
         initial_filesystem=_MISSION2_FS,
         initial_current_path="/root/park",
         hints=[
-            "ゴール: catinfo.txt を find で見つけ、その絶対パスと STATUS の値を echo で書き出し、sh case_file.sh → git push する。",
-            'find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告は echo "/root/park/swing/catinfo.txt STATUS: stray" のように絶対パス（/ から）を含める。',
-            'find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/park/report.txt（報告を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）',
+            "ゴール: catinfo.txt を find で見つけ、机の report.txt（/root/desk/report.txt）にその絶対パスと STATUS の値を書き、sh case_file.sh → git push する。",
+            'find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告書は机に置く: echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/desk/report.txt のように絶対パス（/ から）を含める。',
+            'find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/desk/report.txt（机に報告書を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）',
         ],
         story_beats=[
             {"id": "start", "when": "start", "text": "依頼は迷い猫。名前はマイク、黒。公園（park）で最後に見られたらしい。\n玄関を出て、公園へ向かわないと！"},
             {"id": "park", "when": "after", "line": r"^(cd|ls) /root/park", "text": "ベンチ、噴水、遊具……区画が多い。当てずっぽうに歩けば日が暮れる。名前で探す（find）のが探偵の仕事、のはず。"},
             {"id": "found", "when": "after", "line": r"^find ", "output": r"catinfo\.txt", "text": "出た！ 猫の記録は遊具（swing）の傍。"},
-            {"id": "read", "when": "after", "line": r"^cat .*catinfo\.txt", "text": "STATUS: stray——野良か。依頼人には場所と状態を報告しないと。\n報告書に書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。"},
+            {"id": "read", "when": "after", "line": r"^cat .*catinfo\.txt", "text": "STATUS: stray——野良か。机（desk）に戻って、報告書（report.txt）を書かないと。\n書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。"},
+            {"id": "desk", "when": "after", "line": r"^(cd|ls) /root/desk", "text": "机の上。ここに report.txt を作って、猫の居場所（`/` からの住所）と状態（STATUS）を書き込む——echo で流し込めばいい、はず。"},
+            {"id": "wrote", "when": "after", "line": r"^echo .*> /root/desk/report\.txt", "text": "報告書ができた。中身を確かめたら（cat）、事件ファイル（case_file.sh）で確認しておくか。"},
+            {"id": "fail_report", "when": "after", "line": r"^sh .*case_file\.sh", "output": "report not found", "text": "報告書が無い、と言われた。机（/root/desk）に report.txt を作らないと。"},
             {"id": "fail_abs", "when": "after", "line": r"^sh .*case_file\.sh", "output": "absolute path required", "text": "突き返された!? 住所が途中から……`/` から書き直さないと。"},
             {"id": "fail_status", "when": "after", "line": r"^sh .*case_file\.sh", "output": "cat status not found", "text": "状態が抜けている。STATUS の欄を報告に写さないと。"},
             {"id": "fail_find", "when": "after", "line": r"^sh .*case_file\.sh", "output": "use find", "text": "歩き回って見つけたのはいいが、次からは find で絞ろう。この公園より広い場所も来るはず。"},

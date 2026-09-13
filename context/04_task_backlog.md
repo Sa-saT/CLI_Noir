@@ -29,9 +29,12 @@
 **次回セッションの入り方（2026-09-13 2 回目の終業時）**: 「疑似ターミナルの動作不良」は**解決済み**（実体は「セーブから再開すると
 Mission1 に逆戻りする」設計の穴 + クリア演出と独り言の重なり。`03_pending_items.md` Backend 節の 2026-09-13 項を参照）。
 ユーザーの dev DB（`noir-api/noir.db`）は修正確認の E2E で Mission1 再クリア → Mission2 開始状態にしてある。
-次は → ユーザーの目視フィードバック反映（独り言がブリーフィングカードと重なる件は未判断）→ Phase F（P3-12 から）→
-Mission4〜22 の独り言・直接ヒント起案。Playwright 再現の型は scratchpad の `e2e_clear_resume.py`（ログイン → セーブ選択 →
-git push → 次へ → 再開）を参照（scratchpad はセッションごとに消えるので必要なら書き直す）。
+同日 2 回目の要望（Mission2 の報告書を机へ / 一覧へ戻るボタン / 独り言はブリーフィングを閉じてから）も反映済み。
+ユーザーは Mission3 を捜査中（`detective01`）。E2E 専用ユーザー `e2e01`（password: secret）を dev DB に作ってあるので、
+ブラウザ検証はそちらで行い `detective01` の世界に触らないこと。
+次は → ユーザーの目視フィードバック反映 → Phase F（P3-12 から）→ Mission4〜22 の独り言・直接ヒント起案。
+Playwright 再現の型は scratchpad の `e2e_m2.py`（ログイン → Mission1 → クリア → Mission2 机の報告書 → 一覧へ戻る）を参照
+（scratchpad はセッションごとに消えるので必要なら書き直す）。
 
 ---
 

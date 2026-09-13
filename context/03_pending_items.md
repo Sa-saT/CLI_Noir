@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 460 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 461 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -52,6 +52,7 @@
 - [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。残り: `Ctrl+R` 逆検索・Tab 補完（下記）
 - [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
 
+- [x] Mission2 の報告書を机（`/root/desk/report.txt`）に移し、独り言で机へ誘導（2026-09-13）。独り言はブリーフィングを閉じてから再生、右レールに「← 捜査ファイル一覧」追加
 - [ ] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Mission1〜3 の形が目視で固まってから。文体は `01_decisions_log.md` 2026-09-13 節）
 - [x] ClaudeDesign 同期（2026-09-13 完了。ClaudeDesign 側に既にあった `monologue-layer` を正として `MonologueLayer.vue` に移植。typography トークン・caret keyframes を pull）。残: noir-client の `--term-success` が ClaudeDesign 未反映（逆ドリフト）
 

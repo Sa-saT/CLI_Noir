@@ -75,7 +75,9 @@ function tick() {
 function scheduleAuto() {
   if (autoTimer) clearTimeout(autoTimer)
   autoTimer = null
-  if (!done.value || dismissed.value) return
+  // beat が null（呼び出し側が保留中）のときは何も送らない。空文字は即 done 扱いになるため、
+  // ここで止めないと保留中の beat を 4〜8 秒後に勝手に advance/complete して捨ててしまう
+  if (!props.beat || !done.value || dismissed.value) return
   autoTimer = setTimeout(() => {
     autoTimer = null
     if (props.hasNext) emit('advance')
@@ -101,11 +103,11 @@ function advance() {
   else complete()
 }
 
-watch(() => props.beat, () => {
+watch(() => props.beat, (beat) => {
   clearTimers()
   dismissed.value = false
   chars.value = 0
-  tick()
+  if (beat) tick()
 }, { immediate: true })
 
 watch([done, () => props.hasNext], () => scheduleAuto())

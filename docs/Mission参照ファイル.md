@@ -107,19 +107,21 @@
 ## 3. Mission2（Park Cat Search）
 
 ### 確定
-- 目的: 公園で猫ファイルを find で探し出し、報告書に絶対パスと状態を書いて `case_file.sh` を完了する
+- 目的: 公園で猫ファイルを find で探し出し、机の報告書（`/root/desk/report.txt`）に絶対パスと状態を書いて `case_file.sh` を完了する
+- 報告書の置き場（2026-09-13 確定）: `/root/desk/report.txt`。判定は履歴ではなくこのファイルの**中身**を読む（find 使用だけは履歴）。Mission1 の名刺と同じ机に戻らせる導線で、「公園で調べて机で書く」流れにする
 - 完了には疑似 `git push` 成功を含む
 - 猫ファイル: `catinfo.txt`（配置: `/root/park/swing/catinfo.txt`）
 - 必須コマンド: `find`, `cat`, `grep`
 - 任意（加点）: `awk`, `sort`, `uniq`
 - 誤答パターン:
-  - 報告書（echo 行）に絶対パス未記述: `Error: absolute path required — report the path from /`
+  - 報告書ファイル無し: `Error: report not found — write /root/desk/report.txt`
+  - 報告書に絶対パス未記述: `Error: absolute path required — report the path from /`
   - 猫情報キー不足: `Error: required cat status not found`
   - `find` 未使用: `Warning: use find to locate clues`
 - ヒント（2026-09-13 改訂: 直接的なゴール説明）:
-  - 1: `ゴール: catinfo.txt を find で見つけ、その絶対パスと STATUS の値を echo で書き出し、sh case_file.sh → git push する。`
-  - 2: `find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告は echo "/root/park/swing/catinfo.txt STATUS: stray" のように絶対パス（/ から）を含める。`
-  - 3: `find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/park/report.txt（報告を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）`
+  - 1: `ゴール: catinfo.txt を find で見つけ、机の report.txt（/root/desk/report.txt）にその絶対パスと STATUS の値を書き、sh case_file.sh → git push する。`
+  - 2: `find /root/park -name catinfo.txt で場所が分かる。中身は cat で読む。報告書は机に置く: echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/desk/report.txt のように絶対パス（/ から）を含める。`
+  - 3: `find /root/park -name catinfo.txt（名前で探す）→ cat /root/park/swing/catinfo.txt（読む）→ echo "/root/park/swing/catinfo.txt STATUS: stray" > /root/desk/report.txt（机に報告書を書く）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m "cat"（セーブ）→ git push（提出）`
 - 独り言（story_beats）:
 
 | id | when | 条件 | 文言 |
@@ -127,13 +129,16 @@
 | start | start | — | 依頼は迷い猫。名前はマイク、黒。公園（park）で最後に見られたらしい。<br>玄関を出て、公園へ向かわないと！ |
 | park | after | line `^(cd\|ls) /root/park` | ベンチ、噴水、遊具……区画が多い。当てずっぽうに歩けば日が暮れる。名前で探す（find）のが探偵の仕事、のはず。 |
 | found | after | line `^find ` output `catinfo\.txt` | 出た！ 猫の記録は遊具（swing）の傍。 |
-| read | after | line `^cat .*catinfo\.txt` | STATUS: stray——野良か。依頼人には場所と状態を報告しないと。<br>報告書に書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。 |
+| read | after | line `^cat .*catinfo\.txt` | STATUS: stray——野良か。机（desk）に戻って、報告書（report.txt）を書かないと。<br>書く場所は `/` から始まる住所で。「swing の傍」じゃ、誰も辿り着けない。 |
+| desk | after | line `^(cd\|ls) /root/desk` | 机の上。ここに report.txt を作って、猫の居場所（`/` からの住所）と状態（STATUS）を書き込む——echo で流し込めばいい、はず。 |
+| wrote | after | line `^echo .*> /root/desk/report\.txt` | 報告書ができた。中身を確かめたら（cat）、事件ファイル（case_file.sh）で確認しておくか。 |
+| fail_report | after | line `^sh .*case_file\.sh` output `report not found` | 報告書が無い、と言われた。机（/root/desk）に report.txt を作らないと。 |
 | fail_abs | after | line `^sh .*case_file\.sh` output `absolute path required` | 突き返された!? 住所が途中から……`/` から書き直さないと。 |
 | fail_status | after | line `^sh .*case_file\.sh` output `cat status not found` | 状態が抜けている。STATUS の欄を報告に写さないと。 |
 | fail_find | after | line `^sh .*case_file\.sh` output `use find` | 歩き回って見つけたのはいいが、次からは find で絞ろう。この公園より広い場所も来るはず。 |
 | judge_pass | after | line `^sh .*case_file\.sh` output `all checks passed` | これで報告になる。記録して、本部へ。 |
 | clear | clear | — | 猫は遊具の下で丸くなっていた。住所が正確なら、誰でも同じ場所へ辿り着ける——それが絶対パス、というやつか。 |
-- 絶対パスの扱い（2026-09-07 確定 / P3-08e）: 読み方は自由（`cd` してから相対パスで読んでも実 Linux と同じ意味なので合格）。絶対パスが必須なのは報告書に書く一行（`echo`）のみ。「報告書に `swing/catinfo.txt` と書いても、読んだ人がどの swing か辿れない」という絶対パスの存在理由そのものを体験させるための課題指定である。
+- 絶対パスの扱い（2026-09-07 確定 / P3-08e）: 読み方は自由（`cd` してから相対パスで読んでも実 Linux と同じ意味なので合格）。絶対パスが必須なのは報告書（`/root/desk/report.txt`）に書く一行のみ。「報告書に `swing/catinfo.txt` と書いても、読んだ人がどの swing か辿れない」という絶対パスの存在理由そのものを体験させるための課題指定である。
 
 ---
 

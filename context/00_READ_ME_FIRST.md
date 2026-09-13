@@ -13,10 +13,10 @@
 
 ## 実装の現状（2026-09-13 時点）
 
-- **バックエンド `noir-api/`（FastAPI）**: Mission1〜22 実装済み（460 tests green / ruff clean）。**Part5 永続統合ワールド化は Phase A〜D 完了**（ユーザーごとに 1 つの `PlayerState`、区画の権限ゲート、`/root/case_file.sh` 動的合成、WS `/ws/terminal`・`GET /api/state/` は `PlayerState` を参照）。残りは Phase F（テストを統合ワールド基準へ移行し `MissionState` を廃止）
+- **バックエンド `noir-api/`（FastAPI）**: Mission1〜22 実装済み（461 tests green / ruff clean）。**Part5 永続統合ワールド化は Phase A〜D 完了**（ユーザーごとに 1 つの `PlayerState`、区画の権限ゲート、`/root/case_file.sh` 動的合成、WS `/ws/terminal`・`GET /api/state/` は `PlayerState` を参照）。残りは Phase F（テストを統合ワールド基準へ移行し `MissionState` を廃止）
 - **フロント `noir-client/`（Nuxt 4 SPA）**: 実バックエンド接続済み。**「常時ターミナル」設計**（`app.vue` がログインごとに WS を 1 本張る。Mission ページは表示切替専用）+ bash 風キー操作（↑↓/Ctrl+L/C/A/E/U/W）+ **独り言レイヤー**（`StoryOverlay.vue`。サーバーの `story_beats` に反応するタイプライター台詞窓）。見た目の目視確認は都度ユーザーが行う
 - **コンテンツ**: Mission1〜3 の独り言・直接ヒントは確定（`docs/Mission参照ファイル.md`）。Mission4〜22 は未起草
-- 2026-09-13 に「セーブから再開すると進捗が逆戻りする」穴（push 済み commit に印を付けて resume 時にクリアを再適用）とクリア演出/独り言の重なりを修正済み（460 tests green）
+- 2026-09-13 に「セーブから再開すると進捗が逆戻りする」穴（push 済み commit に印を付けて resume 時にクリアを再適用）とクリア演出/独り言の重なりを修正済み（461 tests green）
 - 次の候補: ユーザーの目視フィードバック反映 → Phase F → Mission4〜22 の独り言起草。詳細は `04_task_backlog.md` 冒頭の進捗サマリ
 - タスク別に読むファイルを絞る指針は `CLAUDE.md`「エージェント向け・読むファイルの絞り込み」を参照
 
