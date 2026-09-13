@@ -244,10 +244,10 @@ useLineEditor / useHistory / useCompletion (入力系 composables)
 |---|---|
 | `Enter` | 送信。入力行はエコーとして scrollback に `$ <cmd>` を積む |
 | `↑` / `↓` | 履歴移動。編集中の未送信バッファは退避し、最下端で復元 |
-| `Tab` | 補完（10-4）。候補1件=即補完、複数=2度目の Tab で候補一覧を出力領域に表示 |
+| `Tab` | 補完（10-4）。候補1件=即補完、複数=共通接頭辞まで入れ、それ以上進まなければ候補一覧を出力領域に表示（2026-09-13 実装。bash の「2度目の Tab」より1手早い） |
 | `Ctrl+C` | 入力破棄。`^C` を表示して新プロンプト（実行中 stream があれば中断フレーム送信） |
 | `Ctrl+L` | 画面クリア（`clear` と同じ。scrollback を空に) |
-| `Ctrl+R` | 履歴逆検索。プロンプトを `(reverse-i-search)'':` 表示に切替 |
+| `Ctrl+R` | 履歴逆検索。プロンプトを `(reverse-i-search)\`query':` 表示に切替、入力欄に一致した履歴行を映す。再度 `Ctrl+R` で更に古い一致、`Enter` で実行、`Esc`/矢印/`Home`/`End` で一致行を採用して通常編集へ、`Ctrl+C`/`Ctrl+G` で取り消し（元の入力に戻す）。一致無しは `(failed reverse-i-search)`（2026-09-13 実装） |
 | `Ctrl+A` / `Ctrl+E` | 行頭 / 行末へ（native input のデフォルトに任せず明示実装） |
 | `Ctrl+U` / `Ctrl+W` | 行削除 / 直前ワード削除 |
 | `Home` / `End` | 行頭 / 行末 |

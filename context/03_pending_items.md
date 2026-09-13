@@ -48,7 +48,7 @@
 - [ ] 場所別画像アセットの制作（現状は `office.png` 1 枚のみ。※素材制作待ち）。**必要な画像の一覧は `moc/images/NEEDED_IMAGES.md`**（2026-08-17 作成。Part5 統合ワールドの区画 + ssh 接続先から算出。サイズ 1536×1024・画風基準・`SCENE_IMAGES` への登録方法・優先度 A〜D 付き）。解決は前方一致の最長一致なので、`office:/root` があれば全部揃わなくても破綻しない
 - [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
 - [x] Tab 補完（2026-09-13。`app/evaluator/complete.py` + WS `complete`/`completions` + `TerminalView` の `completer` prop。DESIGN.md § 10-4）
-- [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。残り: `Ctrl+R` 逆検索（Tab 補完は 2026-09-13 実装済み）
+- [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。`Ctrl+R` 逆検索と Tab 補完も 2026-09-13 実装済み
 - [ ] `RankUpEffect.vue` の実配線（`event: rank_up` 受信は `useTerminalSocket` でシステム行表示のみ。演出コンポーネントとしては未接続）
 
 - [x] 捜査ファイル一覧（`pages/missions/index.vue`）を MissionHeader と同じポスター意匠に組み直し（2026-09-13。見た目の良否はユーザー確認待ち）
@@ -68,7 +68,7 @@
 ### Phase2 拡張の実装タスク（2026-07-06 採用確定・2026-07-20 時点の残り）
 - [ ] `docs/バックエンド_コマンド機能仕様.md` に Phase2 新コマンド（約50個）の定義を追加（実装着手時に段階的に）※egrep/fgrep は 2026-07-07 に定義済み（grep の alias）
 - [x] evaluator 構文対応（glob/引用符/`2>`/`$?`/変数/if・for）・仮想プロセス/ユーザー/cronテーブル・アーカイブ入れ子表現・FHS版仮想FSマップは Phase2 P2-01〜P2-19 で実装済み（Backend 節参照）
-- [ ] フロントエンド: `Ctrl+R`（Tab 補完は 2026-09-13 実装済み。`↑↓` 履歴・`Ctrl+C`・`Ctrl+L` は UX-01b で実装済み）
+- [x] フロントエンド: Tab 補完・`Ctrl+R`・`↑↓` 履歴・`Ctrl+C`・`Ctrl+L`（2026-09-13 までに全て実装）
 - [ ] ゲーム機能 12 項目（設計指示書 § 11。Phase2 の 8 + 2026-07-07 追加の 4）の UI 設計
 - [ ] やらかし体験室の隔離 state 実装（使い捨て state / 本編 evaluator は denylist 不変）
 - [ ] エラー図鑑の翻訳文データ作成（§ 12 エラー一覧と 1:1 対応）

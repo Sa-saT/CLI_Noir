@@ -148,6 +148,97 @@ function onCtrlW(event: KeyboardEvent) {
   setCaret(newBefore.length)
 }
 
+// --- UX-01b: Ctrl+R 逆検索（bash の reverse-i-search） ---
+// 有効中はキー入力を横取りして query を編集し、入力欄には一致した履歴行を映す。
+// Ctrl+R でさらに古い一致へ / Enter で実行 / Esc・矢印・Home・End で一致行を採用して
+// 通常編集へ / Ctrl+C・Ctrl+G で取り消し（元の入力に戻す）。
+const rsearch = ref<{ query: string, index: number, draft: string } | null>(null)
+const rsearchFailed = ref(false)
+
+function rsearchFind(query: string, from: number): number {
+  // from から古い方向へ、query を含む履歴を探す（空 query は直近の履歴）
+  for (let i = from; i >= 0; i--) {
+    const h = history.value[i] ?? ''
+    if (query === '' || h.includes(query)) return i
+  }
+  return -1
+}
+
+function rsearchApply(query: string, from: number) {
+  const idx = rsearchFind(query, from)
+  const st = rsearch.value
+  if (!st) return
+  st.query = query
+  if (idx === -1) {
+    rsearchFailed.value = true
+    return
+  }
+  rsearchFailed.value = false
+  st.index = idx
+  input.value = history.value[idx] ?? ''
+  setCaret(input.value.length)
+}
+
+function onCtrlR(event: KeyboardEvent) {
+  event.preventDefault()
+  if (!rsearch.value) {
+    rsearch.value = { query: '', index: history.value.length - 1, draft: input.value }
+    rsearchFailed.value = false
+    rsearchApply('', history.value.length - 1)
+    return
+  }
+  // もう一度 Ctrl+R: 今の一致より古い一致へ
+  rsearchApply(rsearch.value.query, rsearch.value.index - 1)
+}
+
+/** 逆検索を抜ける。accept=true なら一致行を入力に残し、false なら元の入力に戻す。 */
+function rsearchExit(accept: boolean) {
+  const st = rsearch.value
+  if (!st) return
+  if (!accept) input.value = st.draft
+  rsearch.value = null
+  rsearchFailed.value = false
+  histIdx.value = -1
+  setCaret(input.value.length)
+}
+
+/** 逆検索中のキー処理。処理したら true。 */
+function onRsearchKey(event: KeyboardEvent): boolean {
+  const st = rsearch.value
+  if (!st) return false
+  if (event.ctrlKey && event.key.toLowerCase() === 'r') {
+    onCtrlR(event)
+    return true
+  }
+  if (event.ctrlKey && (event.key.toLowerCase() === 'c' || event.key.toLowerCase() === 'g')) {
+    event.preventDefault()
+    rsearchExit(false)
+    return true
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    rsearchExit(true)
+    submit()
+    return true
+  }
+  if (event.key === 'Escape' || event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') {
+    event.preventDefault()
+    rsearchExit(true)
+    return true
+  }
+  if (event.key === 'Backspace') {
+    event.preventDefault()
+    rsearchApply(st.query.slice(0, -1), history.value.length - 1)
+    return true
+  }
+  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault()
+    rsearchApply(st.query + event.key, st.index)
+    return true
+  }
+  return true // それ以外のキー（Tab 等）は検索中は無視
+}
+
 const CTRL_HANDLERS: Record<string, (event: KeyboardEvent) => void> = {
   c: onCtrlC,
   l: onCtrlL,
@@ -155,6 +246,7 @@ const CTRL_HANDLERS: Record<string, (event: KeyboardEvent) => void> = {
   e: onCtrlE,
   u: onCtrlU,
   w: onCtrlW,
+  r: onCtrlR,
 }
 
 // --- Tab 補完（DESIGN.md § 10-4）。候補 1 件は確定、複数は共通接頭辞まで入れて一覧を出す ---
@@ -205,6 +297,9 @@ async function onTab(event: KeyboardEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (rsearch.value && !(composing.value || event.isComposing)) {
+    if (onRsearchKey(event)) return
+  }
   if (event.key === 'Tab' && !event.shiftKey) {
     if (composing.value || event.isComposing) return
     void onTab(event)
@@ -273,7 +368,8 @@ watch(() => props.lines.length, () => {
     <button v-if="!atBottom" class="pill" @click.stop="scrollToBottom">↓ 新しい出力</button>
 
     <div class="input-row">
-      <PromptLabel v-bind="prompt" />
+      <span v-if="rsearch" class="rsearch" :class="{ failed: rsearchFailed }">({{ rsearchFailed ? 'failed ' : '' }}reverse-i-search)`{{ rsearch.query }}':</span>
+      <PromptLabel v-else v-bind="prompt" />
       <input
         ref="field"
         v-model="input"
@@ -342,6 +438,13 @@ watch(() => props.lines.length, () => {
 .ln.system {
   color: var(--gray-500);
   font-style: italic;
+}
+.rsearch {
+  color: var(--term-fg);
+  white-space: nowrap;
+}
+.rsearch.failed {
+  color: var(--term-error);
 }
 .ln.success {
   color: var(--term-success);
