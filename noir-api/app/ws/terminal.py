@@ -197,11 +197,10 @@ async def terminal_ws(
 def _handle_resume(msg: dict, state: dict) -> dict:
     """resume フレーム: 指定 commit の snapshot から state を復元する。
 
-    統合ワールド state（`mission_progress` を持つ）は、スナップショットに存在する
-    キーだけを復元する: current_path / filesystem / env_vars / mission_progress /
-    processes / cron_jobs / current_user / remote_mode / ssh_host。command_log /
-    resolved_command_log / git_state は復元しない（履歴と commit 一覧は残す）。
-    Mission 別 state（mission_flags）は従来どおり復元する。
+    スナップショットに存在するキーだけを復元する: current_path / filesystem /
+    env_vars / mission_progress / processes / cron_jobs / current_user /
+    remote_mode / ssh_host。command_log / resolved_command_log / git_state は
+    復元しない（履歴と commit 一覧は残す）。
 
     push が通った commit（`pushed=True`。git_ops._push が印を付ける）へ resume した
     場合は、スナップショット復元後に `progress.advance_mission` を再適用し、その commit
@@ -217,33 +216,21 @@ def _handle_resume(msg: dict, state: dict) -> dict:
         if commit["id"] == frame.commit_id:
             snap = commit.get("snapshot", {})
             restored = copy.deepcopy(state)
-            if "mission_progress" in state:
-                for key in (
-                    "current_path",
-                    "filesystem",
-                    "env_vars",
-                    "mission_progress",
-                    "processes",
-                    "cron_jobs",
-                    "current_user",
-                    "remote_mode",
-                    "ssh_host",
-                ):
-                    if key in snap:
-                        restored[key] = copy.deepcopy(snap[key])
-                if commit.get("pushed") and commit.get("mission_id") is not None:
-                    progress.advance_mission(restored, commit["mission_id"])
-            else:
-                restored["current_path"] = snap.get("current_path", state["current_path"])
-                restored["filesystem"] = copy.deepcopy(
-                    snap.get("filesystem", state["filesystem"])
-                )
-                restored["mission_flags"] = copy.deepcopy(
-                    snap.get("mission_flags", state["mission_flags"])
-                )
-                restored["env_vars"] = copy.deepcopy(
-                    snap.get("env_vars", state.get("env_vars", {}))
-                )
+            for key in (
+                "current_path",
+                "filesystem",
+                "env_vars",
+                "mission_progress",
+                "processes",
+                "cron_jobs",
+                "current_user",
+                "remote_mode",
+                "ssh_host",
+            ):
+                if key in snap:
+                    restored[key] = copy.deepcopy(snap[key])
+            if commit.get("pushed") and commit.get("mission_id") is not None:
+                progress.advance_mission(restored, commit["mission_id"])
             return restored
     return state
 

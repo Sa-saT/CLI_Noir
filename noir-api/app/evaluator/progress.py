@@ -7,13 +7,9 @@ Mission 解放/クリアの書き込みは P3-05 の `advance_mission` に集約
 キャッシュの更新は本モジュールの `refresh_active_mission_id` 経由のみで行う。それ以外の
 関数はすべて引数の `mission_progress` を変更しない（副作用なし）。
 
-state には 2 形状がある（`app/evaluator/env.py::env_for` と同じ考え方。当面両方を壊さず
-共存させる）:
-  - Mission 別 state（`default_state()`。現行 API/WS が使う。当面現役）:
-    `mission_flags = {"case_checked": ..., "completed": ...}`
-  - 統合ワールド state（`default_world_state()`）:
-    `mission_progress = {"completed": [...], "active_mission_id": N, "flags": {...}}`
-`flags(state)` はこの違いを吸収する（P3-05）。
+state（統合ワールド state = `default_world_state()`）は
+`mission_progress = {"completed": [...], "active_mission_id": N, "flags": {...}}` を持つ。
+`flags(state)` はこの `flags` dict を返す（P3-05）。
 """
 
 import copy
@@ -24,18 +20,15 @@ from app.evaluator.env import _DEFAULT_USER_ENV
 
 
 def flags(state: dict) -> dict:
-    """アクティブ Mission の一時フラグ dict を返す（両形状に対応）。
+    """アクティブ Mission の一時フラグ dict を返す。
 
-    統合ワールド state（`mission_progress` を持つ）なら
-    `mission_progress["flags"]` を、Mission 別 state なら `mission_flags` を返す。
-    いずれも無ければその場で作って返す。返り値は参照なので、呼び出し側が書き換える
-    と state（またはコミットのスナップショット dict）に反映される。`_push` が
-    commit スナップショットからも読むため、通常の state 以外の任意の dict に
-    対しても同じロジックで動くようにしてある。
+    `state["mission_progress"]["flags"]` を返す（無ければその場で作る）。返り値は
+    参照なので、呼び出し側が書き換えると state に反映される。`git_ops._commit` が
+    この dict を deepcopy して commit スナップショットの `"mission_flags"` キーに
+    保存する（`_push` はそのスナップショットを `flags()` 経由ではなく直接
+    `latest["snapshot"]["mission_flags"]` として読む）。
     """
-    if "mission_progress" in state:
-        return state["mission_progress"].setdefault("flags", {})
-    return state.setdefault("mission_flags", {})
+    return state["mission_progress"].setdefault("flags", {})
 
 
 def completed_ids(mission_progress: dict) -> set[int]:

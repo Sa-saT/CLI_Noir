@@ -728,8 +728,9 @@ UX判断。実装時にユーザー確認を挟む）。`SaveSelectModal.vue`を
 - [x] 完了（2026-09-13）。汎用テスト 13 ファイルを `default_world_state()`/`state_at_mission` へ移行し、旧形状専用のテスト 13 件
   （flat env_vars・静的 case_file.sh・legacy 分岐の回帰）を削除、重複 3 件を統合（462 → 446 tests）。`MissionState`/`default_state()`/
   `build_initial_state()` を撤去し Alembic `63217880f0a0` で `missionstate` を drop（dev の noir.db にも適用済み）。
-  **残（P3-14 と併せて）**: evaluator の旧形状分岐（`env.py::env_for` のフラット分岐、`progress.flags` の mission_flags 分岐、
-  `story.py` の guard、`git_ops` の `is_world`、`ws/terminal._handle_resume` の else）は死んだコードになったので簡素化する
+  旧形状分岐（`env_for`/`progress.flags`/`story`/`git_ops.is_world`/`_handle_resume`/`state["mission_id"]` フォールバック）も
+  同日撤去（445 tests）。**Phase F 完了**。P3-14 の観点（権限ゲート・ssh ゲート・PATH 局所化・vault マージ）は
+  `test_world_progress.py`/`test_world_fs.py`/`test_permissions.py`/`test_env_vars.py` で既に概ね押さえているため、個別タスクとしては閉じる
 
 P3-03で移設した約7Mission分の絶対パス（`/root/tape.log`等）をテスト側でも更新。`default_state()`の形状に依存する
 テスト（`test_state.py`/`test_ws.py`等）は新フィールド（`resolved_command_log`/`mission_progress`/ユーザー別
@@ -738,7 +739,9 @@ P3-03で移設した約7Mission分の絶対パス（`/root/tape.log`等）をテ
 `test_mission19.py`, `test_mission21.py`, `test_state.py`, `test_ws.py`ほか
 
 ### P3-14 新規サブシステムのテスト
-- [ ] 未着手
+- [x] 既存テストで充足と判断して閉じる（2026-09-13。権限ゲート=`test_world_progress.py`/`test_world_fs.py`、ssh ゲート=`test_world_progress.py`、
+  PATH 局所化=`test_env_vars.py`、Mission21 汚染=`test_world_progress.py::test_release_mission21_poisons_only_detective_path`、
+  vault マージ=`test_world_fs.py`）
 
 ディレクトリ権限ゲート（未解放区画の不可視/操作不可、解放済み区画は無影響であることの回帰確認）、ssh到達性ゲート
 （未解放ホスト→`Host not found`）、BUG-01（`cd desk && echo x > businesscard.txt`が絶対パス要求パターンを満たす）/

@@ -54,9 +54,8 @@ def default_world_state() -> dict:
 
     env_vars は「PATH汚染をユーザーアカウントに閉じ込める」ためユーザー別 dict に
     なっている。evaluator 側の追随は P3-04c で完了済み（`app/evaluator/env.py` の
-    `env_for(state)` がフラット/ユーザー別の両形状を吸収する）。
-    `app/evaluator/git_ops.py` のスナップショットは env_vars を丸ごと deepcopy する
-    だけなので、どちらの形状でもそのまま動く。
+    `env_for(state)` が current_user のバケットを返す）。
+    `app/evaluator/git_ops.py` のスナップショットは env_vars を丸ごと deepcopy する。
     """
     return {
         "current_path": "/root",

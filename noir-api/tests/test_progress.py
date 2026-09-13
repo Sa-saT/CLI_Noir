@@ -162,7 +162,7 @@ def test_default_world_state_mission_progress_has_released_key() -> None:
 
 
 # ---------------------------------------------------------------------------
-# flags（両 state 形状の吸収。P3-05）
+# flags（mission_progress["flags"] の取り出し。P3-05 / Phase F で統合ワールド専用に）
 # ---------------------------------------------------------------------------
 
 
@@ -173,26 +173,18 @@ def test_flags_world_state_returns_mission_progress_flags() -> None:
     assert result == {"case_checked": False}
 
 
-def test_flags_mission_state_creates_mission_flags_if_missing() -> None:
-    state: dict = {}
+def test_flags_creates_flags_dict_if_missing() -> None:
+    # 古いセーブ（flags キーが無い mission_progress）でも落ちずに作って返す
+    state: dict = {"mission_progress": {"completed": []}}
     result = progress.flags(state)
     assert result == {}
-    assert state["mission_flags"] is result
+    assert state["mission_progress"]["flags"] is result
 
 
 def test_flags_is_a_reference_mutation_reflected_in_state() -> None:
     state = default_world_state()
     progress.flags(state)["case_checked"] = True
     assert state["mission_progress"]["flags"]["case_checked"] is True
-
-
-def test_flags_works_on_arbitrary_snapshot_dict() -> None:
-    """git_ops._push が commit の snapshot dict からも読めることを保証する。"""
-    world_snapshot = {"mission_progress": {"flags": {"case_checked": True}}}
-    assert progress.flags(world_snapshot) == {"case_checked": True}
-
-    mission_snapshot = {"mission_flags": {"case_checked": True}}
-    assert progress.flags(mission_snapshot) == {"case_checked": True}
 
 
 # ---------------------------------------------------------------------------

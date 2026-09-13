@@ -2,7 +2,7 @@
 
 state.command_log の各行に対して Mission の expected_script_patterns を評価する。
 match_policy: AND（全パターン一致必須）/ 順不同 / 大小文字区別あり（設計指示書 § 9）。
-一致で flags(state).case_checked=true（progress.flags 経由。両 state 形状に対応。P3-05）。
+一致で flags(state).case_checked=true（progress.flags 経由。P3-05）。
 判定パターンは正規表現なので `re` のみ使う。
 """
 
@@ -237,12 +237,7 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     """Mission15: informant_history の各行を command_log 上でそのまま再現し、
     かつ行き先を report（echo）したかを検査する。
     """
-    # Mission 別 state は state["mission_id"] を持つが、統合ワールド state は
-    # 持たないため mission_progress のアクティブ Mission へフォールバックする
-    # （run_case_file と同じフォールバック。P3-04b）。
-    mission_id = state.get("mission_id")
-    if mission_id is None:
-        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission_id = progress.active_mission_id(state["mission_progress"])
     mission = get_mission(mission_id) if mission_id else None
     required = mission.informant_history if mission else []
     required = required or []
@@ -532,12 +527,7 @@ def _flat_match_lines(state: dict) -> list[str]:
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:
     """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
-    # Mission 別 state は state["mission_id"] で判定対象を持つが、統合ワールド state
-    # （P3-04b）はこれを持たないため mission_progress のアクティブ Mission へ
-    # フォールバックする。mission_id 経路が既に値を持つ場合の挙動は変えない。
-    mission_id = state.get("mission_id")
-    if mission_id is None:
-        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission_id = progress.active_mission_id(state["mission_progress"])
     mission = get_mission(mission_id) if mission_id else None
 
     custom = _CUSTOM_JUDGES.get(mission.id) if mission else None

@@ -320,11 +320,8 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
 
 
 def _resolved_mission_id(state: dict) -> int | None:
-    """resolved_command_log エントリに刺すタグ mission_id を求める（judge.run_case_file と同じフォールバック）。"""
-    mission_id = state.get("mission_id")
-    if mission_id is None:
-        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
-    return mission_id
+    """resolved_command_log エントリに刺すタグ mission_id を求める。"""
+    return progress.active_mission_id(state["mission_progress"])
 
 
 def _build_resolved_log_entry(
@@ -361,8 +358,8 @@ def _build_resolved_log_entry(
 def _set_status(state: dict, code: str) -> dict:
     """終了ステータスを $? に記録する（echo $? の最小実装。P2-15）。
 
-    env_for() 経由でユーザーのバケットに書き込むため、ユーザー別形状の state
-    でも env_vars 直下（トップレベル）が "?" キーで汚れることはない（P3-04c）。
+    env_for() 経由でユーザーのバケットに書き込むため、env_vars 直下（トップレベル）
+    が "?" キーで汚れることはない（P3-04c）。
     """
     env_for(state)["?"] = code
     return state

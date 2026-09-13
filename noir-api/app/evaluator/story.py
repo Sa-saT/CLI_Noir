@@ -4,10 +4,8 @@
 応じて発火させる純粋関数群。DB・WebSocket には一切依存しない（`app/ws/terminal.py`
 が呼び出し、発火した beat を `story` フレームとして送る）。
 
-対応する state 形状は**統合ワールド state**（`mission_progress` を持つ
-`default_world_state()`）のみ。`mission_progress` を持たない Mission 別 state
-（`default_state()` / `build_initial_state()`）では、Mission 区画という概念自体が
-無く発火記録の置き場も無いため、全関数が空リストを返し state を変更しない。
+対応する state 形状は統合ワールド state（`mission_progress` を持つ
+`default_world_state()`）。
 
 発火済み記録は `state["mission_progress"]["story_fired"]`
 （`{str(mission_id): [beat_id, ...]}`）に書く。1 beat は同じ Mission で二度と
@@ -34,8 +32,6 @@ def _emit(mission_id: int, beat: Beat) -> dict:
 
 def start_beats(state: dict) -> list[dict]:
     """アクティブ Mission の `when=="start"` beat を（未発火なら）返す。"""
-    if "mission_progress" not in state:
-        return []
     mission_id = progress.active_mission_id(state["mission_progress"])
     mission = get_mission(mission_id) if mission_id is not None else None
     if mission is None:
@@ -85,7 +81,7 @@ def after_beats(
     取っておく）。`entry` はそのコマンドが成功して `resolved_command_log` に積まれた
     場合の末尾要素、エラーで積まれなかった場合は None。
     """
-    if "mission_progress" not in state or mission_id is None:
+    if mission_id is None:
         return []
     mission = get_mission(mission_id)
     if mission is None:
@@ -106,9 +102,6 @@ def after_beats(
 
 def clear_beats(state: dict, cleared_mission_id: int) -> list[dict]:
     """クリアした Mission の `when=="clear"` beat + 次 Mission の `start` beat を返す。"""
-    if "mission_progress" not in state:
-        return []
-
     results: list[dict] = []
     mission: MissionDef | None = get_mission(cleared_mission_id)
     if mission is not None:

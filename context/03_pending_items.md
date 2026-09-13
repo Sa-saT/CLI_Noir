@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 446 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 445 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -20,7 +20,7 @@
 
 **Part5 永続統合ワールド化 Phase A〜D（P3-01〜P3-11、2026-09-12 Phase D 完了）の残タスク**（WS/API 層は `PlayerState` に切替済み。`MissionState`/`build_initial_state` はテスト用に残置）:
 - [x] `missionstate` テーブルの drop と `MissionState`/`default_state()`/`build_initial_state()` の撤去（2026-09-13 Phase F 完了。Alembic `63217880f0a0`）
-- [ ] evaluator に残る旧形状分岐（`env_for` フラット / `progress.flags` mission_flags / `story` guard / `git_ops.is_world` / `_handle_resume` else）の簡素化（死んだコード。P3-14 と併せて）
+- [x] evaluator の旧形状分岐（`env_for` / `progress.flags` / `story` / `git_ops.is_world` / `_handle_resume` / `run_case_file`・`history`・`ssh` の `state["mission_id"]` フォールバック）を撤去（2026-09-13）。残るのは `fs.py` の `mission_progress is None` フォールバック（コメントのみ旧称）
 - [x] フロント追随（FE3-01/02、2026-09-12 完了。「常時ターミナル」設計）。残: フルリロード時もセーブ選択が出る（接続の張り直し＝仕様として許容）。`when` の表示整形は 2026-09-13 に実施済み
 - [ ] resume 後も `command_log`/`resolved_command_log` は巻き戻さないため、後で打ったコマンドの記録が判定に残る（Mission 別 state 時代からの既知挙動。リプレイ台帳の設計時に扱いを決める）
 - [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
@@ -28,7 +28,7 @@
 - [x] Mission21 の PATH 汚染が統合ワールドで発生しない件（2026-09-13 発覚 → 同日修正）: `release_missions` が Mission21 解放時に探偵自身の PATH を汚す方式で確定（`01_decisions_log.md` 参照）
 - [ ] Mission5 の `/root/vault/inner` が統合ワールドでは空部屋になる（`case_file.sh` を動的生成へ移す方針＝Part5 の確定事項により、そこにあった解錠ギミックが廃止されたため）。`locked_evidence.txt` の本文が `inner` を指しているので、部屋に何を置くか（あるいは本文を書き換えるか）のコンテンツ判断が要る。P3-04 の `case_file.sh` 動的生成とあわせて決める
 
-**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。446 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
+**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。445 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
 `>file`/`>>file` の空白なし表記 / `&&` `||` `;` は黙って一部実行せず `Error: invalid input`（引用符内は対象外。本実装は設計指示書 § 8 構文レベル外のため見送り）/ `~`・`~/...` 展開（`~user` は非対応）/ `cd -`（`OLDPWD`）/ `history` が `command_log` を bash 書式で表示。詳細は `docs/バックエンド_コマンド機能仕様.md`「共通構文」「cd」「history」、テストは `tests/test_shell_idioms.py`。
 - [ ] 残る意味不一致（BUG-HUNT-01）: `find` が常に絶対パスを出力する（Mission2 導線とセットで判断）/ `&&` `;` の本実装 / `git commit -m"msg"`（クォート隣接）/ Tab 補完（`complete` フレーム未実装）
 

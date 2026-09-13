@@ -374,11 +374,7 @@ def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
     # があればそれを優先する。無ければ実 bash と同じく自分の操作履歴（command_log）を
     # `%5d  cmd` 書式で表示する（UX-01a）。実行中の history 自身は engine が成功後に
     # append するためまだ command_log に無く、含めない。
-    # 統合ワールド state は state["mission_id"] を持たないため mission_progress の
-    # アクティブ Mission へフォールバックする（run_case_file と同じフォールバック）。
-    mission_id = state.get("mission_id")
-    if mission_id is None:
-        mission_id = progress.active_mission_id(state.get("mission_progress", {}))
+    mission_id = progress.active_mission_id(state["mission_progress"])
     mission = get_mission(mission_id) if mission_id else None
     informant_history = mission.informant_history if mission else None
     if informant_history:
@@ -1133,14 +1129,10 @@ def cmd_ssh(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], 
     if info is None:
         raise CommandError("Host not found")
     # 未解放 Mission のホストは存在自体を隠す（同じ文言の Host not found で返す）。
-    # Mission 別 state（mission_progress を持たない）は現行 API/WS がまだ使う形状
-    # なので既存挙動を変えないためゲートしない。
     required_mission_id = info.get("required_mission_id")
-    mission_progress = state.get("mission_progress")
     if (
-        mission_progress is not None
-        and required_mission_id is not None
-        and progress.status_for(required_mission_id, mission_progress) == "locked"
+        required_mission_id is not None
+        and progress.status_for(required_mission_id, state["mission_progress"]) == "locked"
     ):
         raise CommandError("Host not found")
     # 現在（local または上位 remote）の FS とパスを退避してから remote FS を載せる。
