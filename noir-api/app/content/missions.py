@@ -990,6 +990,23 @@ _DEFS: list[MissionDef] = [
             r"CODE: NOIR-1948",
         ],
         initial_filesystem=_MISSION9_FS,
+        hints=[
+            "ゴール: /root/evidence_locker/evidence.dat を file で正体を確かめながら tar → unzip と開封し、最深部の final_clue.txt の CODE: を echo で報告して sh case_file.sh → git push する。",
+            "file <ファイル> で中身の種類が分かる（gzip compressed data なら tar -xzf <ファイル>、Zip archive data なら unzip <ファイル>）。展開は今いるディレクトリに出るので cd /root/evidence_locker してから。",
+            "cd /root/evidence_locker → file evidence.dat（正体: gzip）→ tar -xzf evidence.dat（開封）→ file sealed.zip（正体: Zip）→ unzip sealed.zip（開封）→ cat final_clue.txt（コードを読む）→ echo \"CODE: NOIR-1948\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"unsealed\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "押収品は証拠保管庫（evidence_locker）に。evidence.dat——拡張子はそう名乗っているが、当てにならない。\n鑑識（file）にかけながら、一枚ずつ開けていく。"},
+            {"id": "sniff", "when": "after", "line": r"^file .*evidence\.dat", "output": "gzip", "text": "gzip compressed data——.dat の皮を被った圧縮包み。tar で解く（tar -xzf）。"},
+            {"id": "not_archive", "when": "after", "line": r"^(tar|unzip|gunzip) ", "output": "invalid input", "text": "包みじゃない物を無理に開けても壊すだけ。先に鑑識（file）だ。"},
+            {"id": "peeled", "when": "after", "line": r"^tar .*-x", "output": r"^$", "text": "一枚剥けた。中から出てきた物も、また鑑識にかける。"},
+            {"id": "zip", "when": "after", "line": r"^file .*sealed\.zip", "output": "Zip", "text": "今度は Zip。包みが違えば道具も違う（unzip）。"},
+            {"id": "unzipped", "when": "after", "line": r"^unzip ", "output": r"^$", "text": "最深部が見えた。"},
+            {"id": "clue", "when": "after", "line": r"^cat .*final_clue", "output": "CODE:", "text": "CODE: NOIR-1948——封印の芯。報告に写す。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "突き返された。tar の展開、unzip の展開、コードの報告——どれかが記録に無い。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "封印は全部解けた。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "拡張子は名札にすぎない。中身は鑑識でしか分からない。\n——包みを剥がすたび、一歩ずつ近づいていた。"},
+        ],
     ),
     MissionDef(
         10, "The Forged Letter", "改ざんされた遺言状",
@@ -998,6 +1015,21 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission10 専用ロジック（diff 実行 + submitted.txt が
         # original.txt と完全一致）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION10_FS,
+        hints=[
+            "ゴール: /root/will_office の original.txt（原本）と submitted.txt（写し）を diff で比べ、違う 1 文字を sed で直して submitted.txt に書き戻し、sh case_file.sh → git push する。",
+            "diff original.txt submitted.txt で違う行が < > で出る（違いは数字の 0 と英字の O）。sed 's/間違い/正しい/' submitted.txt > submitted.txt で置き換えて書き戻す。直した後にもう一度 diff で差分が消えたか確かめる。",
+            "cd /root/will_office → diff original.txt submitted.txt（違いを見る: 2 行目の $50000 と $5O000）→ sed 's/5O000/50000/' submitted.txt > submitted.txt（置換して書き戻す）→ diff original.txt submitted.txt（差分なしを確認）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"will\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "遺言状の写し（submitted.txt）が原本（original.txt）と違う、と遺族が言う。遺言事務所（will_office）に両方ある。\n目で見比べて分からないなら、機械に比べさせる（diff）。"},
+            {"id": "diff", "when": "after", "line": r"^diff ", "output": "AMOUNT", "text": "2c2……2 行目。$50000 と $5O000——ゼロとオーの一文字。人の目では絶対に見つからない差。"},
+            {"id": "sed_screen", "when": "after", "line": r"^sed [^>]*$", "output": "AMOUNT", "text": "画面に直った文が出ただけ。ファイルはまだ古いまま——書き戻す（> ファイル）必要がある、はず。"},
+            {"id": "sed_write", "when": "after", "line": r"^sed .*>", "text": "置き換えて書き戻した。もう一度 diff で確かめる。"},
+            {"id": "judge_no_diff", "when": "after", "line": r"^sh .*case_file\.sh", "output": "run diff", "text": "直す前に、何が違うかを機械に言わせろ（diff）、と。"},
+            {"id": "judge_mismatch", "when": "after", "line": r"^sh .*case_file\.sh", "output": "does not match", "text": "まだ一致していない。置換の指定（s/前/後/）と書き戻し先を見直す。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "写しは原本に戻った。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "ゼロとオー。人の目が誤魔化される一文字を、diff は一行で指した。——比べる道具を持て。"},
+        ],
     ),
     MissionDef(
         11, "Torn Note", "切り裂かれた脅迫状",
@@ -1010,6 +1042,20 @@ _DEFS: list[MissionDef] = [
             r"MIDNIGHT AT THE OLD PIER BRING THE LEDGER ALONE",
         ],
         initial_filesystem=_MISSION11_FS,
+        hints=[
+            "ゴール: /root/scraps/pieces.txt の「番号:本文」の断片を sort で番号順に並べ、cut で本文だけ取り出し、全文を 1 行に繋げて echo で報告して sh case_file.sh → git push する。",
+            "sort /root/scraps/pieces.txt で番号順に並ぶ。cut -d: -f2 で「:」区切りの 2 列目（本文）だけ残る。パイプで繋げば sort … | cut -d: -f2。報告は echo \"全文\"（3 片を空白で繋げた 1 行）。",
+            "cat /root/scraps/pieces.txt（断片を見る）→ sort /root/scraps/pieces.txt | cut -d: -f2（並べて番号を剥がす）→ echo \"MIDNIGHT AT THE OLD PIER BRING THE LEDGER ALONE\"（全文を報告）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"note\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "切り裂かれた脅迫状。断片（scraps）には番号が振ってあるが、順番はばらばららしい。\n並べ替えて（sort）、番号を剥がして（cut）、全文を復元する。"},
+            {"id": "pieces", "when": "after", "line": r"^cat .*pieces", "text": "3:ALONE、1:MIDNIGHT……番号:本文の形。番号順に並べれば読めるはず。"},
+            {"id": "sorted", "when": "after", "line": r"^sort [^|]*$", "text": "並んだ。あとは番号（コロンの前）を剥がす——cut -d: -f2。"},
+            {"id": "cut", "when": "after", "line": r"\| *cut ", "text": "MIDNIGHT AT THE OLD PIER / BRING THE LEDGER / ALONE——脅迫状の全文。一行に繋げて報告する。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "突き返された。sort、cut（か paste）、そして全文——三つ揃って初めて復元になる。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "脅迫状は元の形に戻った。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "三片なら手でも並べられた。百片なら？ 道具の価値は、数が増えたときに分かる。"},
+        ],
     ),
     MissionDef(
         12, "Ghost Line", "幽霊回線を追え",
@@ -1018,6 +1064,24 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission12 専用ロジック（dig→ping→ssh の出現順序 +
         # remote 証拠閲覧 + 黒幕名報告）で行うため expected_script_patterns は空。
         # 現場（/den 以下）は SSH_HOSTS["ghost.example"] に定義（local FS 不要）。
+        hints=[
+            "ゴール: dig ghost.example → ping ghost.example → ssh ghost.example の順に実行し、接続先の /den/evidence/orders.txt を読んで BOSS: の名前を echo で報告、exit で戻って sh case_file.sh → git push する。",
+            "dig <ホスト> で IP、ping <ホスト> で生存確認、ss -tln で開いているポート、ssh <ホスト> で接続。判定は dig → ping → ssh の順番を見る。証拠は接続先の /den/evidence/orders.txt。報告は echo \"BOSS: 名前\"。事務所へ戻るのは exit。",
+            "dig ghost.example（住所）→ ping ghost.example（生存）→ ss -tln（開いた扉）→ ssh ghost.example（突入）→ cat /den/evidence/orders.txt（証拠）→ echo \"BOSS: Selene Vance\"（報告）→ exit（帰還）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"ghost\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "犯人は「ghost」と呼ばれるサーバーから指示を出している。\n住所を割り出し（dig）、生きているか確かめ（ping）、それから踏み込む（ssh）。順番を守れ——調べてから、踏み込む。"},
+            {"id": "resolved", "when": "after", "line": r"^(dig|host) ", "output": r"10\.66\.6\.6", "text": "10.66.6.6——幽霊の住所が割れた。"},
+            {"id": "no_host", "when": "after", "line": r"^(dig|host|ping) ", "output": "Host not found", "text": "名前が引けない。綴りは ghost.example のはず。"},
+            {"id": "alive", "when": "after", "line": r"^ping ", "output": "bytes from", "text": "返事がある。生きている。"},
+            {"id": "ports", "when": "after", "line": r"^ss\b", "text": "開いている扉（ポート）も見えた。準備は整った、はず。"},
+            {"id": "breach", "when": "after", "line": r"^ssh (ghost\.example|10\.66\.6\.6)", "text": "踏み込んだ。ここは巣（/den）。証拠（evidence）を探す。"},
+            {"id": "orders", "when": "after", "line": r"^cat .*orders\.txt", "output": "BOSS:", "text": "BOSS: Selene Vance——黒幕の名前。報告に書いて、回線を切って（exit）帰る。"},
+            {"id": "judge_order", "when": "after", "line": r"^sh .*case_file\.sh", "output": "investigate before", "text": "順番が違う、と。dig → ping → ssh。調べてから踏み込む。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "証拠（orders.txt）を読んで、黒幕の名前を報告に書いたか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "黒幕の名は本部へ。記録して送る。"},
+            {"id": "clear", "when": "clear", "text": "住所を引き、生存を確かめ、踏み込む。捜査の手順は、ネットワークの手順でもあった。"},
+        ],
     ),
     MissionDef(
         13, "Midnight Broadcast", "深夜0時の犯行予告",
@@ -1030,6 +1094,20 @@ _DEFS: list[MissionDef] = [
         ],
         initial_filesystem=_MISSION13_FS,
         initial_cron_jobs=_MISSION13_CRON_JOBS,
+        hints=[
+            "ゴール: crontab -l で予定表を見て、危険なジョブ（/tmp/.dark/broadcast.sh）が動く曜日と時刻を読み解き、echo \"FRIDAY 00:00\" の書式で報告して sh case_file.sh → git push する。",
+            "crontab -l の各行は「分 時 日 月 曜日 コマンド」。曜日は 0=日曜 … 5=金曜 6=土曜（/root/crontab_room/hint.txt に書式の説明がある）。0 0 * * 5 なら毎週金曜 00:00。報告は echo \"曜日 時:分\"（英語の曜日・24 時間表記）。",
+            "crontab -l（予定表）→ cat /root/crontab_room/hint.txt（書式の読み方）→ echo \"FRIDAY 00:00\"（危険ジョブの発動日時を報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"cron\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "サーバーに時限装置（cron）が仕掛けられた。予定表（crontab -l）を見て、危険なジョブが動く日時を割り出す。\n五つの数字の読み方は、部屋（crontab_room）の hint.txt にあるはず。"},
+            {"id": "table", "when": "after", "line": r"^crontab -l", "text": "三行。0 0 * * 5 /tmp/.dark/broadcast.sh……隠しフォルダの「放送」。分・時・日・月・曜日——最後の 5 が曜日、のはず。"},
+            {"id": "format", "when": "after", "line": r"^cat .*hint\.txt", "text": "曜日: 5 は金曜。0 0 は 0 時 0 分。——金曜の深夜 0 時。"},
+            {"id": "date", "when": "after", "line": r"^date\b", "text": "今日の日付。発動までどれだけある？"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "報告の書式は FRIDAY 00:00。予定表を見た証跡（crontab -l）も要る。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "発動日時は割れた。記録して本部へ。処理班が間に合う。"},
+            {"id": "clear", "when": "clear", "text": "五つの数字は時限装置の目盛りだった。読めれば、止められる。"},
+        ],
     ),
     MissionDef(
         14, "Hall of Mirrors", "鏡の館",

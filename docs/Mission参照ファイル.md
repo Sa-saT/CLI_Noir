@@ -235,6 +235,7 @@
 - 必須: `file`, `tar`, `gunzip` または `unzip`
 - クリア条件: 最深部ファイルの `cat` 実行 + 記載コードの report 転記
 - ゲーム性: 開封のたびに一歩近づく「発掘」感。「拡張子ではなく file で確かめる」鉄則のパズル化
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission10: The Forged Letter「改ざんされた遺言状」
 - 学習テーマ: 差分・置換（Level 5）
@@ -243,6 +244,7 @@
 - 必須: `diff`, `sed`
 - クリア条件: diff 実行 + sed による正しい置換 + 復元後ファイルの一致判定
 - ゲーム性: 目視では見つからない1文字差（`0` と `O`）を仕込む
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission11: Torn Note「切り裂かれた脅迫状」
 - 学習テーマ: テキスト整形（Level 5）
@@ -251,6 +253,7 @@
 - 必須: `sort`, `cut` または `paste`
 - クリア条件: 復元済み全文の正規表現一致
 - ゲーム性: 手作業でも解けるが sort/cut なら圧倒的に速い、という「道具の価値」の体験
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission12: Ghost Line「幽霊回線を追え」
 - 学習テーマ: ネットワーク追跡（Level 9）
@@ -259,6 +262,7 @@
 - 必須: `dig`（または `host`）, `ping`, `ssh`, `exit`
 - クリア条件: dig → ping → ssh の順序実行 + remote 内の証拠ファイル閲覧
 - ゲーム性: 「調べてから踏み込む」実務手順が捜査手順そのものとして機能する
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission13: Midnight Broadcast「深夜0時の犯行予告」
 - 学習テーマ: cron・時刻書式（Level 10）
@@ -267,6 +271,7 @@
 - 必須: `crontab -l`, `cat`, `date`
 - クリア条件: 正しいジョブの特定（発動日時の記述一致）+ 解除フラグ
 - ゲーム性: LPIC 頻出の cron 書式が、暗記ではなく時限爆弾の解読体験として定着する
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission14: Hall of Mirrors「鏡の館」
 - 学習テーマ: リンク・実体判定（Level 8）

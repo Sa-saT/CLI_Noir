@@ -77,9 +77,9 @@ def test_detail_hints_are_three_stage_where_authored(
     create_user(session, "detective01", "secret")
     headers = _auth_header(client)
 
-    for mission_id in (2, 3, 4, 8):
+    for mission_id in (2, 3, 4, 8, 13):
         detail = client.get(f"/api/missions/{mission_id}/", headers=headers).json()
         assert len(detail["hints"]) == 3, mission_id
 
-    mission9 = client.get("/api/missions/9/", headers=headers).json()
-    assert mission9["hints"] == []
+    mission14 = client.get("/api/missions/14/", headers=headers).json()
+    assert mission14["hints"] == []
