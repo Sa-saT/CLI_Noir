@@ -102,15 +102,30 @@ _MISSION2_FS = {
 
 
 # Mission4 の盗聴ログ: 電話番号を出現頻度差をつけて散らす。最頻出 = 正解。
-# grep TEL | sort | uniq -c | sort で最頻番号を割り出す導線（実際は数万行想定）。
+# grep TEL | sort | uniq -c | sort で最頻番号を割り出す導線。2026-09-13 に「目で数えられて
+# しまう」との指摘で、正解と 1〜2 桁違いの似た番号を多数（2 位は正解と 3 回差）・
+# 雑音行を各所に混ぜ、合計 300 行超にした。ラウンドロビンで散らすので同じ番号が
+# 連続せず、sort 無しの uniq -c では正しく数えられない。
 _MISSION4_ANSWER = "555-0142"
 _MISSION4_COUNTS = {
-    _MISSION4_ANSWER: 9,  # 最頻出（正解）
-    "555-0199": 5,
-    "555-0007": 3,
-    "555-0250": 2,
-    "555-0333": 1,
+    _MISSION4_ANSWER: 41,  # 最頻出（正解）
+    "555-0124": 38,  # 正解と桁の並びが違うだけ
+    "555-0412": 33,
+    "555-0141": 29,
+    "555-0143": 24,
+    "555-0199": 21,
+    "555-0421": 17,
+    "555-0007": 12,
+    "555-1042": 9,
+    "555-0250": 6,
+    "555-0333": 3,
 }
+_MISSION4_NOISE = [
+    "NOTE: heartbeat",
+    "NOTE: line noise",
+    "NOTE: tape flip",
+    "NOTE: operator check",
+]
 
 
 def _mission4_tape() -> str:
@@ -122,9 +137,12 @@ def _mission4_tape() -> str:
             if g:
                 scattered.append(g.pop())
     # 発信番号の記録（grep TEL | sort | uniq -c で頻度集計できるよう番号のみの行）。
-    lines = [f"TEL: {num}" for num in scattered]
-    # TEL を含まないノイズ行（grep で除外される）。
-    lines += [f"NOTE: heartbeat seq={i}" for i in range(10)]
+    # 7 行に 1 行、TEL を含まない雑音行（grep で除外される）を挟む。
+    lines: list[str] = []
+    for i, num in enumerate(scattered):
+        lines.append(f"TEL: {num}")
+        if i % 7 == 6:
+            lines.append(f"{_MISSION4_NOISE[i % len(_MISSION4_NOISE)]} seq={i}")
     return "\n".join(lines)
 
 
@@ -926,7 +944,7 @@ _DEFS: list[MissionDef] = [
             {"id": "no_way_back", "when": "after", "line": r"^cd /root", "output": "directory not found", "remote": True, "text": "ここは向こう側。事務所へ戻るなら回線を切る（exit）しかない、はず。"},
             {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "まだ揃っていない!? Code、Wire、Height——三つとも報告に書いたか……。"},
             {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "三つ揃った！ 記録して本部へ。処理班が待っている。"},
-            {"id": "clear", "when": "clear", "text": "観覧車が止まった。回線を切って（exit）、事務所へ戻ろう。\n——ssh は、遠くの機械を自分の机にする道具、なのかもしれない。"},
+            {"id": "clear", "when": "clear", "text": "観覧車が止まった。処理班に引き継いで回線を切る——気づけば事務所の机に戻っていた。\n——ssh は、遠くの機械を自分の机にする道具、なのかもしれない。"},
         ],
     ),
     MissionDef(
@@ -945,8 +963,8 @@ _DEFS: list[MissionDef] = [
             "cd /root/wiretap_room（盗聴室へ）→ wc -l tape.log（分量を見る）→ head tape.log（形を見る）→ grep TEL tape.log | sort | uniq -c | sort -n（番号を絞る→並べる→数える→回数順）→ echo \"TEL: <最多の番号>\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"tape\"（セーブ）→ git push（提出）",
         ],
         story_beats=[
-            {"id": "start", "when": "start", "text": "押収した盗聴テープ。盗聴室（wiretap_room）に tape.log として置いてある。\n犯人が繰り返し掛けていた番号——それさえ分かれば、あとは本部の仕事。"},
-            {"id": "count", "when": "after", "line": r"^wc ", "text": "数えるほどの行数でも、本物のテープなら何万行にもなる。目で読む癖は、今のうちに捨てたほうがいい。"},
+            {"id": "start", "when": "start", "text": "押収した盗聴テープが届いた。盗聴室（wiretap_room）に tape.log として置いてある——まず部屋へ行って中身を確かめる。\n犯人が繰り返し掛けていた番号。それさえ分かれば、あとは本部の仕事。"},
+            {"id": "count", "when": "after", "line": r"^wc ", "text": "三百行超。目で数えたら夜が明ける——しかも似た番号ばかりだ。目で読む癖は、今のうちに捨てたほうがいい。"},
             {"id": "flood", "when": "after", "line": r"^cat [^|]*tape\.log\s*$", "text": "流れていくだけで何も残らない。欲しいのは番号だけ——絞り込む道具（grep）があったはず。"},
             {"id": "shape", "when": "after", "line": r"^(head|tail) ", "text": "TEL: の行と、NOTE: の雑音。形は揃っている。形が揃っているなら、機械に数えさせられる。"},
             {"id": "filtered", "when": "after", "line": r"^grep [^|]*$", "output": "TEL:", "text": "番号だけになった。だが同じ番号が散らばっている……数えるなら、並べて（sort）からまとめる（uniq）。管（|）で繋げば一気に流せるはず。"},

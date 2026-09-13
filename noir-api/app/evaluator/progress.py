@@ -260,6 +260,8 @@ def advance_mission(state: dict, cleared_mission_id: int) -> None:
        一時フラグなので、次の Mission に持ち越してはいけない）
     4. release_missions(state) を呼び、新しく open/cleared になった Mission の
        区画・プロセス・cron・/etc/hosts を解放する
+    5. 探偵を事務所（/root）へ戻す。ssh 中なら回線を全部切る（次の Mission は必ず
+       事務所の机から始まる。2026-09-13 ユーザー指示）
     """
     mission_progress = state["mission_progress"]
     completed = mission_progress.setdefault("completed", [])
@@ -269,3 +271,18 @@ def advance_mission(state: dict, cleared_mission_id: int) -> None:
     refresh_active_mission_id(mission_progress)
     mission_progress["flags"] = {"case_checked": False}
     release_missions(state)
+    return_to_office(state)
+
+
+def return_to_office(state: dict) -> None:
+    """ssh のスタックを全部畳んで local に戻し、カレントを /root にする。"""
+    stack = state.get("_fs_stack") or []
+    if stack:
+        bottom = stack[0]
+        state["filesystem"] = bottom["filesystem"]
+        state["remote_mode"] = bottom["remote_mode"]
+        state["ssh_host"] = bottom["ssh_host"]
+        state["_fs_stack"] = []
+    state["remote_mode"] = False
+    state["ssh_host"] = None
+    state["current_path"] = "/root"

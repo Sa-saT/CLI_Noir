@@ -15,7 +15,7 @@ def test_mission4_tape_line_count() -> None:
     s = state_at_mission(4)
     # TEL 20 行 + ノイズ 10 行 = 30 行。
     assert _run(s, "wc -l /root/wiretap_room/tape.log")[0] == [
-        "30 /root/wiretap_room/tape.log"
+        "266 /root/wiretap_room/tape.log"
     ]
 
 
@@ -23,7 +23,7 @@ def test_mission4_pipeline_finds_top_number() -> None:
     s = state_at_mission(4)
     out, _ = _run(s, "grep TEL /root/wiretap_room/tape.log | sort | uniq -c | sort")
     # 昇順ソートの最終行が最頻出（正解）。
-    assert out[-1] == "      9 TEL: 555-0142"
+    assert out[-1] == "     41 TEL: 555-0142"
 
 
 def test_mission4_golden_transcript() -> None:
