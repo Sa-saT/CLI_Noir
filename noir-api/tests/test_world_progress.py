@@ -5,6 +5,8 @@ Mission2 の区画が開くこと・二重 push で穴が塞がっているこ�
 purely evaluator 層のみを対象にし、DB・API/WS 層は一切使わない。
 """
 
+import copy
+
 from app.content.missions import get_mission
 from app.evaluator import engine, progress
 from app.models.tables import default_world_state
@@ -160,3 +162,15 @@ def test_release_grafts_missing_area_into_an_old_world() -> None:
     assert node["type"] == "dir" and "case_notes.txt" in node["children"]
     assert node["mode"] == "rwxr-xr-x"
     assert state["git_state"]["repo"]["current_branch"] == "main"
+
+
+def test_ensure_world_content_grafts_fragments_into_old_worlds() -> None:
+    """隠しファイル（機能 5）が無い古いセーブでも接続時に雛形から継ぎ足される。"""
+    state = state_at_mission(3)
+    del state["filesystem"]["root"]["children"]["desk"]["children"][".old_photo_note"]
+    progress.ensure_world_content(state)
+    assert ".old_photo_note" in state["filesystem"]["root"]["children"]["desk"]["children"]
+    # 二度目は何もしない（冪等）
+    before = copy.deepcopy(state)
+    progress.ensure_world_content(state)
+    assert state == before

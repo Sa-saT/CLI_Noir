@@ -416,6 +416,9 @@ def _ls_long_line(name: str, node: dict) -> str:
 def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], dict]:
     flags = _flag_chars(argv)
     long = "l" in flags
+    # 隠しファイル（`.` 始まり）は -a / -A のときだけ列挙する（実 ls と同じ。ゲーム機能 5 の
+    # 「ls -a で発見」の前提。2026-09-13）。-a は `.` `..` も出す。
+    show_hidden = "a" in flags or "A" in flags
     operands = _operands(argv)
     # 複数ターゲット対応（glob 展開で `ls case_*` が複数ファイル名になるため）。
     targets = operands if operands else [state["current_path"]]
@@ -437,10 +440,16 @@ def cmd_ls(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[str], d
             children = fs.effective_children(state, abs_path, node)
             # 通行権限（P3-04a）を通らない子ディレクトリは一覧から除外する。
             names = sorted(
-                n for n, child in children.items() if fs.can_traverse(child, current_user)
+                n
+                for n, child in children.items()
+                if fs.can_traverse(child, current_user) and (show_hidden or not n.startswith("."))
             )
+            if "a" in flags:
+                names = [".", "..", *names]
             if long:
-                out.extend(_ls_long_line(n, children[n]) for n in names)
+                out.extend(
+                    _ls_long_line(n, children.get(n, node)) for n in names
+                )
             else:
                 out.extend(names)
     return out, state

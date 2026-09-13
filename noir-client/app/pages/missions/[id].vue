@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
-import type { CodexCommand, CodexError } from '~/types/ws'
+import type { CodexCommand, CodexError, Fragment } from '~/types/ws'
 import type { FieldCardData } from '~/components/FieldCard.vue'
 
 /*
@@ -186,8 +186,8 @@ async function toggleCodex() {
   store.codexOpen = !store.codexOpen
   if (!store.codexOpen) return
   try {
-    const data = await apiFetch<{ commands: CodexCommand[], errors: CodexError[] }>('/api/codex/')
-    store.setCodex(data.commands, data.errors)
+    const data = await apiFetch<{ commands: CodexCommand[], errors: CodexError[], fragments: Fragment[], total: number }>('/api/codex/')
+    store.setCodex(data.commands, data.errors, data.fragments, data.total)
   } catch {
     // 取得失敗時は result で積んだ分だけを見せる
   }
@@ -313,6 +313,8 @@ function onNext() {
         :open="store.codexOpen"
         :commands="store.codexCommands"
         :errors="store.codexErrors"
+        :fragments="store.fragments"
+        :fragments-total="store.fragmentsTotal"
         :fresh="store.codexFresh"
         @close="store.codexOpen = false"
       />

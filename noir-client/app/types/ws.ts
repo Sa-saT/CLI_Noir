@@ -65,6 +65,12 @@ export interface ResultLine { text: string, style: Style }
 export interface CodexNew { kind: 'command' | 'error', key: string, title?: string, text?: string }
 export interface CodexCommand { name: string, first_mission: number | null, count: number }
 export interface CodexError { key: string, title: string, text: string, first_mission: number | null, count: number, sample?: string }
+/** 隠しファイル収集（機能 5）の回想。text は見つけた物だけ API が返す */
+export interface Fragment { path: string, no: number, title: string, text: string }
+/** result フレームの `collection`: 回想の発見とご褒美コマンドの解放（機能 5・12） */
+export type CollectionEvent =
+  | { kind: 'fragment', no: number, title: string, found: number, total: number }
+  | { kind: 'unlock', command: string, label: string }
 
 export interface ResultFrame {
   type: 'result'
@@ -74,6 +80,7 @@ export interface ResultFrame {
   lines: ResultLine[]
   state: StateSummary
   codex?: CodexNew[]
+  collection?: CollectionEvent[]
 }
 
 /** `complete` への応答。`replace_from` は行内の置換開始位置（候補で置き換える範囲の先頭）。 */

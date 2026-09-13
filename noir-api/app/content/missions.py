@@ -1846,6 +1846,18 @@ def _strip_ghost_hosts_line(world: dict) -> None:
     node["content"] = "\n".join(lines)
 
 
+def _place_fragments(world: dict) -> None:
+    """隠しファイル収集（ゲーム機能 5）: 各区画に R. の手帳の切れ端を隠す（`ls -a` で見つかる）。"""
+    from app.content.collection import FRAGMENTS
+
+    for abs_path, frag in FRAGMENTS.items():
+        segs = [s for s in abs_path.split("/") if s]
+        parent = _node_at(world, "/" + "/".join(segs[:-1]))
+        if parent is None or parent.get("type") != "dir":
+            raise ValueError(f"fragment parent missing for {abs_path}")
+        parent["children"][segs[-1]] = _file(frag["text"], immutable=True)
+
+
 def _build_world_fs() -> dict:
     world: dict = {"root": _world_dir()}
     for mission in all_missions():
@@ -1860,6 +1872,7 @@ def _build_world_fs() -> dict:
         _merge_children(world, pruned, mission.id, "")
 
     _strip_ghost_hosts_line(world)
+    _place_fragments(world)
 
     for path in _ALWAYS_OPEN_DIRS:
         _set_dir_gate(world, path, released=True)

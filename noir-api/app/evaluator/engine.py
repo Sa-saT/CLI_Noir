@@ -28,6 +28,7 @@ from app.evaluator import fs
 from app.evaluator import gh as _gh  # noqa: F401  registry 登録のため import
 from app.evaluator import git_ops as _git_ops  # noqa: F401  registry 登録のため import
 from app.evaluator import progress
+from app.evaluator import rewards as _rewards  # noqa: F401  registry 登録のため import
 from app.evaluator import sandbox
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.env import env_for
@@ -257,6 +258,9 @@ def _run_stage(
     in_sandbox = name in sandbox.SANDBOX_ONLY and sandbox.is_active(state)
     if (name in DENYLIST and not in_sandbox) or (name not in ALLOWLIST and not in_sandbox):
         raise CommandError("Error: command not allowed")
+    # ご褒美コマンド（機能 12）は解放されるまで「入っていない」（実機で cowsay を入れる前と同じ）
+    if name in _rewards.REWARD_COMMANDS and not _rewards.is_unlocked(state, name):
+        raise CommandError("Error: command not found")
     # PATH に /bin 系が無い間は組み込み以外のコマンドが引けない（絶対パス実行は除外。
     # Mission21）。
     if not is_absolute and name not in _BUILTINS and not _path_has_bin(state):

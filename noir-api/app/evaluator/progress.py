@@ -129,6 +129,29 @@ def _graft_area_from_template(world: dict, abs_path: str) -> dict | None:
     return parent["children"][segs[-1]]
 
 
+def ensure_world_content(state: dict) -> None:
+    """古いセーブに、後から追加された世界の中身を継ぎ足す（接続時に 1 回。冪等）。
+
+    現状は隠しファイル（ゲーム機能 5。2026-09-13 追加）だけ: 親ディレクトリがあり
+    ファイルが無ければ雛形から複製する。区画そのものの追加は release_missions 側の
+    `_graft_area_from_template` が解放時に行う。
+    """
+    from app.content.collection import FRAGMENTS
+
+    world = state.get("filesystem", {})
+    template: dict | None = None
+    for abs_path in FRAGMENTS:
+        segs = [s for s in abs_path.split("/") if s]
+        parent = _node_at(world, "/" + "/".join(segs[:-1]))
+        if parent is None or parent.get("type") != "dir" or segs[-1] in parent.get("children", {}):
+            continue
+        if template is None:
+            template = missions.build_world_filesystem()
+        src = _node_at(template, abs_path)
+        if src is not None:
+            parent.setdefault("children", {})[segs[-1]] = copy.deepcopy(src)
+
+
 def release_missions(state: dict) -> None:
     """未解放（locked でない）Mission の区画を解放する（統合ワールド state 専用・冪等）。
 

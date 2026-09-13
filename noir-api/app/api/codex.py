@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from app.api.deps import get_current_user
-from app.evaluator import codex
+from app.evaluator import codex, rewards
 from app.models import PlayerState, User
 from app.models.db import get_session
 
@@ -26,5 +26,5 @@ def get_codex(
         select(PlayerState).where(PlayerState.user_id == current_user.id)
     ).first()
     if row is None:
-        return {"commands": [], "errors": []}
-    return codex.listing(row.data)
+        return {"commands": [], "errors": [], "fragments": [], "total": 0, "unlocked_commands": []}
+    return {**codex.listing(row.data), **rewards.listing(row.data)}

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CodexCommand, CodexError, CodexNew, CommitMeta, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
+import type { CodexCommand, CodexError, CodexNew, CommitMeta, Fragment, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
@@ -47,6 +47,9 @@ export const useTerminalStore = defineStore('terminal', {
     codexErrors: [] as CodexError[],
     /** 直近に登録されたキー（NEW 印。次の登録で入れ替わる） */
     codexFresh: [] as string[],
+    /** 回想（機能 5）: 見つけた物と総数 */
+    fragments: [] as Fragment[],
+    fragmentsTotal: 0,
     /** クリア演出の後に見せる辞令（rank_up イベント）。閉じるまで独り言は保留 */
     pendingRankUp: null as RankUpEvent | null,
     /** 辞令の後に発行する現場実習カード（クリアした Mission の id）。閉じるまで独り言は保留 */
@@ -129,9 +132,11 @@ export const useTerminalStore = defineStore('terminal', {
       this.codexFresh = entries.map(e => e.key)
     },
     /** GET /api/codex/ の結果で一覧を置き換える（図鑑を開いたとき）。 */
-    setCodex(commands: CodexCommand[], errors: CodexError[]) {
+    setCodex(commands: CodexCommand[], errors: CodexError[], fragments: Fragment[] = [], total = 0) {
       this.codexCommands = [...commands].reverse()
       this.codexErrors = [...errors].reverse()
+      this.fragments = fragments
+      this.fragmentsTotal = total
     },
     /** 表示済みログへ積む（上限 200。古いものから捨てる）。 */
     _pushStoryLog(beat: StoryBeat) {

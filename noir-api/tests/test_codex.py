@@ -54,7 +54,7 @@ def test_ws_result_carries_new_codex_entries_and_api_lists_them(
         "/api/auth/login/", json={"username": "detective01", "password": "secret"}
     ).json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
-    assert client.get("/api/codex/", headers=headers).json() == {"commands": [], "errors": []}
+    assert client.get("/api/codex/", headers=headers).json()["commands"] == []
     with client.websocket_connect("/ws/terminal") as ws:
         ws.send_json({"type": "auth", "token": token})
         ws.receive_json()

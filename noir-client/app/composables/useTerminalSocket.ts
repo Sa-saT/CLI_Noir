@@ -158,6 +158,15 @@ export function useTerminalSocket() {
       const labels = frame.codex.map(e => (e.kind === 'error' ? `エラー「${e.title ?? e.key}」` : `道具 ${e.key}`))
       store.pushLine('system', `-- 図鑑に登録: ${labels.join(' / ')} --`)
     }
+    // 回想の収集（機能 5）とご褒美コマンドの解放（機能 12）
+    for (const ev of frame.collection ?? []) {
+      if (ev.kind === 'fragment') {
+        store.fragmentsTotal = ev.total
+        store.pushLine('system', `-- 回想 ${ev.found}/${ev.total}「${ev.title}」を見つけた（図鑑の「回想」で読める） --`)
+      } else {
+        store.pushLine('system', `-- 隠し実績: ${ev.label}。${ev.command} が使えるようになった --`)
+      }
+    }
     // `clear` コマンドはエコーされた入力行ごと消える（実ターミナルと同じ手触り）。
     // frame.lines を積んだ後にクリアする（バックエンドは空出力を返すため実質 no-op だが順序を保証しておく）。
     if (frame.ok && frame.command.trim() === 'clear') {

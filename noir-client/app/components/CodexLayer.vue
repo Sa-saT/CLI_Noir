@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { commandDetailFor } from '~/utils/commandCatalog'
-import type { CodexCommand, CodexError } from '~/types/ws'
+import type { CodexCommand, CodexError, Fragment } from '~/types/ws'
 
 /*
  * CodexLayer — 捜査道具図鑑 / エラー図鑑（設計指示書 § 11 機能 2・10）。
@@ -13,12 +13,15 @@ const props = defineProps<{
   open: boolean
   commands: CodexCommand[]
   errors: CodexError[]
+  /** 回想（隠しファイル収集。機能 5）。見つけた物だけ */
+  fragments: Fragment[]
+  fragmentsTotal: number
   /** 直近に登録されたキー（NEW 印） */
   fresh: string[]
 }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
-const tab = ref<'tools' | 'errors'>('errors')
+const tab = ref<'tools' | 'errors' | 'fragments'>('errors')
 const freshSet = computed(() => new Set(props.fresh))
 const tools = computed(() => props.commands.map(c => ({ ...c, detail: commandDetailFor(c.name) })))
 </script>
@@ -30,6 +33,7 @@ const tools = computed(() => props.commands.map(c => ({ ...c, detail: commandDet
       <div class="tabs">
         <button type="button" :class="{ on: tab === 'errors' }" @click="tab = 'errors'">エラー {{ errors.length }}</button>
         <button type="button" :class="{ on: tab === 'tools' }" @click="tab = 'tools'">道具 {{ commands.length }}</button>
+        <button type="button" :class="{ on: tab === 'fragments' }" @click="tab = 'fragments'">回想 {{ fragments.length }}/{{ fragmentsTotal }}</button>
       </div>
       <button type="button" class="close" aria-label="閉じる" @mousedown.prevent @click="emit('close')">×</button>
     </div>
@@ -44,6 +48,18 @@ const tools = computed(() => props.commands.map(c => ({ ...c, detail: commandDet
         </div>
         <div class="title">{{ e.title }}</div>
         <p class="text">{{ e.text }}</p>
+      </li>
+    </ul>
+
+    <ul v-else-if="tab === 'fragments'" class="list">
+      <li v-if="fragments.length === 0" class="empty">まだ回想は無い。各部屋に隠されたもの（ls -a）を読むと、ここに集まる。</li>
+      <li v-for="f in fragments" :key="f.path">
+        <div class="row">
+          <code class="key">#{{ f.no }}</code>
+          <span class="count">{{ f.path }}</span>
+        </div>
+        <div class="title">{{ f.title }}</div>
+        <p class="text fragment">{{ f.text }}</p>
       </li>
     </ul>
 
@@ -172,6 +188,10 @@ const tools = computed(() => props.commands.map(c => ({ ...c, detail: commandDet
   font-size: var(--text-sm);
   line-height: 1.6;
   color: rgba(242, 232, 213, 0.85);
+}
+.text.fragment {
+  font-family: var(--font-narration);
+  white-space: pre-line;
 }
 .text b {
   color: var(--brass-400);

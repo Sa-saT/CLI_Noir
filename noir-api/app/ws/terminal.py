@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import codex, complete, evaluate, progress, rank, story
+from app.evaluator import codex, complete, evaluate, progress, rank, rewards, story
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -111,6 +111,8 @@ async def terminal_ws(
     # 2. state 復元 / 生成 + hello（story: 独り言レイヤーの start beat。STORY-01）
     row = _load_or_create(session, user.id)
     state = row.data
+    # 後から増えた世界の中身（隠しファイル等）を古いセーブに継ぎ足す
+    progress.ensure_world_content(state)
     initial_beats = story.start_beats(state)
     row.data = state
     _persist(session, row)
@@ -188,6 +190,8 @@ async def terminal_ws(
                 lines, ok = _to_lines(out_raw)
                 # 図鑑（ゲーム機能 2・10）: 成功した道具と遭遇したエラーを登録する
                 codex_new = codex.register(state, frame.command, out_raw, ok)
+                # 回想の収集（機能 5）とご褒美コマンドの解放（機能 12）
+                collection_events = rewards.register(state, frame.command, entry)
 
                 row.data = state
                 _persist(session, row)
@@ -201,6 +205,7 @@ async def terminal_ws(
                         "lines": lines,
                         "state": state_summary(state),
                         "codex": codex_new,
+                        "collection": collection_events,
                     }
                 )
                 # mission_clear を story より先に送る: フロントはクリア演出を出している間
