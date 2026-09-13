@@ -65,6 +65,11 @@
 
 ## 未確定（設計上の残課題）
 
+### 追加エピソード（2026-09-13 ユーザー要望。設計案は `docs/Mission参照ファイル.md` § 5b）
+- [ ] git 編 3 本（Mission23〜25: ブランチ / 競合 / PR とレビュー）とサーバー編 3 本（Mission26〜28: オンプレ / クラウド / 両拠点）。
+  未確定: ① 事件番号固定 + `order` で並べる方式でよいか ② 置き場所（git 編は Mission11 の後、サーバー編は 21 の後）③ PR は `gh` CLI の擬似実装でよいか。
+  確定後の実装順: `order` 導入 → git_state のブランチ拡張 + `gh` → git 編 3 本 → SSH_HOSTS 拡張（services/disk/metadata）+ systemctl/journalctl/df/du 等 → サーバー編 3 本。画像は `moc/images/NEEDED_IMAGES.md` 優先度 E
+
 ### Phase2 拡張の実装タスク（2026-07-06 採用確定・2026-07-20 時点の残り）
 - [ ] `docs/バックエンド_コマンド機能仕様.md` に Phase2 新コマンド（約50個）の定義を追加（実装着手時に段階的に）※egrep/fgrep は 2026-07-07 に定義済み（grep の alias）
 - [x] evaluator 構文対応（glob/引用符/`2>`/`$?`/変数/if・for）・仮想プロセス/ユーザー/cronテーブル・アーカイブ入れ子表現・FHS版仮想FSマップは Phase2 P2-01〜P2-19 で実装済み（Backend 節参照）

@@ -1,6 +1,6 @@
 # 場面画像 制作リスト
 
-作成日: 2026-08-17（Part5 永続統合ワールド化 P3-05 完了時点の世界構造から算出）
+作成日: 2026-08-17（Part5 永続統合ワールド化 P3-05 完了時点の世界構造から算出）/ 2026-09-13 追加エピソード分（優先度 E）を追記
 
 CLI_Noir の「場面画像」は**カレントディレクトリに紐付く**（`docs/DESIGN.md` § 1）。
 本ファイルは、統合ワールド（`noir-api/app/content/missions.py::_build_world_fs()`）と
@@ -68,6 +68,17 @@ ssh 接続先（`app/evaluator/commands.py::SSH_HOSTS`）から洗い出した**
 |---|---|---|---|
 | `ghost_den.png` | `ghost.example:/den` | 12・22 | 幽霊回線の先の隠れ家。裸電球と黒幕の指示書 |
 
+## 優先度 E: 追加エピソード（2026-09-13 提案。`docs/Mission参照ファイル.md` § 5b。確定後に制作）
+
+| ファイル名 | 登録キー | Mission | 描くもの |
+|---|---|---|---|
+| `team_desk.png` | `office:/root/team_desk` | 23〜25（git 編） | 相部屋の捜査室。向かい合う二つの机、共有の調書棚、壁の捜査線（赤い糸が枝分かれしている） |
+| `hq_review.png` | `office:/root/team_desk/outbox`（任意） | 25 | 本部への送付箱。判子待ちの封筒と「差し戻し」のスタンプ |
+| `archive_node_srv.png` | `archive_node:/srv` | 26・28（オンプレ） | 署の地下サーバー室。ラックの古い機械、点滅する赤いランプ、床のケーブル |
+| `archive_node_varlog.png` | `archive_node:/var/log`（任意） | 26 | 溢れ返ったログの棚。床まで積まれた記録紙 |
+| `corp_server_app.png` | `corp_server:/opt/app` | 27・28（クラウド） | 雲の上のデータセンター。同じ形の機械が霧の中に無限に並ぶ、窓の無い部屋 |
+| `corp_server_backups.png` | `corp_server:/var/backups`（任意） | 28 | クラウド側の受け取り棚。届くはずの荷札付きの箱が一つ足りない |
+
 - `10.66.6.6` は `ghost.example` の別名（dig で判明する IP）。**同じ画像を両方のキーに登録すること**
   （`10.66.6.6:/den` も追加する）
 
@@ -100,3 +111,10 @@ ssh 接続先（`app/evaluator/commands.py::SSH_HOSTS`）から洗い出した**
 
 - [x] `office.png`（`moc/images/mission1.png` 由来）
 - [ ] 上記のそれ以外すべて（優先度 A の 3 枚から）
+- [ ] 優先度 E（追加エピソード）は設計確定後
+
+## 格納の手順（後日）
+
+1. 上表の**ファイル名どおり**に `noir-client/public/images/` へ置く（サイズ 1536×1024・PNG）
+2. `noir-client/app/pages/missions/[id].vue` の `SCENE_IMAGES` に登録キー → `/images/<ファイル名>` を追加する
+   （Claude に「画像を置いた」と伝えれば登録と表示確認まで行う）
