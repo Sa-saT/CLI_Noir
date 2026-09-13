@@ -3,8 +3,13 @@ import { computed, onMounted, ref } from 'vue'
 
 /*
  * Mission 一覧（FE-02）。設計指示書 § 6 `GET /api/missions/`。
- * 見た目は MissionHeader（60 年代フレンチ映画ポスター: poster black の地・赤の斜め切り抜き・
- * Jost の見出し・Josefin のタグ・brass のチップ）と同じ意匠で組む（2026-09-13 ユーザー指示）。
+ * 見た目は DesignSystem の Game Screen（ui_kits/detective-terminal）を参照して組む（2026-09-13 ユーザー指示）:
+ *   - ヘッダー = MissionHeader（ポスター帯）そのまま
+ *   - 背景 = scene と同じ poster-blue → poster-black のグラデ + mustard の光 + 赤の斜め切り抜き（円形マスク）
+ *   - カード = scene-caption の紙（cream の紙に赤いハードシャドウ）。開いている事件だけ紙で、封印中は
+ *     暗い封筒（scene-badge の細い cream 枠）にして視線が着手可能な事件へ行くようにする
+ *   - 解決済みは赤いゴム印 "CLOSED"（ネット上のスタンプ表現の定番: 2.5rem 前後・3〜4px 枠・-12° 回転・
+ *     multiply で紙に沈める）
  * ClaudeDesign 側に mission-list コンポーネントは無いため、ここは既存トークン + MissionHeader の
  * 組み合わせで実装する（トークン・書体の正は ClaudeDesign。docs/design-system/README.md）。
  */
@@ -27,7 +32,7 @@ const loading = ref(true)
 const error = ref('')
 
 const STATUS_LABEL: Record<MissionSummary['status'], string> = {
-  cleared: 'Case Closed',
+  cleared: '',
   open: 'Open',
   locked: 'Sealed',
 }
@@ -58,6 +63,7 @@ function onLogout() {
 
 <template>
   <div class="page">
+    <div class="backdrop" aria-hidden="true" />
     <MissionHeader tag="CLI_Noir" title="Case Files" subtitle="捜査ファイル一覧" :rank="progress" />
 
     <div class="toolbar">
@@ -84,14 +90,13 @@ function onLogout() {
         :aria-disabled="m.status === 'locked'"
         @click="open(m)"
       >
-        <div class="cutout" aria-hidden="true" />
         <div class="body">
           <span class="tag">Mission {{ m.id }}</span>
           <h2 class="title">{{ m.title }}</h2>
           <span class="sub">{{ m.title_ja }}</span>
           <div class="foot">
-            <span class="chip" :class="m.status">{{ STATUS_LABEL[m.status] }}</span>
-            <span v-if="store.activeMissionId === m.id" class="chip active">捜査中</span>
+            <span v-if="STATUS_LABEL[m.status]" class="badge" :class="m.status">{{ STATUS_LABEL[m.status] }}</span>
+            <span v-if="store.activeMissionId === m.id" class="badge active">捜査中</span>
           </div>
         </div>
         <span v-if="m.status === 'cleared'" class="stamp" aria-hidden="true">Closed</span>
@@ -101,11 +106,32 @@ function onLogout() {
 </template>
 
 <style scoped>
+/* --- 背景: DesignSystem の scene と同じ組み立て（poster-blue → black のグラデ + mustard の光 + 赤い切り抜き） --- */
 .page {
+  position: relative;
   min-height: 100vh;
-  background: var(--bg-app-deep);
   display: flex;
   flex-direction: column;
+  background:
+    radial-gradient(110% 80% at 70% 25%, rgba(217, 165, 33, 0.20), transparent 55%),
+    linear-gradient(155deg, var(--poster-blue) 0%, var(--poster-black) 62%);
+  background-attachment: fixed;
+  isolation: isolate;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--poster-red);
+  /* scene::before と同じ斜めの赤 + 円形の抜き。一覧では主役はカードなので薄く敷く */
+  clip-path: polygon(0 0, 34% 0, 22% 100%, 0 100%);
+  -webkit-mask-image: radial-gradient(circle at 20% 34%, transparent 0, transparent 12vw, #000 calc(12vw + 1px));
+  mask-image: radial-gradient(circle at 20% 34%, transparent 0, transparent 12vw, #000 calc(12vw + 1px));
+  opacity: 0.32;
+}
+.page > * {
+  position: relative;
 }
 .toolbar {
   display: flex;
@@ -113,94 +139,71 @@ function onLogout() {
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid rgba(242, 232, 213, 0.12);
+  background: rgba(20, 16, 12, 0.35);
 }
 .lead {
   margin: 0;
   font-family: var(--font-ui);
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--poster-cream);
+  opacity: 0.85;
 }
 .lead-strong {
   font-family: var(--font-mono);
-  color: var(--brass-400);
+  color: var(--poster-mustard);
 }
 .hint {
   padding: var(--space-6);
-  color: var(--text-muted);
+  color: var(--poster-cream);
   font-family: var(--font-mono);
 }
 .hint.error {
   color: var(--term-error);
 }
 
-/* --- ポスター調カード（MissionHeader の帯をカードに縮めたもの） --- */
+/* --- カード --- */
 .grid {
   list-style: none;
   margin: 0;
-  padding: var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-8, 3rem);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--space-5);
 }
 .card {
   position: relative;
-  overflow: hidden;
-  background: var(--hairline-scan), var(--poster-black);
-  border: 1px solid var(--brass-600);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card), var(--bezel-brass);
+  min-height: 150px;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
-}
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-panel), var(--glow-indigo);
-}
-.cutout {
-  position: absolute;
-  top: -20%;
-  left: -6%;
-  width: 34px;
-  height: 140%;
-  background: var(--poster-red);
-  transform: skewX(-12deg);
-  opacity: 0.9;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .body {
   position: relative;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 32px);
-  min-height: 132px;
+  padding: var(--space-4) var(--space-4) var(--space-3);
 }
 .tag {
   font-family: var(--font-accent);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-hero);
   text-transform: uppercase;
-  color: var(--poster-mustard);
 }
 .title {
-  margin: 0;
+  margin: 2px 0 0;
   font-family: var(--font-hero);
   font-weight: var(--weight-bold);
   font-size: var(--text-xl);
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: var(--tracking-hero);
-  color: var(--poster-cream);
 }
 .sub {
-  align-self: flex-start;
   font-family: var(--font-display);
   font-size: var(--text-sm);
-  color: var(--poster-red);
-  background: var(--poster-black);
-  padding: 1px 6px;
-  margin-left: -6px;
 }
 .foot {
   margin-top: auto;
@@ -208,77 +211,105 @@ function onLogout() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-height: 22px;
 }
-.chip {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-faint);
-  background: rgba(255, 255, 255, 0.02);
-}
-.chip.cleared {
-  color: var(--term-success);
-  border-color: var(--term-success);
-}
-.chip.open {
-  color: var(--accent-quiet);
-  border-color: var(--accent);
-}
-.chip.active {
-  color: var(--brass-400);
-  border-color: var(--brass-600);
-  box-shadow: var(--glow-brass);
-  background: rgba(201, 162, 75, 0.06);
-}
-
-/* 捜査中の事件: brass の縁取りで一枚だけ光らせる */
-.card.active {
-  border-color: var(--brass-400);
-  box-shadow: var(--shadow-card), var(--bezel-brass), var(--glow-brass);
-}
-
-/* 解決済み: 赤いスタンプを斜めに押す（ポスターの "CASE CLOSED"） */
-.stamp {
-  position: absolute;
-  top: 14px;
-  right: 12px;
-  transform: rotate(-10deg);
+.badge {
   font-family: var(--font-accent);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   font-size: var(--text-xs);
   letter-spacing: var(--tracking-hero);
   text-transform: uppercase;
-  color: var(--poster-red);
-  border: 2px solid var(--poster-red);
-  border-radius: 2px;
-  padding: 2px 8px;
-  opacity: 0.85;
-  pointer-events: none;
-}
-.card.cleared .cutout {
-  background: var(--poster-mustard);
-  opacity: 0.7;
+  padding: 3px 8px 2px;
+  border: 1px solid currentColor;
 }
 
-/* 未開放: 色を落として封印されている感じに。クリックはできない */
-.card.locked {
-  cursor: not-allowed;
-  filter: grayscale(0.7);
+/* 開いている事件 = 紙（scene-caption: cream の紙 + 赤いハードシャドウ） */
+.card.open,
+.card.cleared {
+  background: var(--poster-cream);
+  color: var(--poster-black);
+  box-shadow: 5px 5px 0 var(--poster-red);
+}
+.card.open .tag,
+.card.cleared .tag {
+  color: var(--poster-red);
+}
+.card.open .sub,
+.card.cleared .sub {
+  color: var(--poster-blue);
+}
+.card.open:hover,
+.card.cleared:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 var(--poster-red);
+}
+.badge.open {
+  color: var(--poster-red);
+}
+/* 捜査中の一枚だけ影を mustard にし、黒地のバッジで示す */
+.card.active {
+  box-shadow: 5px 5px 0 var(--poster-mustard);
+}
+.card.active:hover {
+  box-shadow: 8px 8px 0 var(--poster-mustard);
+}
+.badge.active {
+  color: var(--poster-cream);
+  background: var(--poster-black);
+  border-color: var(--poster-black);
+}
+
+/* 解決済み: 赤いゴム印を斜めに押す */
+.card.cleared .title,
+.card.cleared .sub {
   opacity: 0.55;
 }
-.card.locked .cutout {
-  background: var(--gray-600);
+.stamp {
+  position: absolute;
+  top: 50%;
+  right: 6%;
+  transform: translateY(-50%) rotate(-12deg);
+  font-family: var(--font-accent);
+  font-weight: var(--weight-bold);
+  font-size: clamp(1.9rem, 2.6vw, 2.5rem);
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--poster-red);
+  border: 4px double var(--poster-red);
+  border-radius: 6px;
+  padding: 6px 14px 2px;
+  opacity: 0.8;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  /* インクのかすれ: 粗いドットのマスクで所々薄くする */
+  -webkit-mask-image: radial-gradient(circle at 30% 40%, #000 0 80%, rgba(0, 0, 0, 0.55) 81%),
+    repeating-radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.75) 0 2px, #000 3px 5px);
+  mask-image: radial-gradient(circle at 30% 40%, #000 0 80%, rgba(0, 0, 0, 0.55) 81%),
+    repeating-radial-gradient(circle at 70% 60%, rgba(0, 0, 0, 0.75) 0 2px, #000 3px 5px);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* 封印中 = 暗い封筒（scene-badge の細い cream 枠）。視線を着手可能な紙へ */
+.card.locked {
+  cursor: not-allowed;
+  background: rgba(20, 16, 12, 0.55);
+  color: var(--poster-cream);
+  border: 1px solid rgba(242, 232, 213, 0.22);
+  box-shadow: none;
+}
+.card.locked .tag {
+  color: rgba(242, 232, 213, 0.45);
+}
+.card.locked .title {
+  color: rgba(242, 232, 213, 0.55);
 }
 .card.locked .sub {
-  color: var(--text-faint);
+  color: rgba(242, 232, 213, 0.4);
 }
-.card.locked:hover {
-  transform: none;
-  box-shadow: var(--shadow-card), var(--bezel-brass);
+.badge.locked {
+  color: rgba(242, 232, 213, 0.5);
 }
 
 @media (max-width: 720px) {
