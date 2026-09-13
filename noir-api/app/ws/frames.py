@@ -35,6 +35,13 @@ class ResumeFrame(BaseModel):
     commit_id: int
 
 
+class FocusFrame(BaseModel):
+    """再捜査の開始（mission_id）/ 終了（null）。応答は `focus` フレーム。"""
+
+    type: Literal["focus"]
+    mission_id: int | None = None
+
+
 class CompleteFrame(BaseModel):
     """Tab 補完の問い合わせ（§ 7 補完フレーム）。応答は `completions`。"""
 
@@ -66,6 +73,9 @@ def state_summary(state: dict) -> dict:
         # タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻（ISO）。フロントが経過を数える
         "mission_started_at": score.started_at(state, active_mission_id),
         "target_minutes": score.DEFAULT_TARGET_MINUTES,
+        # 再捜査中の Mission（app/evaluator/replay.py）。None なら通常
+        "replay_mission_id": (state.get("replay") or {}).get("mission_id"),
+        "replay_started_at": (state.get("replay") or {}).get("started_at"),
     }
 
 

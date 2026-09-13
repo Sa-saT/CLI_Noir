@@ -331,8 +331,8 @@ def _write_file(state: dict, path: str, lines: list[str], append: bool) -> None:
 
 
 def _resolved_mission_id(state: dict) -> int | None:
-    """resolved_command_log エントリに刺すタグ mission_id を求める。"""
-    return progress.active_mission_id(state["mission_progress"])
+    """resolved_command_log エントリに刺すタグ mission_id を求める（再捜査中はその Mission）。"""
+    return progress.focused_mission_id(state)
 
 
 def _build_resolved_log_entry(

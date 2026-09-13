@@ -29,6 +29,8 @@ interface MissionDetail {
   hints: string[]
   field_card: FieldCardData | null
   recap: { start?: string, clear?: string } | null
+  secrets: number[]
+  replay_score: { score: number, commands: number, par: number, bonuses: string[] } | null
 }
 
 const route = useRoute()
@@ -129,7 +131,7 @@ watch(missionId, (id) => {
   briefingOpen.value = true
   stallFired = false
   hintGlow.value = false
-  recapShownFor = null
+  if (store.replayMissionId != null && store.replayMissionId !== id) socket.focus(null)
   scheduleStallTimer()
   loadMission(id)
 })
@@ -140,25 +142,20 @@ watch(() => store.missionCleared, (cleared) => {
   if (cleared) briefingOpen.value = false
 })
 
-// 解決済み（CLOSED）の事件を開き直したとき: サーバーの独り言は捜査中の Mission にしか
-// 発火しないので、冒頭の独り言を回想として流し、解決済みであることを添える（2026-09-14）。
-let recapShownFor: number | null = null
-function playRecapIfCleared() {
-  const m = mission.value
-  if (!m || m.status !== 'cleared' || !m.recap?.start || recapShownFor === m.id) return
-  recapShownFor = m.id
-  store.enqueueStory([
-    { id: `recap-start-${m.id}`, mission_id: m.id, text: m.recap.start },
-    { id: `recap-note-${m.id}`, mission_id: m.id, text: `——この事件は解決済み。もう一度歩いてみるのは自由だが、判定は捜査中の事件（Mission ${store.activeMissionId ?? '?'}）に向く。手順を見返すならリプレイ台帳。` },
-  ])
-}
-
+// 解決済み（CLOSED）の事件を開き直したとき: 「再捜査を始める」でサーバーに focus を送る。
+// 舞台が初期状態に戻り、独り言・判定・push がその事件に向く（本編の進捗は動かない。2026-09-14）。
+const isReplaying = computed(() => store.replayMissionId === missionId.value)
 function closeBriefing() {
   if (!mission.value || mission.value.status === 'locked') return
   briefingOpen.value = false
   scheduleStallTimer()
-  playRecapIfCleared()
+  if (mission.value.status === 'cleared' && !isReplaying.value) socket.focus(mission.value.id)
 }
+// ページを離れる / 別 Mission へ移る / 捜査中の事件へ戻るときは再捜査をやめる
+function endReplayIfAny() {
+  if (store.replayMissionId != null) socket.focus(null)
+}
+onBeforeUnmount(endReplayIfAny)
 
 function onSelectCommand(name: string) {
   // 同じコマンドをもう一度クリックしたら閉じる（× ボタンと同じ）
@@ -193,8 +190,9 @@ let clock: ReturnType<typeof setInterval> | null = null
 onMounted(() => { clock = setInterval(() => { now.value = Date.now() }, 1000) })
 onBeforeUnmount(() => { if (clock) clearInterval(clock) })
 const elapsed = computed(() => {
-  if (!store.missionStartedAt || store.activeMissionId !== missionId.value) return null
-  const started = Date.parse(store.missionStartedAt)
+  const startedAt = isReplaying.value ? store.replayStartedAt : (store.activeMissionId === missionId.value ? store.missionStartedAt : null)
+  if (!startedAt) return null
+  const started = Date.parse(startedAt)
   if (Number.isNaN(started)) return null
   return Math.max(0, Math.floor((now.value - started) / 1000))
 })
@@ -316,10 +314,17 @@ const sceneImage = computed(() => resolveScene(store.displayHost, store.currentP
 
 function onNext() {
   const next = store.nextMissionId
-  if (next) router.push(`/missions/${next}`)
-  else router.push('/missions')
+  const replayed = store.lastScore?.replay === true
+  if (replayed) {
+    // 再捜査完了: ページはそのまま。舞台はサーバー側で通常に戻っている
+  } else if (next) {
+    router.push(`/missions/${next}`)
+  } else {
+    router.push('/missions')
+  }
   // 演出を閉じてから保留中の独り言（クリア独り言 → 次 Mission の start）を流す
   store.dismissClear()
+  if (replayed) loadMission(missionId.value)
 }
 </script>
 
@@ -339,7 +344,11 @@ function onNext() {
         ⏱ 経過 {{ fmtSec(elapsed) }} / 目安 {{ store.targetMinutes }}:00
         <span v-if="overTarget">— 焦らなくていい。時間切れは無い</span>
       </p>
-      <p v-if="store.connected && missionMismatch" class="mismatch">
+      <p v-if="isReplaying" class="mismatch replaying">
+        再捜査中 — 舞台は初期状態。判定と push はこの事件に向く（本編の進捗は動かない）
+        <a href="#" @click.prevent="endReplayIfAny">やめる</a>
+      </p>
+      <p v-else-if="store.connected && missionMismatch" class="mismatch">
         <template v-if="store.activeMissionId != null">
           捜査中の事件は
           <NuxtLink :to="`/missions/${store.activeMissionId}`">Mission {{ store.activeMissionId }}</NuxtLink>
@@ -365,7 +374,7 @@ function onNext() {
           :disabled="mission.status === 'locked'"
           @click="closeBriefing"
         >
-          {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : '捜査を開始する' }}
+          {{ mission.status === 'locked' ? 'この事件はまだ開放されていない' : (mission.status === 'cleared' && !isReplaying ? '再捜査を始める' : '捜査を開始する') }}
         </NoirButton>
       </SceneOverlay>
       <!-- 独り言はブリーフィング（事件ファイル）を閉じてから流す。開いている間は beat を渡さず
@@ -394,7 +403,15 @@ function onNext() {
           @start-over="onStartOver"
         />
       </div>
-      <ClearEffect v-if="store.missionCleared" class="clear-overlay" :verdict="verdict" @next="onNext" />
+      <ClearEffect
+        v-if="store.missionCleared"
+        class="clear-overlay"
+        :stamp="store.lastScore?.replay ? 'Case Closed Again' : 'Mission Complete!'"
+        :sub="store.lastScore?.replay ? '$ git push — reopened case closed. 本編の進捗はそのまま。' : '$ git push — case closed. snapshot saved.'"
+        :cta-label="store.lastScore?.replay ? '事件ファイルへ戻る' : '次のミッションへ →'"
+        :verdict="verdict"
+        @next="onNext"
+      />
       <div v-else-if="store.pendingRankUp" class="rankup-overlay" @click="store.dismissRankUp">
         <RankUpEffect
           :from="`Lv.${store.pendingRankUp.from_level} ${store.pendingRankUp.from_rank_name}`"
@@ -418,6 +435,8 @@ function onNext() {
         <NoirButton variant="ghost" @click="toggleCodex">{{ store.codexOpen ? '図鑑を閉じる' : '図鑑（道具 / エラー）' }}</NoirButton>
         <NoirButton v-if="mission.status === 'cleared' && mission.field_card" variant="ghost" @click="showFieldCardAgain">現場実習カード</NoirButton>
         <NoirButton v-if="mission.status !== 'locked'" variant="ghost" @click="openLedger">リプレイ台帳</NoirButton>
+        <p v-if="mission.replay_score" class="replay-best">再捜査ベスト {{ mission.replay_score.score }} pt · {{ mission.replay_score.commands }} 手</p>
+        <NoirButton v-for="sid in mission.secrets" :key="sid" variant="secondary" @click="router.push(`/missions/${sid}`)">隠し事件 #{{ sid }}</NoirButton>
       </div>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail
@@ -514,6 +533,9 @@ function onNext() {
 .mismatch a {
   color: var(--brass-400);
 }
+.mismatch.replaying {
+  color: var(--poster-mustard);
+}
 .ga-scene {
   grid-area: scene;
   position: relative;
@@ -603,6 +625,14 @@ function onNext() {
 }
 .ga-rail :deep(.detail) {
   width: 100%;
+}
+.replay-best {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--poster-mustard);
+  letter-spacing: var(--tracking-caps);
+  text-align: center;
 }
 .hint-box {
   width: var(--rail-command-w);

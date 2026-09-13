@@ -237,7 +237,7 @@ def _judge_mission15(state: dict) -> tuple[list[str], dict]:
     """Mission15: informant_history の各行を command_log 上でそのまま再現し、
     かつ行き先を report（echo）したかを検査する。
     """
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    mission_id = progress.focused_mission_id(state)
     mission = get_mission(mission_id) if mission_id else None
     required = mission.informant_history if mission else []
     required = required or []
@@ -722,13 +722,22 @@ def _flat_match_lines(state: dict) -> list[str]:
 
 
 def run_case_file(state: dict) -> tuple[list[str], dict]:
-    """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。"""
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    """`sh case_file.sh` の判定本体。case_checked を更新して結果行を返す。
+
+    再捜査中（state["replay"]）は注目中の Mission を、開始以降のログだけを持つ写し
+    （replay.view）で判定する。写しへの flags 書き込みは本物の state に反映されるので、
+    戻り値の state は常に本物を返す。
+    """
+    from app.evaluator import replay
+
+    mission_id = progress.focused_mission_id(state)
     mission = get_mission(mission_id) if mission_id else None
+    judged = replay.view(state)
 
     custom = _CUSTOM_JUDGES.get(mission.id) if mission else None
     if custom is not None:
-        return custom(state)
+        out, _ = custom(judged)
+        return out, state
 
     patterns = mission.expected_script_patterns if mission else []
 
@@ -737,7 +746,7 @@ def run_case_file(state: dict) -> tuple[list[str], dict]:
         progress.flags(state)["case_checked"] = False
         return ["case_file.sh: no checks configured for this mission"], state
 
-    lines_per_command = _match_lines(state)
+    lines_per_command = _match_lines(judged)
     try:
         unmatched = [
             p

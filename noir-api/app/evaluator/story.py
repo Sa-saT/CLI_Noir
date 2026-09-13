@@ -31,8 +31,8 @@ def _emit(mission_id: int, beat: Beat) -> dict:
 
 
 def start_beats(state: dict) -> list[dict]:
-    """アクティブ Mission の `when=="start"` beat を（未発火なら）返す。"""
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    """注目中（捜査中 / 再捜査中）の Mission の `when=="start"` beat を（未発火なら）返す。"""
+    mission_id = progress.focused_mission_id(state)
     mission = get_mission(mission_id) if mission_id is not None else None
     if mission is None:
         return []

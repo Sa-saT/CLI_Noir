@@ -94,6 +94,14 @@ def active_mission_id(mission_progress: dict) -> int | None:
     return compute_active_mission_id(mission_progress)
 
 
+def focused_mission_id(state: dict) -> int | None:
+    """判定・独り言・commit のタグが向く Mission。再捜査中はその Mission、普段は捜査中の Mission。"""
+    box = state.get("replay")
+    if box:
+        return box["mission_id"]
+    return active_mission_id(state["mission_progress"])
+
+
 def _node_at(world: dict, abs_path: str) -> dict | None:
     """ワールド（"root"/"etc" 等をトップレベルキーに持つ filesystem dict）から
     絶対パスのノードを直接辿る。app/content/missions.py::_node_at と同じ実装（P3-05）。

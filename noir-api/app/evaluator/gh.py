@@ -58,7 +58,7 @@ def _evaluate_review(state: dict, pr: dict) -> list[str]:
     """現在の state で PR に残っている指摘を計算し、状態が変わっていれば
     `pr["reviews"]` に履歴を1件積む（CHANGES_REQUESTED→APPROVED の遷移を残すため）。
     """
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    mission_id = progress.focused_mission_id(state)
     reviewer = PR_REVIEWS.get(mission_id) if mission_id is not None else None
     requests = reviewer(state) if reviewer is not None else []
 

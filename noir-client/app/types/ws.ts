@@ -28,6 +28,9 @@ export interface StateSummary {
   /** タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻（ISO）と目安分。演出のみ、時間切れは無い */
   mission_started_at?: string | null
   target_minutes?: number
+  /** 再捜査中の Mission（クリア済みの遊び直し）。null なら通常 */
+  replay_mission_id?: number | null
+  replay_started_at?: string | null
 }
 
 /** スマート捜査ボーナス（機能 3）。クリア時の評価 */
@@ -38,6 +41,7 @@ export interface MissionScore {
   score: number
   elapsed_seconds: number | null
   target_minutes: number
+  replay?: boolean
 }
 
 export interface CommitMeta {
@@ -62,7 +66,9 @@ export interface ExecFrame { type: 'exec', id: number, command: string }
 export interface ResumeFrame { type: 'resume', commit_id: number }
 /** Tab 補完の問い合わせ（設計指示書 § 7 補完フレーム / DESIGN.md § 10-4）。 */
 export interface CompleteFrame { type: 'complete', id: number, line: string, cursor: number }
-export type ClientFrame = AuthFrame | ExecFrame | ResumeFrame | CompleteFrame
+/** 再捜査の開始（mission_id）/ 終了（null） */
+export interface FocusFrame { type: 'focus', mission_id: number | null }
+export type ClientFrame = AuthFrame | ExecFrame | ResumeFrame | CompleteFrame | FocusFrame
 
 // --- サーバー → クライアント ---
 export interface HelloFrame {
@@ -104,6 +110,14 @@ export interface CompletionsFrame {
   replace_from: number
 }
 
+/** `focus` への応答。state（replay_mission_id 入り）と再捜査の冒頭独り言 */
+export interface FocusResponseFrame {
+  type: 'focus'
+  state: StateSummary
+  story: StoryBeat[]
+  error: string | null
+}
+
 export interface StreamFrame {
   type: 'stream'
   source: string
@@ -116,6 +130,8 @@ export interface MissionClearEvent {
   cleared_mission_id: number
   next_mission_id: number | null
   score?: MissionScore | null
+  /** 再捜査の完了（本編の進捗は動かない） */
+  replay?: boolean
 }
 
 /** `mission_clear` の直後・`story` の前に届く（ランクが上がったクリアのみ）。 */
@@ -138,4 +154,4 @@ export interface StoryEvent {
 
 export type EventFrame = MissionClearEvent | RankUpEvent | StoryEvent
 
-export type ServerFrame = HelloFrame | ResultFrame | StreamFrame | EventFrame | CompletionsFrame
+export type ServerFrame = HelloFrame | ResultFrame | StreamFrame | EventFrame | CompletionsFrame | FocusResponseFrame

@@ -19,7 +19,17 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import codex, complete, evaluate, progress, rank, rewards, score, story
+from app.evaluator import (
+    codex,
+    complete,
+    evaluate,
+    progress,
+    rank,
+    replay,
+    rewards,
+    score,
+    story,
+)
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -27,6 +37,7 @@ from app.ws.frames import (
     AuthFrame,
     CompleteFrame,
     ExecFrame,
+    FocusFrame,
     ResumeFrame,
     state_summary,
     style_for,
@@ -169,12 +180,42 @@ async def terminal_ws(
                 )
                 continue
 
+            if mtype == "focus":
+                # 再捜査（app/evaluator/replay.py）: クリア済み Mission のページで「再捜査を始める」
+                # → その Mission に注目、null → やめる。応答は focus フレーム（state + 独り言）。
+                try:
+                    fframe = FocusFrame.model_validate(msg)
+                except ValidationError:
+                    continue
+                error = None
+                focus_beats: list[dict] = []
+                if fframe.mission_id is None:
+                    replay.stop(state)
+                elif replay.can_replay(state, fframe.mission_id):
+                    replay.start(state, fframe.mission_id)
+                    focus_beats = story.start_beats(state)
+                else:
+                    error = "Error: mission is not replayable"
+                row.data = state
+                _persist(session, row)
+                await websocket.send_json(
+                    {
+                        "type": "focus",
+                        "state": state_summary(state),
+                        "story": focus_beats,
+                        "error": error,
+                    }
+                )
+                continue
+
             if mtype == "exec":
                 try:
                     frame = ExecFrame.model_validate(msg)
                 except ValidationError:
                     continue
                 prev_active = progress.active_mission_id(state["mission_progress"])
+                prev_focus = progress.focused_mission_id(state)
+                prev_replay = replay.active(state)
                 prev_log_len = len(state.get("resolved_command_log", []))
                 prev_state = state
                 out_raw, state = evaluate(frame.command, state)
@@ -184,12 +225,24 @@ async def terminal_ws(
                 entry = None
                 if len(state.get("resolved_command_log", [])) > prev_log_len:
                     entry = state["resolved_command_log"][-1]
-                beats = story.after_beats(state, prev_active, frame.command, out_raw, entry)
+                beats = story.after_beats(
+                    replay.view(state) if prev_replay else state,
+                    prev_focus, frame.command, out_raw, entry,
+                )
 
                 # クリア遷移で mission_clear イベント + clear/次 Mission start の独り言
                 next_active = progress.active_mission_id(state["mission_progress"])
                 if next_active != prev_active:
                     beats = beats + story.clear_beats(state, prev_active)
+                # 再捜査完了（push で replay が閉じた）: クリア独り言だけ（次 Mission の start は無し）
+                replay_cleared = prev_replay is not None and replay.active(state) is None and (
+                    frame.command.strip().startswith("git push")
+                    and any(ln.startswith("Case reopened") for ln in out_raw)
+                )
+                if replay_cleared:
+                    beats = beats + [
+                        b for b in story.clear_beats(state, prev_focus) if b["mission_id"] == prev_focus
+                    ]
 
                 lines, ok = _to_lines(out_raw)
                 # 図鑑（ゲーム機能 2・10）: 成功した道具と遭遇したエラーを登録する
@@ -230,6 +283,17 @@ async def terminal_ws(
                     rank_up = rank.rank_up_event(prev_state, state)
                     if rank_up is not None:
                         await websocket.send_json(rank_up)
+                if replay_cleared:
+                    await websocket.send_json(
+                        {
+                            "type": "event",
+                            "name": "mission_clear",
+                            "cleared_mission_id": prev_focus,
+                            "next_mission_id": None,
+                            "replay": True,
+                            "score": state["mission_progress"].get("scores_replay", {}).get(str(prev_focus)),
+                        }
+                    )
                 if beats:
                     await websocket.send_json(
                         {"type": "event", "name": "story", "beats": beats}

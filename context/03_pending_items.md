@@ -9,7 +9,7 @@
 ### 環境構築
 - [x] Nuxt（`noir-client/`）/ FastAPI（`noir-api/`）とも構築済み
 
-### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 553 tests green / ruff clean）
+### Backend（`noir-api/`。2026-07-20 Phase2 完了・2026-09-12 統合ワールド Phase D 完了 — 559 tests green / ruff clean）
 - [x] 認証 API / Mission API / state API / WebSocket / evaluator（denylist→allowlist→registry dispatch→state更新）すべて実装済み
 - [x] 仮想FS モデル・疑似Git・Mission 判定ロジック実装済み
 - [x] **Mission1〜22 すべて実プレイ可能**（タスク #21〜#39 / P2-01〜P2-19 全19件を 1 task = 1 commit + push で完遂）
@@ -28,7 +28,7 @@
 - [x] Mission21 の PATH 汚染が統合ワールドで発生しない件（2026-09-13 発覚 → 同日修正）: `release_missions` が Mission21 解放時に探偵自身の PATH を汚す方式で確定（`01_decisions_log.md` 参照）
 - [x] Mission5 の `/root/vault/inner` の空部屋問題: 封印解除スクリプト `unseal.sh`（x ビット無し）を置き、`chmod +x` → `sh unseal.sh` を判定条件に追加して解決（2026-09-13）
 
-**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。553 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
+**疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。559 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
 `>file`/`>>file` の空白なし表記 / `&&` `||` `;` は黙って一部実行せず `Error: invalid input`（引用符内は対象外。本実装は設計指示書 § 8 構文レベル外のため見送り）/ `~`・`~/...` 展開（`~user` は非対応）/ `cd -`（`OLDPWD`）/ `history` が `command_log` を bash 書式で表示。詳細は `docs/バックエンド_コマンド機能仕様.md`「共通構文」「cd」「history」、テストは `tests/test_shell_idioms.py`。
 - [ ] 残る意味不一致（BUG-HUNT-01）: `find` が常に絶対パスを出力する（Mission2 導線とセットで判断）/ `&&` `;` の本実装 / `git commit -m"msg"`（クォート隣接）
 
@@ -79,6 +79,9 @@
 - [x] エラー図鑑・道具図鑑（機能 2・10）を実装（2026-09-13。`app/content/codex.py` の翻訳文、`CodexLayer.vue`）
 - [x] 現場実習カード（機能 11）を全 29 Mission 分起草・実装（2026-09-13。`app/content/field_cards.py` + `FieldCard.vue`）
 - [x] `cowsay` / `figlet`（機能 12）と隠しファイル収集（機能 5）を実装（2026-09-13。解放条件は回想 5 / 13）
+
+### 今後の拡張（2026-09-14 ユーザー要望）
+- [ ] **隠し Mission のコンテンツ**: 土台は実装済み（`MissionDef.secret_of` / `_SECRET_DEFS` / 詳細 API の `secrets` / 親ページの「隠し事件」ボタン / 再捜査の仕組みで遊ぶ）。どの Mission に何を隠すかの起案から
 
 ### 解消済みの旧課題
 - Mission4〜22 の詳細化・/proc・環境変数(PATH)・SSH接続先(ghost.example)・Mission4/5の詳細・cp/mvコマンド・case_file.shの中身は

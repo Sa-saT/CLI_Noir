@@ -610,7 +610,7 @@ def cmd_history(state: dict, argv: list[str], stdin: list[str]) -> tuple[list[st
     # があればそれを優先する。無ければ実 bash と同じく自分の操作履歴（command_log）を
     # `%5d  cmd` 書式で表示する（UX-01a）。実行中の history 自身は engine が成功後に
     # append するためまだ command_log に無く、含めない。
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    mission_id = progress.focused_mission_id(state)
     mission = get_mission(mission_id) if mission_id else None
     informant_history = mission.informant_history if mission else None
     if informant_history:

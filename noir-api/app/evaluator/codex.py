@@ -28,7 +28,7 @@ def _command_names(command_line: str) -> list[str]:
 
 def register(state: dict, command_line: str, out_lines: list[str], ok: bool) -> list[dict]:
     codex = state.setdefault("codex", {"commands": {}, "errors": {}})
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    mission_id = progress.focused_mission_id(state)
     new: list[dict] = []
 
     if ok:

@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.api.deps import get_current_user
 from app.content.field_cards import FIELD_CARDS
-from app.content.missions import all_missions, get_mission
+from app.content.missions import all_missions, get_mission, secret_missions_of
 from app.evaluator import progress
 from app.models import PlayerState, User
 from app.models.db import get_session
@@ -41,6 +41,10 @@ class MissionDetail(BaseModel):
     # 回想用: 冒頭とクリアの独り言（解決済み事件を開き直したときにフロントが流す。
     # 進行中の発火はサーバー（WS の story イベント）が行う）
     recap: dict[str, str] | None = None
+    # 隠し Mission（`secret_of` がこの Mission）。親がクリア済みのときだけ id を返す
+    secrets: list[int] = []
+    # 再捜査のベスト記録（scores_replay）
+    replay_score: dict | None = None
 
 
 def _completed_ids(session: Session, user_id: int) -> set[int]:
@@ -50,6 +54,15 @@ def _completed_ids(session: Session, user_id: int) -> set[int]:
     if row is None:
         return set()
     return set(row.data["mission_progress"]["completed"])
+
+
+def _scores_replay(session: Session, user_id: int) -> dict:
+    row = session.exec(
+        select(PlayerState).where(PlayerState.user_id == user_id)
+    ).first()
+    if row is None:
+        return {}
+    return row.data["mission_progress"].get("scores_replay", {})
 
 
 def _scores(session: Session, user_id: int) -> dict:
@@ -120,6 +133,8 @@ def mission_detail(
         hints=mission.hints,
         field_card=FIELD_CARDS.get(mission.id),
         recap=_recap_for(mission),
+        secrets=[m.id for m in secret_missions_of(mission.id)] if mission.id in completed else [],
+        replay_score=_scores_replay(session, current_user.id).get(str(mission.id)),
     )
 
 

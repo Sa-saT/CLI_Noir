@@ -147,15 +147,17 @@ def _synth_case_file_node(state: dict) -> dict | None:
     mission_progress = state.get("mission_progress")
     if mission_progress is None:
         return None
-    mission_id = progress.active_mission_id(mission_progress)
+    # 再捜査中はその Mission（progress.focused_mission_id）
+    mission_id = progress.focused_mission_id(state)
     if mission_id is None:
         return None
     mission = get_mission(mission_id)
     if mission is None:
         return None
+    label = "再捜査中の事件" if state.get("replay") else "捜査中の事件"
     content = (
         "# 事件ファイル: sh case_file.sh で判定する\n"
-        f"# 捜査中の事件: {mission.title_ja}\n"
+        f"# {label}: {mission.title_ja}\n"
         f"# {mission.description}\n"
     )
     return new_file(content, immutable=True)

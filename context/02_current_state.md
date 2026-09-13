@@ -12,7 +12,7 @@ CLI_Noir/
 ├ docs/              … 全設計ドキュメント（+ design-system/ = デザイン local ミラー）
 ├ context/           … 本フォルダ（AI コンテキスト復元用。04_task_backlog.md も参照）
 ├ noir-client/       … Nuxt 4 フロント実装（実バックエンド接続済み・常時ターミナル）
-├ noir-api/          … FastAPI バックエンド（全 29 Mission 実装・統合ワールド。553 tests green / ruff clean）
+├ noir-api/          … FastAPI バックエンド（全 29 Mission 実装・統合ワールド。559 tests green / ruff clean）
 ├ moc/               … UI モック（参考用）+ images/NEEDED_IMAGES.md（場面画像の制作リスト）
 └ old_files/         … 過去バージョンのバックアップ（参照不要）
 ```

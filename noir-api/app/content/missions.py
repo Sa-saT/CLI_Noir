@@ -846,6 +846,9 @@ class MissionDef:
     # やらかし体験室（ゲーム機能 9。Mission29）: True なら解放時に世界の filesystem を退避して
     # sandbox を開き、クリア時に戻す。退避中だけ rm/dd が通る（app/evaluator/sandbox.py）。
     sandbox: bool = False
+    # 隠し Mission（今後の拡張）: 親 Mission の id。プレイ順序（all_missions）には入らず、親を
+    # クリアすると親のページに現れ、再捜査と同じ仕組み（app/evaluator/replay.py）で遊ぶ。
+    secret_of: int | None = None
     # 進行案内「独り言レイヤー」（STORY-01。Mission参照ファイル § 独り言（story_beats）と
     # ヒントの共通仕様）。各要素: {"id", "when": "start"|"after"|"clear",
     # "text", "line"(任意・正規表現), "output"(任意・正規表現), "remote"(任意・bool)}。
@@ -1632,11 +1635,20 @@ _DEFS: list[MissionDef] = [
     ),
 ]
 
-MISSIONS: dict[int, MissionDef] = {m.id: m for m in _DEFS}
+# 隠し Mission（`secret_of` 付き）はここに並べる。プレイ順序（_DEFS / all_missions）には入れない。
+# コンテンツは今後（2026-09-14 時点では空）。
+_SECRET_DEFS: list[MissionDef] = []
+
+MISSIONS: dict[int, MissionDef] = {m.id: m for m in [*_DEFS, *_SECRET_DEFS]}
 
 
 def get_mission(mission_id: int) -> MissionDef | None:
     return MISSIONS.get(mission_id)
+
+
+def secret_missions_of(parent_id: int) -> list["MissionDef"]:
+    """親 Mission に紐づく隠し Mission（定義順）。"""
+    return [m for m in _SECRET_DEFS if m.secret_of == parent_id]
 
 
 def all_missions() -> list[MissionDef]:

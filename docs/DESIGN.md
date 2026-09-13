@@ -186,7 +186,7 @@ components/
 |---|---|
 | `/missions` | Mission カード一覧（open / locked / cleared）。DesignSystem の Game Screen を参照して構成: MissionHeader の帯（tag=CLI_Noir / title=Case Files / rank=解決数）、背景は scene と同じ poster-blue → poster-black のグラデ + mustard の光 + 赤の斜め切り抜き（円形マスク・薄く）。カードは scene-caption の「紙」（cream 地・黒文字・赤のハードシャドウ 5px）で、捜査中は影が mustard + 黒地「捜査中」バッジ、解決済みは赤いゴム印 "CLOSED"（Josefin 2.5rem 前後・二重枠・-12°・multiply・かすれマスク）、封印中は暗い封筒（黒の半透明 + cream の細枠・"Sealed"）にして視線を着手可能な紙へ誘導（2026-09-13。ClaudeDesign に mission-list コンポーネントは無く、トークン + MissionHeader の組み合わせで実装）。クリア済みには「リプレイ台帳」導線（Phase2） |
 | セーブ選択モーダル | ログイン後に初めて開いた `/missions/{id}` に重ねる（commit が 1 件以上あるとき）。push 済み commit は「クリア」バッジ、日時は `YYYY-MM-DD HH:mm`（ローカル時刻）。再開後、捜査中の Mission がページと違えばそのページへ移動する（2026-09-13） |
-| `/missions/{id}` | ゲーム画面（§ 3 のレイアウト）。右レールの「← 捜査ファイル一覧」で一覧へ戻れる（常時ターミナルなので接続・scrollback は保持）。独り言（MonologueLayer）はブリーフィングカード（事件ファイル）が開いている間は保留し、「捜査を開始する」で閉じてから流す（2026-09-13）。解決済み（CLOSED）の事件を開き直したときはサーバーの独り言が無いので、詳細 API の `recap.start` を回想として流し「解決済み・判定は捜査中の事件に向く」と添える（2026-09-14） |
+| `/missions/{id}` | ゲーム画面（§ 3 のレイアウト）。右レールの「← 捜査ファイル一覧」で一覧へ戻れる（常時ターミナルなので接続・scrollback は保持）。独り言（MonologueLayer）はブリーフィングカード（事件ファイル）が開いている間は保留し、「捜査を開始する」で閉じてから流す（2026-09-13）。解決済み（CLOSED）の事件はボタンが「再捜査を始める」になり、WS `focus` で舞台を初期状態に戻して遊び直せる（独り言・判定・push がその事件に向く。本編の進捗は不変）。ヘッダー下に「再捜査中 … やめる」、完了時は ClearEffect「Case Closed Again」→ 事件ファイルへ戻る。レールに再捜査ベストと隠し事件ボタン（2026-09-14） |
 
 ---
 

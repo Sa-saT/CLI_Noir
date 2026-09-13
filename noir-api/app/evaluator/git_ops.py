@@ -123,8 +123,8 @@ def _commit(state: dict, argv: list[str]) -> tuple[list[str], dict]:
         raise CommandError("Error: commit message required")
 
     # commit に記録する mission_id（_push が「この commit はどの Mission のものか」
-    # を照合するために使う。P3-05）。
-    mission_id = progress.active_mission_id(state["mission_progress"])
+    # を照合するために使う。P3-05）。再捜査中はその Mission。
+    mission_id = progress.focused_mission_id(state)
 
     next_id = (git["commits"][-1]["id"] + 1) if git["commits"] else 1
     snapshot = {
@@ -178,6 +178,18 @@ def _push(state: dict) -> tuple[list[str], dict]:
     checked = latest["snapshot"]["mission_flags"].get("case_checked", False)
     if not checked:
         raise CommandError("Error: mission requirements not met")
+
+    # 再捜査中（app/evaluator/replay.py）: 本編の進捗は動かさず、評価を記録して閉じる
+    from app.evaluator import replay
+
+    box = replay.active(state)
+    if box is not None:
+        if latest.get("mission_id") != box["mission_id"]:
+            raise CommandError("Error: mission requirements not met")
+        git["pushed"] = True
+        latest["pushed"] = True
+        record = replay.finish(state)
+        return [f"Case reopened and closed again. ({record['score']} pt)"], state
 
     current_active = progress.active_mission_id(state["mission_progress"])
     if current_active is None:

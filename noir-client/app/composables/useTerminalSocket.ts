@@ -1,5 +1,5 @@
 import { styleToSource, useTerminalStore } from '~/stores/terminal'
-import type { CompletionsFrame, EventFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } from '~/types/ws'
+import type { CompletionsFrame, EventFrame, FocusResponseFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } from '~/types/ws'
 
 /*
  * WebSocket 接続 composable（Phase E: FE3-01/FE3-02）。設計指示書 § 7。
@@ -110,6 +110,19 @@ export function useTerminalSocket() {
     if (frame.type === 'event') return handleEvent(frame)
     if (frame.type === 'stream') return handleStream(frame)
     if (frame.type === 'completions') return handleCompletions(frame)
+    if (frame.type === 'focus') return handleFocus(frame)
+  }
+
+  function handleFocus(frame: FocusResponseFrame) {
+    store.applyState(frame.state)
+    if (frame.error) {
+      store.pushLine('error', frame.error)
+      return
+    }
+    if (frame.state.replay_mission_id != null) {
+      store.pushLine('system', `-- 再捜査を開始: Mission ${frame.state.replay_mission_id}（舞台を初期状態に戻した。本編の進捗は動かない） --`)
+    }
+    if (frame.story?.length) store.enqueueStory(frame.story)
   }
 
   function handleCompletions(frame: CompletionsFrame) {
@@ -176,7 +189,7 @@ export function useTerminalSocket() {
 
   function handleEvent(frame: EventFrame) {
     if (frame.name === 'mission_clear') {
-      store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id, frame.score ?? null)
+      store.holdStoryForClear(frame.cleared_mission_id, frame.next_mission_id, frame.score ?? null, frame.replay === true)
     } else if (frame.name === 'rank_up') {
       // クリア演出（ClearEffect）を閉じた後に辞令（RankUpEffect）として見せる（DESIGN.md § 6）
       store.pendingRankUp = frame
@@ -219,6 +232,12 @@ export function useTerminalSocket() {
     })
   }
 
+  /** 再捜査の開始（mission_id）/ 終了（null）。クリア済み Mission のページが呼ぶ。 */
+  function focus(missionId: number | null) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    ws.send(JSON.stringify({ type: 'focus', mission_id: missionId }))
+  }
+
   function resume(commitId: number) {
     store.pendingResume = false
     if (!ws || ws.readyState !== WebSocket.OPEN) return
@@ -246,5 +265,5 @@ export function useTerminalSocket() {
     store.$reset()
   }
 
-  return { connect, disconnect, exec, complete, resume, skipResume }
+  return { connect, disconnect, exec, complete, focus, resume, skipResume }
 }

@@ -41,6 +41,9 @@ export const useTerminalStore = defineStore('terminal', {
     rank: null as Rank | null,
     /** やらかし体験室（Mission29）: 予備の機械に繋いでいる間 true */
     sandbox: false,
+    /** 再捜査中の Mission（クリア済みの遊び直し）。null なら通常 */
+    replayMissionId: null as number | null,
+    replayStartedAt: null as string | null,
     /** タイムアタック演出（機能 7）: 捜査中 Mission の開始時刻と目安分 */
     missionStartedAt: null as string | null,
     targetMinutes: 15,
@@ -123,6 +126,8 @@ export const useTerminalStore = defineStore('terminal', {
       this.sandbox = state.sandbox === true
       this.missionStartedAt = state.mission_started_at ?? null
       this.targetMinutes = state.target_minutes ?? 15
+      this.replayMissionId = state.replay_mission_id ?? null
+      this.replayStartedAt = state.replay_started_at ?? null
     },
     /** 図鑑に新規登録があった（result の codex）。一覧を差分更新し NEW を付ける。 */
     addCodexEntries(entries: CodexNew[], missionId: number | null) {
@@ -165,12 +170,13 @@ export const useTerminalStore = defineStore('terminal', {
      * サーバーは mission_clear → story の順で送るので、クリア独り言と次 Mission の start
      * 独り言はキューに溜まり、`dismissClear()` で流れ出す。
      */
-    holdStoryForClear(clearedMissionId: number, nextMissionId: number | null, score: MissionScore | null = null) {
+    holdStoryForClear(clearedMissionId: number, nextMissionId: number | null, score: MissionScore | null = null, replay = false) {
       this.lastScore = score
       this.missionCleared = true
       this.clearedMissionId = clearedMissionId
       this.nextMissionId = nextMissionId
-      this.pendingFieldCard = clearedMissionId
+      // 再捜査完了では実習カードは出さない（初回クリア時に発行済み）
+      this.pendingFieldCard = replay ? null : clearedMissionId
       this.storyCurrent = null
     },
     /** クリア演出を閉じる（「次のミッションへ」）。辞令が無ければ保留していた独り言を再開する。 */
