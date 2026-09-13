@@ -98,3 +98,26 @@ def test_detail_carries_a_field_card_for_every_mission(
         assert card and card["lead"] and card["steps"], m.id
         for step in card["steps"]:
             assert "rm " not in step["cmd"] and "dd " not in step["cmd"], (m.id, step)
+
+
+def test_replay_ledger_lists_the_missions_own_commands(
+    client: TestClient, session: Session
+) -> None:
+    """リプレイ台帳（§ 11 機能 8）: Mission ごとの成功コマンドを実行順に返す。"""
+    create_user(session, "detective01", "secret")
+    headers = _auth_header(client)
+    token = headers["Authorization"].split()[1]
+    with client.websocket_connect("/ws/terminal") as ws:
+        ws.send_json({"type": "auth", "token": token})
+        ws.receive_json()
+        for cmd in ["ls", "cat nope.txt", "cat /root/desk/businesscard.txt"]:
+            ws.send_json({"type": "exec", "id": 1, "command": cmd})
+            ws.receive_json()
+            if cmd.startswith("cat /root"):
+                ws.receive_json()  # story
+    ledger = client.get("/api/missions/1/replay/", headers=headers).json()
+    assert ledger["status"] == "open"
+    assert [e["line"] for e in ledger["commands"]] == ["ls", "cat /root/desk/businesscard.txt"]
+    assert ledger["commands"][0]["n"] == 1
+    assert client.get("/api/missions/2/replay/", headers=headers).json()["commands"] == []
+    assert client.get("/api/missions/999/replay/", headers=headers).status_code == 404

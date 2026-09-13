@@ -4,6 +4,7 @@ import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
 import type { CodexCommand, CodexError, Fragment } from '~/types/ws'
 import type { FieldCardData } from '~/components/FieldCard.vue'
+import type { ReplayEntry, ReplayScore } from '~/components/ReplayLedger.vue'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
@@ -210,6 +211,17 @@ function showFieldCardAgain() {
 }
 const fieldCardVisible = computed(() => fieldCard.value != null && (fieldCardManual.value || (store.pendingFieldCard != null && !store.missionCleared && !store.pendingRankUp)))
 
+// --- リプレイ台帳（ゲーム機能 8）: この Mission で打ったコマンドを読み返す ---
+const ledger = ref<{ commands: ReplayEntry[], score: ReplayScore | null } | null>(null)
+async function openLedger() {
+  try {
+    const data = await apiFetch<{ commands: ReplayEntry[], score: ReplayScore | null }>(`/api/missions/${missionId.value}/replay/`)
+    ledger.value = { commands: data.commands, score: data.score }
+  } catch {
+    ledger.value = { commands: [], score: null }
+  }
+}
+
 // --- 図鑑（ゲーム機能 2・10）: scene 上のレイヤー。開くときに一覧を取り直す ---
 async function toggleCodex() {
   store.codexOpen = !store.codexOpen
@@ -378,6 +390,9 @@ function onNext() {
       <div v-else-if="fieldCardVisible && fieldCard" class="fieldcard-overlay">
         <FieldCard :mission-tag="fieldCard.tag" :card="fieldCard.card" @close="closeFieldCard" />
       </div>
+      <div v-else-if="ledger" class="fieldcard-overlay" @click.self="ledger = null">
+        <ReplayLedger :mission-tag="`Mission ${mission.id}`" :commands="ledger.commands" :score="ledger.score" @close="ledger = null" />
+      </div>
     </div>
 
     <aside class="ga-rail rail">
@@ -386,6 +401,7 @@ function onNext() {
         <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
         <NoirButton variant="ghost" @click="toggleCodex">{{ store.codexOpen ? '図鑑を閉じる' : '図鑑（道具 / エラー）' }}</NoirButton>
         <NoirButton v-if="mission.status === 'cleared' && mission.field_card" variant="ghost" @click="showFieldCardAgain">現場実習カード</NoirButton>
+        <NoirButton v-if="mission.status !== 'locked'" variant="ghost" @click="openLedger">リプレイ台帳</NoirButton>
       </div>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail

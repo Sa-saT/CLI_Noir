@@ -13,7 +13,7 @@
 
 ## 実装の現状（2026-09-13 時点）
 
-- **バックエンド `noir-api/`（FastAPI）**: 全 29 Mission 実装済み（551 tests green / ruff clean。2026-09-13 に git 編 23〜25 とサーバー編 26〜28 を追加、プレイ順序は id と独立）。**Part5 永続統合ワールド化は Phase A〜D 完了**（ユーザーごとに 1 つの `PlayerState`、区画の権限ゲート、`/root/case_file.sh` 動的合成、WS `/ws/terminal`・`GET /api/state/` は `PlayerState` を参照）。**Phase F（テスト移行・`MissionState` 廃止）も 2026-09-13 完了**。残るのは evaluator 内の旧形状分岐（`env_for`/`progress.flags`/`story`/`git_ops.is_world`/`_handle_resume` の else）の簡素化のみ
+- **バックエンド `noir-api/`（FastAPI）**: 全 29 Mission 実装済み（552 tests green / ruff clean。2026-09-13 に git 編 23〜25 とサーバー編 26〜28 を追加、プレイ順序は id と独立）。**Part5 永続統合ワールド化は Phase A〜D 完了**（ユーザーごとに 1 つの `PlayerState`、区画の権限ゲート、`/root/case_file.sh` 動的合成、WS `/ws/terminal`・`GET /api/state/` は `PlayerState` を参照）。**Phase F（テスト移行・`MissionState` 廃止）も 2026-09-13 完了**。残るのは evaluator 内の旧形状分岐（`env_for`/`progress.flags`/`story`/`git_ops.is_world`/`_handle_resume` の else）の簡素化のみ
 - **フロント `noir-client/`（Nuxt 4 SPA）**: 実バックエンド接続済み。**「常時ターミナル」設計**（`app.vue` がログインごとに WS を 1 本張る。Mission ページは表示切替専用）+ bash 風キー操作（↑↓/Ctrl+L/C/A/E/U/W）+ **独り言レイヤー**（`StoryOverlay.vue`。サーバーの `story_beats` に反応するタイプライター台詞窓）。見た目の目視確認は都度ユーザーが行う
 - **コンテンツ**: 全 29 Mission の独り言・直接ヒントを起草済み（2026-09-13。Mission1〜3 は目視確定、4〜28 は実プレイでのトーン確認待ち。文言は `noir-api/app/content/missions.py` が正）
 - 2026-09-13 に「セーブから再開すると進捗が逆戻りする」穴（push 済み commit に印を付けて resume 時にクリアを再適用）とクリア演出/独り言の重なりを修正済み（445 tests green）

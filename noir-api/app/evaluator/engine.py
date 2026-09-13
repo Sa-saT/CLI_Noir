@@ -336,7 +336,7 @@ def _resolved_mission_id(state: dict) -> int | None:
 
 
 def _build_resolved_log_entry(
-    command_line: str, resolutions: list[tuple[str, str]], state: dict
+    command_line: str, resolutions: list[tuple[str, str]], mission_id: int | None
 ) -> dict:
     """1 コマンドぶんの resolved_command_log エントリを組み立てる（P3-08a）。
 
@@ -362,7 +362,7 @@ def _build_resolved_log_entry(
         "line": command_line,
         "resolved_line": resolved_line,
         "paths": paths,
-        "mission_id": _resolved_mission_id(state),
+        "mission_id": mission_id,
     }
 
 
@@ -379,6 +379,9 @@ def _set_status(state: dict, code: str) -> dict:
 def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
     """1 行を評価し (出力行, 新 state) を返す。state は変更しない（deepcopy を返す）。"""
     working = copy.deepcopy(state)
+    # 台帳（機能 8）・判定のタグ付けは「打った時点の捜査中 Mission」。git push でクリアが
+    # 進んだ後の active を使うと push が次 Mission の手として記録されてしまう。
+    mission_at_start = _resolved_mission_id(working)
 
     # P3-08a: 1 コマンドぶんのパス解決を記録するスナップショット区間。`sh` 経由の
     # 入れ子 evaluate() 呼び出しでも ContextVar のネストにより親子の記録は混ざらない。
@@ -455,7 +458,7 @@ def evaluate(command_line: str, state: dict) -> tuple[list[str], dict]:
         drained = True
         st_state.setdefault("command_log", []).append(command_line)
         st_state.setdefault("resolved_command_log", []).append(
-            _build_resolved_log_entry(command_line, resolutions, st_state)
+            _build_resolved_log_entry(command_line, resolutions, mission_at_start)
         )
         return out_lines, _set_status(st_state, "0")
     finally:

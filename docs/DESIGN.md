@@ -155,6 +155,7 @@ components/
 ├ ClearEffect.vue           … "Mission Complete!" 演出 + 次 Mission 導線
 ├ CodexLayer.vue            … 図鑑（道具 / エラー）。scene 上・独り言の一つ奥（z 30）。レールの「図鑑」で開閉（2026-09-13）
 ├ FieldCard.vue             … 現場実習カード（cream の紙 + 赤影）。クリア演出・辞令の後に発行、クリア済みページで再表示（2026-09-13）
+├ ReplayLedger.vue          … リプレイ台帳。レールの「リプレイ台帳」で scene に重ねる（2026-09-13）
 └ RankUpEffect.vue          … ランクアップ演出（Phase2: 辞令 + 新コマンド解放）
 ```
 
