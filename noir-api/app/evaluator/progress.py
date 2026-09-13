@@ -247,6 +247,12 @@ def release_missions(state: dict) -> None:
                         base_files=spec.get("base_files"),
                     )
 
+        # やらかし体験室（Mission29）: 世界を退避して sandbox を開く
+        if mission.sandbox:
+            from app.evaluator import sandbox
+
+            sandbox.enter(state)
+
         released.append(mission_id)
         released_set.add(mission_id)
 
@@ -270,6 +276,10 @@ def advance_mission(state: dict, cleared_mission_id: int) -> None:
         completed.sort()
     refresh_active_mission_id(mission_progress)
     mission_progress["flags"] = {"case_checked": False}
+    # やらかし体験室を閉じる（退避していた本物の世界を戻す）。sandbox が無ければ no-op。
+    from app.evaluator import sandbox
+
+    sandbox.leave(state)
     release_missions(state)
     return_to_office(state)
 

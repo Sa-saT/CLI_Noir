@@ -33,7 +33,7 @@ def test_list_initial_unlock(client: TestClient, session: Session) -> None:
     res = client.get("/api/missions/", headers=_auth_header(client))
     assert res.status_code == 200
     missions = res.json()
-    assert len(missions) == 28
+    assert len(missions) == 29
     by_id = {m["id"]: m for m in missions}
     assert by_id[1]["status"] == "open"
     assert by_id[2]["status"] == "locked"
@@ -77,7 +77,7 @@ def test_detail_hints_are_authored_for_all_missions(
     create_user(session, "detective01", "secret")
     headers = _auth_header(client)
 
-    for mission_id in [m for m in range(1, 29) if m != 22]:
+    for mission_id in [m for m in range(1, 30) if m != 22]:
         detail = client.get(f"/api/missions/{mission_id}/", headers=headers).json()
         assert len(detail["hints"]) == 3, mission_id
 

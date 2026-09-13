@@ -28,6 +28,7 @@ from app.evaluator import fs
 from app.evaluator import gh as _gh  # noqa: F401  registry 登録のため import
 from app.evaluator import git_ops as _git_ops  # noqa: F401  registry 登録のため import
 from app.evaluator import progress
+from app.evaluator import sandbox
 from app.evaluator.allowlist import ALLOWLIST, DENYLIST
 from app.evaluator.env import env_for
 from app.evaluator.errors import CommandError
@@ -251,7 +252,10 @@ def _run_stage(
 ) -> tuple[list[str], dict]:
     """1 ステージ（denylist→allowlist→PATH解決→registry dispatch）を実行する。"""
     name, is_absolute = _resolve_command_name(argv[0])
-    if name in DENYLIST or name not in ALLOWLIST:
+    # やらかし体験室（Mission29）: 退避中だけ rm/dd を通す。本編は従来どおり denylist。
+    # バイパスはこの 1 行だけ（app/evaluator/sandbox.py）。
+    in_sandbox = name in sandbox.SANDBOX_ONLY and sandbox.is_active(state)
+    if (name in DENYLIST and not in_sandbox) or (name not in ALLOWLIST and not in_sandbox):
         raise CommandError("Error: command not allowed")
     # PATH に /bin 系が無い間は組み込み以外のコマンドが引けない（絶対パス実行は除外。
     # Mission21）。

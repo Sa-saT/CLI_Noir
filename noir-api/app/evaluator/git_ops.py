@@ -144,6 +144,8 @@ def _commit(state: dict, argv: list[str]) -> tuple[list[str], dict]:
         "current_user": state.get("current_user", "detective"),
         "remote_mode": state.get("remote_mode", False),
         "ssh_host": state.get("ssh_host"),
+        # やらかし体験室の退避（Mission29）。退避中のセーブへ戻っても本物の世界が残るように
+        "sandbox": copy.deepcopy(state.get("sandbox")),
     }
 
     git["commits"].append(

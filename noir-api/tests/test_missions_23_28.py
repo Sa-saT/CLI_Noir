@@ -26,8 +26,8 @@ def _clear(s: dict, mission_id: int, message: str) -> dict:
 def test_play_order_places_the_episodes() -> None:
     order = [m.id for m in all_missions()]
     assert order[:11] == list(range(1, 12))
-    assert order[11:14] == [23, 24, 25]
-    assert order[14] == 12
+    assert order[11:15] == [23, 24, 25, 29]
+    assert order[15] == 12
     assert order[-4:] == [26, 27, 28, 22]
 
 
@@ -118,7 +118,7 @@ def test_mission25_review_loop() -> None:
     out, s = _run(s, "gh pr merge")
     assert out == ["Merged pull request #1"]
     s = _clear(s, 25, "report merged")
-    assert progress.active_mission_id(s["mission_progress"]) == 12
+    assert progress.active_mission_id(s["mission_progress"]) == 29
 
 
 def test_mission25_requires_a_pull_request() -> None:
@@ -201,3 +201,49 @@ def test_mission28_golden_transcript() -> None:
     _, s = _run(s, "exit")
     s = _clear(s, 28, "two sites")
     assert progress.active_mission_id(s["mission_progress"]) == 22
+
+
+# --- Mission29（やらかし体験室） ---
+def test_mission29_sandbox_rm_dd_and_restore() -> None:
+    s = state_at_mission(29)
+    assert s["sandbox"]["backup"]["root"]["children"]["team_desk"]
+    _, s = _run(s, "ls /root/team_desk")
+    out, s = _run(s, "rm /root/team_desk")
+    assert out == ["rm: cannot remove '/root/team_desk': Is a directory"]
+    out, s = _run(s, "rm -rf /root/team_desk")
+    assert out[-1] == "removed directory '/root/team_desk'"
+    out, _ = _run(s, "ls /root")
+    assert "team_desk" not in out
+    out, s = _run(s, "sh /root/case_file.sh")
+    assert out == ["Warning: the evidence disk is not wiped (dd)"]
+    out, s = _run(s, "dd if=/dev/zero of=/dev/sdb")
+    assert out[0] == "2048+0 records in"
+    out, _ = _run(s, "ls /root/vault")
+    assert out == []
+    s = _clear(s, 29, "duress")
+    # 予備の機械を外す＝本物の世界が戻る。sandbox は消え、rm は再び禁止
+    assert "sandbox" not in s
+    out, _ = _run(s, "ls /root/team_desk")
+    assert "case_notes.txt" in out
+    out, _ = _run(s, "ls /root/vault")
+    assert out != []
+    assert _run(s, "rm -rf /root/desk")[0] == ["Error: command not allowed"]
+    assert progress.active_mission_id(s["mission_progress"]) == 12
+
+
+def test_rm_and_dd_stay_denied_outside_the_sandbox() -> None:
+    for mission_id in (1, 12, 22):
+        s = state_at_mission(mission_id)
+        assert _run(s, "rm -rf /")[0] == ["Error: command not allowed"]
+        assert _run(s, "dd if=/dev/zero of=/dev/sda")[0] == ["Error: command not allowed"]
+
+
+def test_mission29_case_file_survives_rm_rf_root() -> None:
+    """やけになって /root ごと消しても判定スクリプトは動く（詰まない）。"""
+    s = state_at_mission(29)
+    _, s = _run(s, "rm -rf /root")
+    _, s = _run(s, "dd if=/dev/zero of=/dev/sdb")
+    assert _run(s, "ls")[0] == ["Error: path not found"]  # cwd /root ごと消えている
+    _, s = _run(s, "ls /")
+    out, s = _run(s, "sh case_file.sh")
+    assert out == ["case_file.sh: all checks passed"]

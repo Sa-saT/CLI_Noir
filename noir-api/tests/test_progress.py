@@ -261,7 +261,7 @@ def test_release_missions_mission12_appends_ghost_hosts_line() -> None:
     assert missions_content.GHOST_HOSTS_LINE not in hosts_before["content"]
 
     # Mission12 が open になる: プレイ順序で手前の 1〜11 と git 編 23〜25 をクリア済みに
-    state["mission_progress"]["completed"] = [*range(1, 12), 23, 24, 25]
+    state["mission_progress"]["completed"] = [*range(1, 12), 23, 24, 25, 29]
     progress.release_missions(state)
 
     hosts_after = progress._node_at(state["filesystem"], missions_content.HOSTS_PATH)
@@ -270,7 +270,7 @@ def test_release_missions_mission12_appends_ghost_hosts_line() -> None:
 
 def test_release_missions_is_idempotent_for_hosts_line() -> None:
     state = default_world_state()
-    state["mission_progress"]["completed"] = [*range(1, 12), 23, 24, 25]
+    state["mission_progress"]["completed"] = [*range(1, 12), 23, 24, 25, 29]
     progress.release_missions(state)
     progress.release_missions(state)
     progress.release_missions(state)

@@ -96,8 +96,9 @@ const detail = computed(() => {
 // ヘッダーのランクは接続中はプレイヤーの現在ランク（state.rank）、未接続時は Mission の
 // allowed_commands から推定する旧ロジックにフォールバック
 const rank = computed(() => {
-  if (store.rank) return `Lv.${store.rank.level} ${store.rank.name}`
-  return mission.value ? rankLabelFor(mission.value.allowed_commands) : ''
+  const base = store.rank ? `Lv.${store.rank.level} ${store.rank.name}` : (mission.value ? rankLabelFor(mission.value.allowed_commands) : '')
+  // やらかし体験室（Mission29）: 予備の機械に繋いでいる間は本物の世界が退避中であることを明示する
+  return store.sandbox ? `SANDBOX · ${base}` : base
 })
 
 async function loadMission(id: number) {

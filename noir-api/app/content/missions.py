@@ -843,6 +843,9 @@ class MissionDef:
     # deepcopy して `base`（三方マージの共通祖先）に持つ。`tree` は与えられた
     # children をそのまま使う（base_from の現在の tree とは独立）。
     initial_branches: dict | None = None
+    # やらかし体験室（ゲーム機能 9。Mission29）: True なら解放時に世界の filesystem を退避して
+    # sandbox を開き、クリア時に戻す。退避中だけ rm/dd が通る（app/evaluator/sandbox.py）。
+    sandbox: bool = False
     # 進行案内「独り言レイヤー」（STORY-01。Mission参照ファイル § 独り言（story_beats）と
     # ヒントの共通仕様）。各要素: {"id", "when": "start"|"after"|"clear",
     # "text", "line"(任意・正規表現), "output"(任意・正規表現), "remote"(任意・bool)}。
@@ -1239,6 +1242,34 @@ _DEFS: list[MissionDef] = [
         {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch|pull request", "text": "送付状（PR）を出して、指摘を直して、承認を取って、merge したか……順番に。"},
         {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "報告書は本部の調書になった。記録して push。"},
         {"id": "clear", "when": "clear", "text": "送って、突き返されて、直して、通る。遠回りに見えて、一人で書くより早く正しい場所に着く——それがレビュー、なのだろう。"},
+        ],
+    ),
+    MissionDef(
+        29, "Under Duress", "消せ、と男は言った",
+        "事務所に押し入った男に証拠の消去を強要される。予備の機械に繋ぎ替え、rm と dd を本当に実行して「消えるとはどういうことか」を目に焼き付ける。",
+        ["rm", "dd"],
+        # やらかし体験室（ゲーム機能 9）。解放時に世界を退避（sandbox）し、クリア時に戻す。
+        # 判定は judge.py の Mission29 専用ロジック（rm -r で捜査室を消した + dd で証拠ディスクを
+        # 潰した + 消えたことを ls で確かめた）。denylist の rm/dd はこの退避中だけ通る。
+        sandbox=True,
+        hints=[
+            "ゴール: 男の要求どおり rm -rf /root/team_desk と dd if=/dev/zero of=/dev/sdb を実行し、ls /root と ls /root/vault で消えたことを確かめ、sh case_file.sh → git push する。予備の機械（SANDBOX）に繋いでいるので本物は無事。",
+            "rm -rf <ディレクトリ> は中身ごと消す（-r = 中まで、-f = 確認なし）。dd if=<元> of=<先> は先をまるごと上書きする（of=/dev/sdb は証拠用ディスク）。消えたあとは ls で「無い」ことが見える。本編で禁止されている理由を、ここで一度だけ体験する。",
+            "ls /root/team_desk（消す前）→ rm -rf /root/team_desk（捜査室が消える）→ ls /root（無い）→ dd if=/dev/zero of=/dev/sdb（証拠ディスクを潰す）→ ls /root/vault（空）→ sh /root/case_file.sh → git add . → git commit -m \"duress\" → git push（予備の機械を外す＝本物の世界に戻る）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "深夜、事務所の鍵が開く音。Nico Faro——港の報告書で名指しした男が、机の前に立っていた。\n「消せ。捜査室（team_desk）も、証拠のディスクも。今すぐ、お前の手で」\n……机の下で、そっと予備の機械（SANDBOX）に繋ぎ替える。ここで何を消しても、本物は無事のはず。"},
+            {"id": "look", "when": "after", "line": r"^ls .*team_desk", "text": "調書、証言、報告書——全部ここにある。男が顎で促す。「早くしろ」"},
+            {"id": "rm_dir", "when": "after", "line": r"^rm ", "output": "Is a directory", "text": "「消えていないぞ」——中身のあるディレクトリは -r（中まで）を付けないと消えない。実機でも同じ。"},
+            {"id": "rm_missing", "when": "after", "line": r"^rm ", "output": "No such file", "text": "そこには最初から無い。場所を確かめる（ls）。"},
+            {"id": "wiped", "when": "after", "line": r"^rm ", "output": "removed directory", "text": "一行ずつ、名前が流れて消えていく。確認も、ゴミ箱も無い——rm は本当に消す。\n男が言う。「次はディスクだ。dd で潰せ」"},
+            {"id": "gone", "when": "after", "line": r"^ls( /root/?)?\s*$", "output": r"^(?![\s\S]*team_desk)", "text": "無い。ついさっきまであった部屋が、名前ごと無い。これが「消える」ということか。"},
+            {"id": "dd_bad", "when": "after", "line": r"^dd ", "output": "missing|Permission denied", "text": "dd は if=（元）と of=（先）が要る。先は証拠用のディスク（/dev/sdb）——男がそう言った。"},
+            {"id": "dd_done", "when": "after", "line": r"^dd ", "output": "records out", "text": "ゼロが書き込まれていく。ファイルを消すのとは違う——ディスクの中身そのものが、無になった。\n男は画面を覗き込み、満足そうに頷いて出ていった。"},
+            {"id": "vault_empty", "when": "after", "line": r"^ls .*vault", "output": r"^$", "text": "資料室は空。……予備の機械で良かった。本物なら、二度と戻らない。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch|still there|not wiped", "text": "男の要求は二つ——捜査室を rm -rf、ディスクを dd。それと、消えたことをこの目（ls）で見ること。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "男は去った。予備の機械を外して、本物の世界に戻る（git push）。"},
+            {"id": "clear", "when": "clear", "text": "机の下の予備の機械を外す。本物の捜査室は、そのまま残っていた。\n——何が起きるか知っていれば、もう怖くない。だから現場では禁じられている。"},
         ],
     ),
     MissionDef(

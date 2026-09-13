@@ -23,6 +23,8 @@ export interface StateSummary {
   active_mission_id: number | null
   current_user: string
   rank: Rank
+  /** やらかし体験室（Mission29）で予備の機械に繋いでいる間 true（本物の世界は退避中） */
+  sandbox?: boolean
 }
 
 export interface CommitMeta {

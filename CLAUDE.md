@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は全 28 Mission（1〜22 + 追加エピソード 23〜28。2026-09-13）実装済み + ユーザーごとの**永続統合ワールド**（`PlayerState`）へ移行済み（2026-09-12 Phase D 完了）。フロントエンド（`noir-client/`）は実バックエンド接続済み・**常時ターミナル**設計（ログインごとに WS 1 本）+ 進行案内「独り言レイヤー」（2026-09-13）。現状と残タスクは `context/03_pending_items.md`・`context/04_task_backlog.md` を参照。
+CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は全 29 Mission（1〜22 + 追加エピソード 23〜28。2026-09-13）実装済み + ユーザーごとの**永続統合ワールド**（`PlayerState`）へ移行済み（2026-09-12 Phase D 完了）。フロントエンド（`noir-client/`）は実バックエンド接続済み・**常時ターミナル**設計（ログインごとに WS 1 本）+ 進行案内「独り言レイヤー」（2026-09-13）。現状と残タスクは `context/03_pending_items.md`・`context/04_task_backlog.md` を参照。
 
 - コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
 - MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）/ 2026-09-13 に追加エピソード（git 編 23〜25 = Mission11 の後、サーバー編 26〜28 = Mission21 の後）で全 28 に。**id は事件番号で固定、プレイ順序は `_DEFS` の並び**
@@ -19,7 +19,7 @@ CLI_Noir/
 ├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
 ├ noir-client/   … Nuxt 4 フロント実装（実バックエンド接続済み。app/components/*.vue + pages/missions）
-├ noir-api/      … FastAPI バックエンド（全 28 Mission 実装済み・統合ワールド。528 tests green / ruff clean）
+├ noir-api/      … FastAPI バックエンド（全 29 Mission 実装済み・統合ワールド。532 tests green / ruff clean）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```

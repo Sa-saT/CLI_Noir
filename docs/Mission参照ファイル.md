@@ -453,6 +453,14 @@
 - クリア条件: 両ホストへの ssh + 原因（sshd 停止）の特定と復旧 + 両拠点の OS 情報の報告
 - ゲーム性: 「同じ Linux が二か所にある」ことの実感。オンプレ／クラウドの区別は置き場所の違いでしかない
 
+### 5b-3b. Mission29: Under Duress「消せ、と男は言った」（やらかし体験室。2026-09-13 ユーザー案で確定・実装）
+- 学習テーマ: `rm -rf` と `dd` が本当に何をするか（denylist の理由を体験で理解する）
+- あらすじ: 深夜、港の報告書（Mission25）で名指しした Nico Faro が事務所に押し入り、捜査室（team_desk）と証拠ディスクの消去を強要する。探偵は机の下で予備の機械（SANDBOX）に繋ぎ替え、要求どおり消してみせる。男は満足して去る
+- 配置: プレイ順序で Mission25 の直後（PR で名指しした因果）。区画は持たない（Mission23 の `/root/team_desk` と Mission5/22 の `/root/vault` を舞台にする）
+- 機構: `MissionDef.sandbox=True`。解放時に `sandbox.enter`（filesystem を退避）、クリア時に `sandbox.leave`（戻す）。退避中だけ `rm`/`dd` が通る。`rm` は消した名前を一行ずつ出す（演出）。`dd if=/dev/zero of=/dev/sdb` は `/root/vault` の中身を空にする
+- クリア条件: `/root/team_desk` を `rm -r` で消した + `dd` 実行 + `ls` で確認。誤答: `Warning: the team desk is still there (rm -rf)` / `Warning: the evidence disk is not wiped (dd)`
+- ゲーム性: 「消えていく名前」を自分の手で流す。`rm -rf /root` までやっても `case_file.sh` は動的合成なので詰まない
+
 ### 5b-4. 実装メモ（2026-09-13 実装済み。機構は `docs/バックエンド_コマンド機能仕様.md` § 5b/5c、判定は `judge.py` 23〜28、コンテンツは `missions.py`）
 - `git_state` に `branches: {name: {"tree": <team_desk のスナップショット>, "head": commit_id}}` と `current_branch` を追加。
   `git checkout` は `/root/team_desk` 配下だけ差し替え。`merge` は行単位の三方比較（同じ行が両側で異なれば競合マーカー）

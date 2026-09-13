@@ -255,9 +255,12 @@ def _handle_resume(msg: dict, state: dict) -> dict:
                 "current_user",
                 "remote_mode",
                 "ssh_host",
+                "sandbox",
             ):
                 if key in snap:
                     restored[key] = copy.deepcopy(snap[key])
+            if restored.get("sandbox") is None:
+                restored.pop("sandbox", None)
             if commit.get("pushed") and commit.get("mission_id") is not None:
                 progress.advance_mission(restored, commit["mission_id"])
             return restored

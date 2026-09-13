@@ -615,6 +615,29 @@ def _judge_mission28(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+
+def _judge_mission29(state: dict) -> tuple[list[str], dict]:
+    """Mission29: sandbox 中に rm -r で /root/team_desk を消し、dd で証拠ディスクを潰し、
+    消えたことを ls で確かめたか。"""
+    box = state.get("sandbox") or {}
+    log = state.get("command_log", [])
+    wiped_team_desk = any(p.rstrip("/") in ("/root/team_desk", "/root", "") for p in box.get("wiped", []))
+    team_desk_gone = fs.get_node(state, "/root/team_desk") is None
+    dd_done = bool(box.get("dd"))
+    looked = any(re.match(r"\s*ls\b", ln) for ln in log)
+    if not (wiped_team_desk and team_desk_gone):
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: the team desk is still there (rm -rf)"], state
+    if not dd_done:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: the evidence disk is not wiped (dd)"], state
+    if not looked:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -635,6 +658,7 @@ _CUSTOM_JUDGES = {
     26: _judge_mission26,
     27: _judge_mission27,
     28: _judge_mission28,
+    29: _judge_mission29,
 }
 
 

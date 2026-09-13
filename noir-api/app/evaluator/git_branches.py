@@ -340,6 +340,10 @@ def finalize_commit(state: dict, message: str) -> list[str]:
     repo = state.get("git_state", {}).get("repo")
     if repo is None:
         return []
+    if fs.get_node(state, repo["root"]) is None:
+        # リポジトリのディレクトリ自体が無い（やらかし体験室で rm -rf された等）。
+        # 世界のセーブは通し、枝の更新だけ見送る（退避が戻れば元どおり）。
+        return []
 
     branch = repo["branches"][repo["current_branch"]]
     branch["tree"] = copy.deepcopy(_working_children(state, repo))

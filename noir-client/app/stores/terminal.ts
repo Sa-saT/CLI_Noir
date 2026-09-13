@@ -39,6 +39,8 @@ export const useTerminalStore = defineStore('terminal', {
     currentUser: 'detective',
     /** 探偵ランク（hello/result の state.rank。設計指示書 § 8） */
     rank: null as Rank | null,
+    /** やらかし体験室（Mission29）: 予備の機械に繋いでいる間 true */
+    sandbox: false,
     /** クリア演出の後に見せる辞令（rank_up イベント）。閉じるまで独り言は保留 */
     pendingRankUp: null as RankUpEvent | null,
     commits: [] as CommitMeta[],
@@ -102,6 +104,7 @@ export const useTerminalStore = defineStore('terminal', {
       this.activeMissionId = state.active_mission_id
       this.currentUser = state.current_user
       this.rank = state.rank ?? null
+      this.sandbox = state.sandbox === true
     },
     /** 表示済みログへ積む（上限 200。古いものから捨てる）。 */
     _pushStoryLog(beat: StoryBeat) {

@@ -61,6 +61,8 @@ def state_summary(state: dict) -> dict:
         "current_user": state.get("current_user", "detective"),
         # 探偵ランク（§ 8 レベル表。解放済みコマンドの最高レベル）。ヘッダー表示用
         "rank": rank.rank_of(state),
+        # やらかし体験室（Mission29）で予備の機械に繋いでいる間 True（ヘッダーに表示）
+        "sandbox": bool(state.get("sandbox")),
     }
 
 
