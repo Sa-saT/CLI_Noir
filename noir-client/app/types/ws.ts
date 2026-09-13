@@ -61,6 +61,11 @@ export interface HelloFrame {
 
 export interface ResultLine { text: string, style: Style }
 
+/** 図鑑（ゲーム機能 2・10）。result フレームの `codex` は今回新しく登録されたもの */
+export interface CodexNew { kind: 'command' | 'error', key: string, title?: string, text?: string }
+export interface CodexCommand { name: string, first_mission: number | null, count: number }
+export interface CodexError { key: string, title: string, text: string, first_mission: number | null, count: number, sample?: string }
+
 export interface ResultFrame {
   type: 'result'
   id: number
@@ -68,6 +73,7 @@ export interface ResultFrame {
   command: string
   lines: ResultLine[]
   state: StateSummary
+  codex?: CodexNew[]
 }
 
 /** `complete` への応答。`replace_from` は行内の置換開始位置（候補で置き換える範囲の先頭）。 */

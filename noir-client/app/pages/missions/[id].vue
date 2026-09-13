@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CommandEntry } from '~/components/CommandPanel.vue'
 import type { SaveEntry } from '~/components/SaveSelectModal.vue'
+import type { CodexCommand, CodexError } from '~/types/ws'
 
 /*
  * ゲーム画面（設計指示書 § 3 ルーティング `/missions/{id}`。DESIGN.md § 7）。
@@ -151,6 +152,18 @@ function onInterrupt(line: string) {
   store.pushEchoedInput(`${line}^C`, store.promptState)
 }
 
+// --- 図鑑（ゲーム機能 2・10）: scene 上のレイヤー。開くときに一覧を取り直す ---
+async function toggleCodex() {
+  store.codexOpen = !store.codexOpen
+  if (!store.codexOpen) return
+  try {
+    const data = await apiFetch<{ commands: CodexCommand[], errors: CodexError[] }>('/api/codex/')
+    store.setCodex(data.commands, data.errors)
+  } catch {
+    // 取得失敗時は result で積んだ分だけを見せる
+  }
+}
+
 // Tab 補完で候補が複数あったとき: bash と同じく候補を一覧で見せる（入力行はそのまま）
 function onCompletions(candidates: string[]) {
   store.pushLine('out', candidates.join('  '))
@@ -267,6 +280,13 @@ function onNext() {
       </SceneOverlay>
       <!-- 独り言はブリーフィング（事件ファイル）を閉じてから流す。開いている間は beat を渡さず
            保留する（閉じると先頭から再生される。2026-09-13 ユーザー要望） -->
+      <CodexLayer
+        :open="store.codexOpen"
+        :commands="store.codexCommands"
+        :errors="store.codexErrors"
+        :fresh="store.codexFresh"
+        @close="store.codexOpen = false"
+      />
       <MonologueLayer
         :beat="briefingOpen ? null : store.storyCurrent"
         :has-next="store.storyHasNext"
@@ -297,6 +317,7 @@ function onNext() {
       <div class="rail-nav">
         <NoirButton variant="ghost" @click="router.push('/missions')">← 捜査ファイル一覧</NoirButton>
         <NoirButton variant="ghost" @click="briefingOpen = true">事件ファイルを見る</NoirButton>
+        <NoirButton variant="ghost" @click="toggleCodex">{{ store.codexOpen ? '図鑑を閉じる' : '図鑑（道具 / エラー）' }}</NoirButton>
       </div>
       <CommandPanel :commands="commands" @select="onSelectCommand" />
       <CommandDetail

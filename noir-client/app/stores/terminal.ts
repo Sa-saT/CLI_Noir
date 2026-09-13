@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { LineSource, TerminalLine } from '~/components/TerminalView.vue'
 import type { PromptState } from '~/components/PromptLabel.vue'
-import type { CommitMeta, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
+import type { CodexCommand, CodexError, CodexNew, CommitMeta, Rank, RankUpEvent, StoryBeat, Style, StateSummary } from '~/types/ws'
 
 /*
  * Pinia store — state / scrollback の単一ソース（DESIGN.md § 10-1）。
@@ -41,6 +41,12 @@ export const useTerminalStore = defineStore('terminal', {
     rank: null as Rank | null,
     /** やらかし体験室（Mission29）: 予備の機械に繋いでいる間 true */
     sandbox: false,
+    // --- 図鑑（ゲーム機能 2・10）。表示は scene 上の CodexLayer ---
+    codexOpen: false,
+    codexCommands: [] as CodexCommand[],
+    codexErrors: [] as CodexError[],
+    /** 直近に登録されたキー（NEW 印。次の登録で入れ替わる） */
+    codexFresh: [] as string[],
     /** クリア演出の後に見せる辞令（rank_up イベント）。閉じるまで独り言は保留 */
     pendingRankUp: null as RankUpEvent | null,
     commits: [] as CommitMeta[],
@@ -105,6 +111,25 @@ export const useTerminalStore = defineStore('terminal', {
       this.currentUser = state.current_user
       this.rank = state.rank ?? null
       this.sandbox = state.sandbox === true
+    },
+    /** 図鑑に新規登録があった（result の codex）。一覧を差分更新し NEW を付ける。 */
+    addCodexEntries(entries: CodexNew[], missionId: number | null) {
+      if (entries.length === 0) return
+      for (const e of entries) {
+        if (e.kind === 'command') {
+          if (!this.codexCommands.some(c => c.name === e.key)) {
+            this.codexCommands.unshift({ name: e.key, first_mission: missionId, count: 1 })
+          }
+        } else if (!this.codexErrors.some(x => x.key === e.key)) {
+          this.codexErrors.unshift({ key: e.key, title: e.title ?? e.key, text: e.text ?? '', first_mission: missionId, count: 1 })
+        }
+      }
+      this.codexFresh = entries.map(e => e.key)
+    },
+    /** GET /api/codex/ の結果で一覧を置き換える（図鑑を開いたとき）。 */
+    setCodex(commands: CodexCommand[], errors: CodexError[]) {
+      this.codexCommands = [...commands].reverse()
+      this.codexErrors = [...errors].reverse()
     },
     /** 表示済みログへ積む（上限 200。古いものから捨てる）。 */
     _pushStoryLog(beat: StoryBeat) {

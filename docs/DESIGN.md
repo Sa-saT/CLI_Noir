@@ -153,6 +153,7 @@ components/
 ├ TerminalView.vue          … 自作ターミナル（構造化行レンダリング + ライン入力。WS 送受信。emit: command）
 ├ SaveSelectModal.vue       … 再ログイン時の commit（セーブ）一覧選択
 ├ ClearEffect.vue           … "Mission Complete!" 演出 + 次 Mission 導線
+├ CodexLayer.vue            … 図鑑（道具 / エラー）。scene 上・独り言の一つ奥（z 30）。レールの「図鑑」で開閉（2026-09-13）
 └ RankUpEffect.vue          … ランクアップ演出（Phase2: 辞令 + 新コマンド解放）
 ```
 

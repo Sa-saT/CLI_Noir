@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import auth, missions, state
+from app.api import codex as codex_api
 from app.settings import settings
 from app.ws import terminal
 
@@ -29,6 +30,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(missions.router, prefix="/api/missions", tags=["missions"])
 # state はユーザーごとの永続統合ワールド 1 つ: /api/state/（設計指示書 § 6、P3-11）
 app.include_router(state.router, prefix="/api/state", tags=["state"])
+app.include_router(codex_api.router, prefix="/api/codex", tags=["codex"])
 
 # --- WebSocket: /ws/terminal ---
 app.include_router(terminal.router)

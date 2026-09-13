@@ -152,6 +152,12 @@ export function useTerminalSocket() {
     // 直近の成否と連続失敗回数だけ store に置いておく。
     store.lastResultOk = frame.ok
     store.consecutiveErrors = frame.ok ? 0 : store.consecutiveErrors + 1
+    // 図鑑（ゲーム機能 2・10）: 新規登録はシステム行で知らせ、レイヤー側に NEW を付ける
+    if (frame.codex?.length) {
+      store.addCodexEntries(frame.codex, store.activeMissionId)
+      const labels = frame.codex.map(e => (e.kind === 'error' ? `エラー「${e.title ?? e.key}」` : `道具 ${e.key}`))
+      store.pushLine('system', `-- 図鑑に登録: ${labels.join(' / ')} --`)
+    }
     // `clear` コマンドはエコーされた入力行ごと消える（実ターミナルと同じ手触り）。
     // frame.lines を積んだ後にクリアする（バックエンドは空出力を返すため実質 no-op だが順序を保証しておく）。
     if (frame.ok && frame.command.trim() === 'clear') {

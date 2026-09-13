@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import complete, evaluate, progress, rank, story
+from app.evaluator import codex, complete, evaluate, progress, rank, story
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
@@ -185,10 +185,13 @@ async def terminal_ws(
                 if next_active != prev_active:
                     beats = beats + story.clear_beats(state, prev_active)
 
+                lines, ok = _to_lines(out_raw)
+                # 図鑑（ゲーム機能 2・10）: 成功した道具と遭遇したエラーを登録する
+                codex_new = codex.register(state, frame.command, out_raw, ok)
+
                 row.data = state
                 _persist(session, row)
 
-                lines, ok = _to_lines(out_raw)
                 await websocket.send_json(
                     {
                         "type": "result",
@@ -197,6 +200,7 @@ async def terminal_ws(
                         "command": frame.command,
                         "lines": lines,
                         "state": state_summary(state),
+                        "codex": codex_new,
                     }
                 )
                 # mission_clear を story より先に送る: フロントはクリア演出を出している間
