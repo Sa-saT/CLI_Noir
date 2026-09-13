@@ -276,6 +276,7 @@ useLineEditor / useHistory / useCompletion (入力系 composables)
 
 - サーバーは current_path・allowlist・解放レベルを踏まえて候補を返す（未解放コマンドは候補に出さない）
 - 候補 0 件は無反応（ベル音は Phase2 のサウンド導入時に検討）
+- **実装（2026-09-13）**: バックエンド `app/evaluator/complete.py`（純粋関数。段の先頭＝コマンド名（解放済み Mission の allowed_commands + history/clear/exit）、`git ` の直後＝サブコマンド、それ以外＝パス。権限ゲートで見えない区画・`.` で始めない隠しファイルは出さない。引用符の中は空白入り名も補完）。フロントは `TerminalView` の `completer` prop（`useTerminalSocket().complete`）で問い合わせ、候補 1 件は確定（ファイルは末尾に空白、ディレクトリは `/` のまま）、複数は共通接頭辞まで入れて進まなければ候補一覧を scrollback に出す（bash と同じ）
 
 ### 10-5. プロンプト表示
 

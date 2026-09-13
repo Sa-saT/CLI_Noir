@@ -145,6 +145,11 @@ function onInterrupt(line: string) {
   store.pushEchoedInput(`${line}^C`, store.promptState)
 }
 
+// Tab 補完で候補が複数あったとき: bash と同じく候補を一覧で見せる（入力行はそのまま）
+function onCompletions(candidates: string[]) {
+  store.pushLine('out', candidates.join('  '))
+}
+
 // --- 捜査中の事件とこのページの Mission が異なる場合の案内（表示切替専用ページのため、
 // `sh case_file.sh` の判定対象は store.activeMissionId であり、このページの mission
 // とは限らない） ---
@@ -308,9 +313,11 @@ function onNext() {
         :lines="store.lines"
         :prompt="store.promptState"
         :connected="store.connected"
+        :completer="socket.complete"
         @command="socket.exec"
         @clear="store.clearScrollback"
         @interrupt="onInterrupt"
+        @completions="onCompletions"
       />
     </section>
   </div>

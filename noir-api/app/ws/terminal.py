@@ -1,7 +1,7 @@
 """WebSocket ターミナルエンドポイント `/ws/terminal`（設計指示書 § 7、P3-10）。
 
 ハンドシェイク: 接続 → 5秒以内の `auth` フレームで JWT 認証 → `hello`（state + commits）
-→ 任意の `resume` → `exec`/`result` ループ。state 更新とクリア判定の書き込みは
+→ 任意の `resume` → `exec`/`result`（+ `complete`/`completions`）ループ。state 更新とクリア判定の書き込みは
 evaluator のみ（本ハンドラは evaluate を呼び、結果を DB へ保存して result を返す）。
 
 クエリパラメータは取らない（旧 `?mission_id=<id>` は撤去。FastAPI は未知のクエリを
@@ -19,11 +19,18 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from sqlmodel import Session, select
 
-from app.evaluator import evaluate, progress, story
+from app.evaluator import complete, evaluate, progress, story
 from app.models import PlayerState, User, default_world_state
 from app.models.db import get_session
 from app.security import ACCESS, decode_token
-from app.ws.frames import AuthFrame, ExecFrame, ResumeFrame, state_summary, style_for
+from app.ws.frames import (
+    AuthFrame,
+    CompleteFrame,
+    ExecFrame,
+    ResumeFrame,
+    state_summary,
+    style_for,
+)
 
 router = APIRouter()
 
@@ -135,6 +142,23 @@ async def terminal_ws(
                         "state": state_summary(state),
                         "commits": _commit_meta(state),
                         "story": resume_beats,
+                    }
+                )
+                continue
+
+            if mtype == "complete":
+                # Tab 補完（純粋関数。state は変更しないため保存しない）
+                try:
+                    cframe = CompleteFrame.model_validate(msg)
+                except ValidationError:
+                    continue
+                candidates, replace_from = complete.complete(state, cframe.line, cframe.cursor)
+                await websocket.send_json(
+                    {
+                        "type": "completions",
+                        "id": cframe.id,
+                        "candidates": candidates,
+                        "replace_from": replace_from,
                     }
                 )
                 continue

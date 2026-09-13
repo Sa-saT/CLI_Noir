@@ -1,5 +1,5 @@
 import { styleToSource, useTerminalStore } from '~/stores/terminal'
-import type { EventFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } from '~/types/ws'
+import type { CompletionsFrame, EventFrame, HelloFrame, ResultFrame, ServerFrame, StreamFrame } from '~/types/ws'
 
 /*
  * WebSocket 接続 composable（Phase E: FE3-01/FE3-02）。設計指示書 § 7。
@@ -26,6 +26,10 @@ let reconnectDelay = RECONNECT_MIN_MS
 let manualClose = false
 let everConnected = false
 let awaitingResumeHello = false
+/** Tab 補完の応答待ち（id → resolver）。切断時はまとめて空候補で解決する。 */
+const pendingCompletions = new Map<number, (frame: CompletionsFrame) => void>()
+
+export interface Completion { candidates: string[], replaceFrom: number }
 
 export function useTerminalSocket() {
   const store = useTerminalStore()
@@ -65,6 +69,10 @@ export function useTerminalSocket() {
       ws = null
       store.connected = false
       store.connecting = false
+      for (const [id, resolve] of pendingCompletions) {
+        resolve({ type: 'completions', id, candidates: [], replace_from: 0 })
+      }
+      pendingCompletions.clear()
       if (manualClose) return
       if (ev.code === WS_CODE_UNAUTHORIZED) {
         // トークン欠落/不正/失効。再接続しても同じトークンで同じ結果になるだけなので、
@@ -101,6 +109,14 @@ export function useTerminalSocket() {
     if (frame.type === 'result') return handleResult(frame)
     if (frame.type === 'event') return handleEvent(frame)
     if (frame.type === 'stream') return handleStream(frame)
+    if (frame.type === 'completions') return handleCompletions(frame)
+  }
+
+  function handleCompletions(frame: CompletionsFrame) {
+    const resolve = pendingCompletions.get(frame.id)
+    if (!resolve) return
+    pendingCompletions.delete(frame.id)
+    resolve(frame)
   }
 
   function handleHello(frame: HelloFrame) {
@@ -173,6 +189,22 @@ export function useTerminalSocket() {
     ws.send(JSON.stringify({ type: 'exec', id: execId++, command }))
   }
 
+  /**
+   * Tab 補完（DESIGN.md § 10-4）。サーバーに `complete` を送り `completions` を待つ。
+   * 未接続なら空候補（無反応）。応答はサーバー側で id を付け直して返る。
+   */
+  function complete(line: string, cursor: number): Promise<Completion> {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !store.connected) {
+      return Promise.resolve({ candidates: [], replaceFrom: cursor })
+    }
+    const id = execId++
+    const socket = ws
+    return new Promise((resolve) => {
+      pendingCompletions.set(id, frame => resolve({ candidates: frame.candidates, replaceFrom: frame.replace_from }))
+      socket.send(JSON.stringify({ type: 'complete', id, line, cursor }))
+    })
+  }
+
   function resume(commitId: number) {
     store.pendingResume = false
     if (!ws || ws.readyState !== WebSocket.OPEN) return
@@ -200,5 +232,5 @@ export function useTerminalSocket() {
     store.$reset()
   }
 
-  return { connect, disconnect, exec, resume, skipResume }
+  return { connect, disconnect, exec, complete, resume, skipResume }
 }

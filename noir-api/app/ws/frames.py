@@ -1,7 +1,7 @@
 """WebSocket フレームの Pydantic モデル（設計指示書 § 7）。
 
 受信フレーム: auth / exec / resume / complete。送信フレームは dict で構築する
-（hello / result / event）。フロントは style→CSS クラス変換のみ行い、色の意味付けは
+（hello / result / event / completions）。フロントは style→CSS クラス変換のみ行い、色の意味付けは
 サーバーが決める（§ 7）。
 
 進行案内「独り言レイヤー」（STORY-01）: `hello` は `"story"`（アクティブ Mission の
@@ -33,6 +33,15 @@ class ExecFrame(BaseModel):
 class ResumeFrame(BaseModel):
     type: Literal["resume"]
     commit_id: int
+
+
+class CompleteFrame(BaseModel):
+    """Tab 補完の問い合わせ（§ 7 補完フレーム）。応答は `completions`。"""
+
+    type: Literal["complete"]
+    id: int
+    line: str
+    cursor: int
 
 
 Style = Literal["normal", "error", "warning", "emphasis", "success"]

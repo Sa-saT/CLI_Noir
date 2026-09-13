@@ -15,6 +15,11 @@ const props = withDefaults(defineProps<{
   lines?: TerminalLine[]
   prompt?: PromptState
   connected?: boolean
+  /**
+   * Tab 補完（DESIGN.md § 10-4）。行とカーソル位置を渡すと候補と置換開始位置が返る。
+   * TerminalView は FS を知らないので、問い合わせ先（WS）は呼び出し側が渡す。
+   */
+  completer?: (line: string, cursor: number) => Promise<{ candidates: string[], replaceFrom: number }>
 }>(), {
   lines: () => [],
   prompt: () => ({ user: 'detective', host: 'office', path: '/root', hostType: 'local' }),
@@ -27,6 +32,8 @@ const emit = defineEmits<{
   (e: 'clear'): void
   /** Ctrl+C。破棄した入力途中文字列を渡し、呼び出し側が「プロンプト+文字列+^C」の行を積む */
   (e: 'interrupt', line: string): void
+  /** Tab で候補が複数あったとき。bash と同じく候補一覧を scrollback に出す（呼び出し側が行を積む） */
+  (e: 'completions', candidates: string[]): void
 }>()
 
 const input = ref('')
@@ -150,7 +157,59 @@ const CTRL_HANDLERS: Record<string, (event: KeyboardEvent) => void> = {
   w: onCtrlW,
 }
 
+// --- Tab 補完（DESIGN.md § 10-4）。候補 1 件は確定、複数は共通接頭辞まで入れて一覧を出す ---
+let completing = false
+
+function commonPrefix(items: string[]): string {
+  if (items.length === 0) return ''
+  let prefix = items[0] ?? ''
+  for (const item of items.slice(1)) {
+    let i = 0
+    while (i < prefix.length && i < item.length && prefix[i] === item[i]) i++
+    prefix = prefix.slice(0, i)
+  }
+  return prefix
+}
+
+async function onTab(event: KeyboardEvent) {
+  event.preventDefault()
+  if (!props.completer || completing) return
+  const line = input.value
+  const cursor = caretPos()
+  completing = true
+  try {
+    const { candidates, replaceFrom } = await props.completer(line, cursor)
+    // 待っている間に入力が変わっていたら捨てる（古い候補で上書きしない）
+    if (input.value !== line || candidates.length === 0) return
+    const before = line.slice(0, replaceFrom)
+    const after = line.slice(cursor)
+    if (candidates.length === 1) {
+      const only = candidates[0] ?? ''
+      // ディレクトリ（末尾 /）は続けて打てるよう空白を足さない。ファイルは bash と同じく空白を足す
+      const inserted = only.endsWith('/') ? only : `${only} `
+      input.value = before + inserted + after
+      setCaret(before.length + inserted.length)
+      return
+    }
+    const prefix = commonPrefix(candidates)
+    const typed = line.slice(replaceFrom, cursor)
+    if (prefix.length > typed.length) {
+      input.value = before + prefix + after
+      setCaret(before.length + prefix.length)
+    } else {
+      emit('completions', candidates)
+    }
+  } finally {
+    completing = false
+  }
+}
+
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Tab' && !event.shiftKey) {
+    if (composing.value || event.isComposing) return
+    void onTab(event)
+    return
+  }
   if (event.key === 'Enter') {
     // 変換確定の Enter で送信しないよう、判定は submit() 内の composing チェックに委ねる
     event.preventDefault()

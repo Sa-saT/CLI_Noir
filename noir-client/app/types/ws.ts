@@ -40,7 +40,9 @@ export interface StoryBeat {
 export interface AuthFrame { type: 'auth', token: string }
 export interface ExecFrame { type: 'exec', id: number, command: string }
 export interface ResumeFrame { type: 'resume', commit_id: number }
-export type ClientFrame = AuthFrame | ExecFrame | ResumeFrame
+/** Tab 補完の問い合わせ（設計指示書 § 7 補完フレーム / DESIGN.md § 10-4）。 */
+export interface CompleteFrame { type: 'complete', id: number, line: string, cursor: number }
+export type ClientFrame = AuthFrame | ExecFrame | ResumeFrame | CompleteFrame
 
 // --- サーバー → クライアント ---
 export interface HelloFrame {
@@ -59,6 +61,14 @@ export interface ResultFrame {
   command: string
   lines: ResultLine[]
   state: StateSummary
+}
+
+/** `complete` への応答。`replace_from` は行内の置換開始位置（候補で置き換える範囲の先頭）。 */
+export interface CompletionsFrame {
+  type: 'completions'
+  id: number
+  candidates: string[]
+  replace_from: number
 }
 
 export interface StreamFrame {
@@ -90,4 +100,4 @@ export interface StoryEvent {
 
 export type EventFrame = MissionClearEvent | RankUpEvent | StoryEvent
 
-export type ServerFrame = HelloFrame | ResultFrame | StreamFrame | EventFrame
+export type ServerFrame = HelloFrame | ResultFrame | StreamFrame | EventFrame | CompletionsFrame
