@@ -189,14 +189,16 @@
 - 必須: `grep`, パイプ, `sort`, `uniq`（`wc`, `head`, `tail` は加点）
 - クリア条件: `uniq\s+-c` を含むパイプ行の実行 + 正解番号 `TEL: [0-9]{3}-[0-9]{4}` の記述
 - ゲーム性: 「cat では読み切れない」体験そのものがパズル。パイプの必要性を強制的に体感させる
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission5: The Locked Vault「開かずの資料室」
 - 学習テーマ: パーミッション（Level 7）
 - あらすじ: 重要証拠には鍵（権限）がかかっている。読めない・開けない・実行できない、3種類の鍵を使い分けろ。
-- フロー: `ls -l` で `----------` を確認 → `chmod +r` で閲覧解錠 → ヒントから次の部屋へ → 実行権限のない `case_file.sh` を発見 → `chmod +x` → 実行してクリア
+- フロー: `ls -l` で `----------` を確認 → `chmod +r` で閲覧解錠 → ヒントから奥の部屋 `/root/vault/inner` へ → 実行権限のない封印解除スクリプト `unseal.sh` を発見 → `chmod +x` → `sh unseal.sh` で封印解除 → `sh /root/case_file.sh` でクリア（2026-09-13: 統合ワールドでは `case_file.sh` が `/root` に動的合成されるため、実行権限パズルの対象を `inner/case_file.sh` から `inner/unseal.sh` へ移した）
 - 必須: `ls -l`, `chmod`, `cat`
-- クリア条件: `chmod\s+\+?[rx]` 系パターン2回以上 + case_file 実行成功
+- クリア条件: `chmod +r` と `chmod +x` の両系統 + `sh …unseal.sh` の成功が command_log にあること
 - ゲーム性: `rwx` 表示を「鍵の刻印」として読み解く。数値モード（`chmod 644`）での解錠は加点
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission6: Shadow Process「盗聴器を止めろ」
 - 学習テーマ: プロセス管理（Level 6）
@@ -205,6 +207,7 @@
 - 必須: `ps`, `kill`
 - クリア条件: 正しい PID への kill 実行 + `mission_flags.bug_removed = true`
 - ゲーム性: 「間違い探し」。正規プロセスを kill すると警告 + 巻き戻し（即失敗にしない）。裏取りせず勘で kill すると正解でも減点。/proc での裏取りは加点（深掘りは Mission7）
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission7: Inside the Machine「機械の胸の内」（2026-07-08 追加）
 - 学習テーマ: /proc 疑似ファイルシステム・プロセス鑑識（Level 6 / LPIC 101.1・103.5）
@@ -214,6 +217,7 @@
 - クリア条件: 対象 PID の status/cmdline 閲覧フラグ + 起動コマンド（偽装名との不一致）の記述一致 + kill 成功
 - ゲーム性: 「名簿（ps）と持ち物検査（/proc）」の二段推理。プロセス名は `clock` でも cmdline は別物、という偽装トリック。`free`/`uptime` が実は `/proc/meminfo`・`/proc/uptime` を読んでいるタネ明かしで「コマンドの向こう側もただのファイル」を体感させる
 - 備考: `/proc` は仮想プロセステーブルから動的生成・読み取り専用（設計指示書 § 4）
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission8: Master of Disguise「変装潜入」
 - 学習テーマ: ユーザー切替（Level 7）
@@ -222,6 +226,7 @@
 - 必須: `su`, `whoami`, `cat`, `exit`
 - クリア条件: barman 状態での対象ファイル閲覧 + 元ユーザーへの復帰
 - ゲーム性: 「今の自分は誰か」の確認習慣。exit で戻る構造が Mission3 の ssh/exit と対になり反復学習になる
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission9: Sealed Evidence「封印された証拠品」
 - 学習テーマ: アーカイブ・鑑識（Level 8）

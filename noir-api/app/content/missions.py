@@ -133,9 +133,12 @@ _MISSION4_FS = {
 
 
 # Mission5 の初期 FS: /root/vault/ に閲覧不可のヒントファイル（chmod +r で解錠）。
-# ヒントが指す inner/ に実行権限のない case_file.sh（chmod +x で解錠）。
+# ヒントが指す inner/ に実行権限のない封印解除スクリプト unseal.sh（chmod +x で解錠）。
 # immutable=False で配置し、P2-01 の can_exec 特例（immutable=True は実行可）を
 # 適用させない — このため sh 実行には明示的な chmod +x が必須になる。
+# （旧: inner/case_file.sh をロックしていたが、統合ワールドでは case_file.sh が
+#  /root に動的合成される（P3-04）ため、実行権限パズルの対象を unseal.sh に移した。
+#  2026-09-13）
 _MISSION5_FS = {
     "root": {
         "type": "dir",
@@ -146,15 +149,19 @@ _MISSION5_FS = {
                     "locked_evidence.txt": _mode_file(
                         "SEALED EVIDENCE ROOM\n"
                         "This file is locked. Use chmod +r to read it.\n"
-                        "The inner room waits at /root/vault/inner.",
+                        "The inner room waits at /root/vault/inner.\n"
+                        "The seal script there will not run until it is\n"
+                        "granted permission to execute.",
                         "---------",
                         immutable=False,
                     ),
                     "inner": {
                         "type": "dir",
                         "children": {
-                            "case_file.sh": _mode_file(
-                                "# 事件ファイル: sh case_file.sh で判定する\n",
+                            "unseal.sh": _mode_file(
+                                "# vault seal release — archivist only\n"
+                                'echo "SEAL RELEASED: room B-2"\n'
+                                'echo "EVIDENCE TAG: ORCHID-7"\n',
                                 "rw-r--r--",
                                 immutable=False,
                             ),
@@ -847,6 +854,22 @@ _DEFS: list[MissionDef] = [
             rf"TEL: {_MISSION4_ANSWER}",
         ],
         initial_filesystem=_MISSION4_FS,
+        hints=[
+            "ゴール: /root/wiretap_room/tape.log で一番多く出てくる TEL: 番号を grep | sort | uniq -c のパイプで数え、echo \"TEL: 000-0000\" で報告して sh case_file.sh → git push する。",
+            "wc -l tape.log で行数、head tape.log で行の形（TEL: 番号 / NOTE: 雑音）を見る。grep TEL tape.log | sort | uniq -c | sort -n で番号ごとの回数が並ぶ（最後の行が最多）。報告は echo \"TEL: 555-0000\" の書式。",
+            "cd /root/wiretap_room（盗聴室へ）→ wc -l tape.log（分量を見る）→ head tape.log（形を見る）→ grep TEL tape.log | sort | uniq -c | sort -n（番号を絞る→並べる→数える→回数順）→ echo \"TEL: <最多の番号>\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"tape\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "押収した盗聴テープ。盗聴室（wiretap_room）に tape.log として置いてある。\n犯人が繰り返し掛けていた番号——それさえ分かれば、あとは本部の仕事。"},
+            {"id": "count", "when": "after", "line": r"^wc ", "text": "数えるほどの行数でも、本物のテープなら何万行にもなる。目で読む癖は、今のうちに捨てたほうがいい。"},
+            {"id": "flood", "when": "after", "line": r"^cat [^|]*tape\.log\s*$", "text": "流れていくだけで何も残らない。欲しいのは番号だけ——絞り込む道具（grep）があったはず。"},
+            {"id": "shape", "when": "after", "line": r"^(head|tail) ", "text": "TEL: の行と、NOTE: の雑音。形は揃っている。形が揃っているなら、機械に数えさせられる。"},
+            {"id": "filtered", "when": "after", "line": r"^grep [^|]*$", "output": "TEL:", "text": "番号だけになった。だが同じ番号が散らばっている……数えるなら、並べて（sort）からまとめる（uniq）。管（|）で繋げば一気に流せるはず。"},
+            {"id": "counted", "when": "after", "line": r"uniq\s+-c", "text": "回数が付いた！ 一番多い番号——それが犯人の相手のはず。報告書に TEL: の形で書き出す。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "突き返された。集計（uniq -c）の証跡と、番号の報告（TEL: 000-0000）——両方要る。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "これで行ける。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "何万行のテープより、数えた一行のほうが重い。\n——管（パイプ）で道具を繋ぐ。探偵の第二の目、なのかもしれない。"},
+        ],
     ),
     MissionDef(
         5, "The Locked Vault", "開かずの資料室",
@@ -857,8 +880,26 @@ _DEFS: list[MissionDef] = [
         expected_script_patterns=[
             r"chmod\s+\+?r",
             r"chmod\s+\+?x",
+            r"sh\s+.*unseal\.sh",
         ],
         initial_filesystem=_MISSION5_FS,
+        hints=[
+            "ゴール: /root/vault の読めないファイルを chmod +r で読み、奥の部屋 /root/vault/inner の unseal.sh を chmod +x してから sh で実行し、sh case_file.sh → git push する。",
+            "ls -l /root/vault で刻印（rwx）を見る。--------- は鍵が全部無い状態。読む鍵は chmod +r <ファイル>、実行の鍵は chmod +x <ファイル>。実行は sh <ファイル>。",
+            "ls -l /root/vault（刻印を見る）→ chmod +r /root/vault/locked_evidence.txt（読む鍵）→ cat /root/vault/locked_evidence.txt（奥の部屋を知る）→ ls -l /root/vault/inner → chmod +x /root/vault/inner/unseal.sh（実行の鍵）→ sh /root/vault/inner/unseal.sh（封印解除）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"vault\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "資料室（vault）に封印された証拠がある。鍵は三種類——読む、書く、実行する。\n刻印（rwx）が読めれば、どの鍵が抜かれているかも分かるはず。"},
+            {"id": "inspect", "when": "after", "line": r"^ls -l", "output": "---------", "text": "---------……九つの刻印が全部空。鍵がひとつも無い。読むには、読む鍵（r）を付け直す（chmod +r）しかない。"},
+            {"id": "denied_read", "when": "after", "line": r"^cat .*locked_evidence", "output": "permission denied", "text": "読めない。当然か——鍵が無いのだから。"},
+            {"id": "unlocked_read", "when": "after", "line": r"^chmod .*locked_evidence", "text": "刻印が変わった。これで読めるはず。"},
+            {"id": "inner", "when": "after", "line": r"^cat .*locked_evidence", "output": "inner room", "text": "奥の部屋（inner）を指している。封印を解く仕掛けは、許可が無いと動かない、と。"},
+            {"id": "denied_exec", "when": "after", "line": r"^sh .*unseal", "output": "permission denied", "text": "動かない。実行の鍵（x）が無い……付けるなら chmod +x。"},
+            {"id": "unsealed", "when": "after", "line": r"^sh .*unseal", "output": "SEAL RELEASED", "text": "封印が解けた！ 事件ファイルで確認して、本部へ。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "まだ足りない。読む鍵（+r）、実行の鍵（+x）、そして封印解除（sh unseal.sh）——三つとも通したか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "資料室は開いた。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "rwx の九文字は鍵の刻印だった。読めない・開けない・動かない——三つとも、鍵が無いだけのこと。"},
+        ],
     ),
     MissionDef(
         6, "Shadow Process", "盗聴器を止めろ",
@@ -868,6 +909,21 @@ _DEFS: list[MissionDef] = [
         # 残っていないか）で行うため expected_script_patterns は空にする。
         initial_filesystem=_MISSION6_FS,
         initial_processes=_MISSION6_PROCESSES,
+        hints=[
+            "ゴール: ps aux で動いているプロセスを見て、盗聴プログラム listener_x の PID を kill で止め、sh case_file.sh → git push する。clock / mailbox / heater は止めない。",
+            "ps aux で一覧（PID と名前）。怪しい名前の PID は cat /proc/<PID>/cmdline で実体を裏取りできる。止めるのは kill <PID>。正規のプロセスを kill すると警告が出る（失敗にはならない）。",
+            "ps aux（名簿を見る）→ cat /proc/666/cmdline（実体を確かめる）→ kill 666（盗聴器を止める）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"bug\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "事務所の空気がおかしい。誰かに聞かれている……盗聴プログラムが動いているはず。\n名簿（ps）を見て、止める（kill）。ただし時計や郵便受けを止めたら、事務所が回らなくなる。"},
+            {"id": "roster", "when": "after", "line": r"^ps\b", "output": "listener_x", "text": "clock、mailbox、heater……それに listener_x。聞き耳（listener）を立てている名前が、ひとつだけ紛れている。"},
+            {"id": "verify", "when": "after", "line": r"^cat /proc/666/cmdline", "text": "/tmp/.hidden/listener_x --tap……隠しフォルダから盗聴（tap）。これで確信、のはず。"},
+            {"id": "wrong_kill", "when": "after", "line": r"^kill ", "output": "legitimate process", "text": "しまった、それは事務所の正規の住人!? ……幸い止まってはいない。よく見てから撃たないと。"},
+            {"id": "killed", "when": "after", "line": r"^kill 666", "output": "terminated", "text": "静かになった。盗聴器は止まったはず。事件ファイルで確認して、本部へ。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "still running", "text": "まだ聞かれている。名簿（ps）をもう一度……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "盗聴器は沈黙した。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "事務所に静けさが戻った。プロセスは目に見えない住人——名簿を読めれば、追い出せる。"},
+        ],
     ),
     MissionDef(
         7, "Inside the Machine", "機械の胸の内",
@@ -877,6 +933,24 @@ _DEFS: list[MissionDef] = [
         # 停止済みの 3 点）で行うため expected_script_patterns は空にする。
         initial_filesystem=_MISSION7_FS,
         initial_processes=_MISSION7_PROCESSES,
+        hints=[
+            "ゴール: ps aux の名簿では見抜けない偽装プロセス（名前は clock、PID 923）を /proc/923/status と /proc/923/cmdline で裏取りし、本当の起動コマンドを echo で報告してから kill 923 し、sh case_file.sh → git push する。",
+            "ls /proc で PID の部屋が並ぶ。cat /proc/<PID>/status で名前（Name）、cat /proc/<PID>/cmdline で本当の起動コマンドが分かる。報告は echo \"<cmdline の中身>\"。止めるのは kill <PID>。",
+            "ps aux（名簿）→ ls /proc（原本の部屋）→ cat /proc/923/status（名乗り）→ cat /proc/923/cmdline（持ち物＝本当のコマンド）→ echo \"/tmp/.fake/exfil --send\"（起訴状に書く）→ kill 923（停止）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"impostor\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "また潜入者がいる、と本部から。だが今回は止める前に「起訴」しろ、と。\n誰が、何を、どうやって——機械は胸の内（/proc）に全部書いているはず。"},
+            {"id": "roster", "when": "after", "line": r"^ps\b", "text": "mailbox、heater、clock。見慣れた名前ばかり……。だが名簿は名乗った名前を写すだけ。名前は誰でも名乗れる。"},
+            {"id": "proc", "when": "after", "line": r"^ls /proc", "text": "番号（PID）の部屋が並んでいる。名簿の原本はここ、ということか。"},
+            {"id": "status", "when": "after", "line": r"^cat /proc/923/status", "text": "Name: clock……身分証は本物に見える。だが、持ち物はどうだ？"},
+            {"id": "cmdline", "when": "after", "line": r"^cat /proc/923/cmdline", "text": "/tmp/.fake/exfil --send——時計のふりをして、外へ送っている（exfil）！ これが起訴状の中身になる。"},
+            {"id": "body", "when": "after", "line": r"^(cat /proc/(meminfo|cpuinfo|uptime)|free|uptime)\b", "text": "この建物（PC）の身体検査。free も uptime も、結局ここを読んでいるだけ、なのかもしれない。"},
+            {"id": "judge_no_proc", "when": "after", "line": r"^sh .*case_file\.sh", "output": "check /proc", "text": "起訴には証拠が要る。/proc の中——status か cmdline を見てからだ。"},
+            {"id": "judge_no_report", "when": "after", "line": r"^sh .*case_file\.sh", "output": "real command", "text": "偽装の実体——起動コマンドそのものを、報告に書き写さないと。"},
+            {"id": "judge_running", "when": "after", "line": r"^sh .*case_file\.sh", "output": "still running", "text": "起訴状は揃った。あとは止めるだけ（kill）。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "起訴状は本部へ。記録して送る。"},
+            {"id": "clear", "when": "clear", "text": "名簿（ps）は名乗った名前を写すだけ。持ち物（/proc）は嘘をつけない。\n——コマンドの向こう側も、ただのファイルだった。"},
+        ],
     ),
     MissionDef(
         8, "Master of Disguise", "変装潜入",
@@ -885,6 +959,25 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission8 専用ロジック（su barman・whoami・秘密ファイル
         # 閲覧・detective への復帰の4点）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION8_FS,
+        hints=[
+            "ゴール: /root/bar/back/ledger.txt は barman しか読めない。su barman で変装し、whoami で確認してから読み、exit で detective に戻って sh case_file.sh → git push する。",
+            "cat /root/bar/hint.txt に合言葉（やり方）がある。su barman で barman になり、whoami で今の自分を確かめる。読み終えたら exit で元に戻る（戻らないと判定が通らない）。",
+            "cat /root/bar/hint.txt（合言葉）→ su barman（変装）→ whoami（今の自分を確認）→ cat /root/bar/back/ledger.txt（台帳を読む）→ exit（自分に戻る）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"disguise\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "酒場（bar）の裏に、barman しか読めない台帳があるらしい。合言葉は店のどこかに。\n変装して読む——そして、必ず自分に戻る。"},
+            {"id": "denied", "when": "after", "line": r"^cat .*ledger", "output": "ermission denied", "text": "読めない。この台帳は barman のもの……俺のままでは駄目、ということか。"},
+            {"id": "hint", "when": "after", "line": r"^cat .*hint\.txt", "text": "合言葉が出た。su barman——barman になれ、と。"},
+            {"id": "disguised", "when": "after", "line": r"^su barman", "text": "変装完了……のはず。プロンプトが変わった。今の自分が誰か、確かめておく（whoami）。"},
+            {"id": "whoami", "when": "after", "line": r"^whoami", "output": "barman", "text": "barman だ。今なら台帳が読めるはず。"},
+            {"id": "ledger", "when": "after", "line": r"^cat .*ledger", "output": "SUSPECT", "text": "SUSPECT: Nico Faro——容疑者の名前。控えたら、変装を解いて（exit）自分に戻る。"},
+            {"id": "judge_no_su", "when": "after", "line": r"^sh .*case_file\.sh", "output": "become barman", "text": "台帳は barman にしか読めない。店の中にヒント（hint.txt）があるはず。"},
+            {"id": "judge_no_whoami", "when": "after", "line": r"^sh .*case_file\.sh", "output": "confirm who you are", "text": "変装したなら、今の自分を確かめる（whoami）癖を付けろ、と。"},
+            {"id": "judge_unread", "when": "after", "line": r"^sh .*case_file\.sh", "output": "still unread", "text": "台帳（/root/bar/back/ledger.txt）をまだ読んでいない。"},
+            {"id": "judge_still_barman", "when": "after", "line": r"^sh .*case_file\.sh", "output": "own identity", "text": "まだ barman のまま!? 報告は自分の名前でしないと。exit で戻る。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "自分に戻った。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "変装は解いた。誰かになれる力より、今の自分が誰かを確かめる癖のほうが、探偵を長生きさせる。"},
+        ],
     ),
     MissionDef(
         9, "Sealed Evidence", "封印された証拠品",

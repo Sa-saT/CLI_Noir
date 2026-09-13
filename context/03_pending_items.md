@@ -26,7 +26,7 @@
 - [x] `env_vars` のユーザー別 dict 化に伴う evaluator 側の追随（**P3-04c として P3-10 から前倒しで実施、2026-08-16 完了**。新規 `app/evaluator/env.py` の `env_for(state)` がフラット/ユーザー別の両形状を吸収し、engine の `_expand_env_vars`/PATH解決/`$?`、commands の cd/export/unset/printenv、judge の Mission21 判定を経由させた。`git_ops.py` のスナップショットは丸ごと deepcopy なので両形状で動作し変更不要。前倒しの理由: これが無いと統合ワールド state で `engine.evaluate()` 経由のコマンドが 1 つも動かず、P3-05 以降を実際に動かして検証できないため）
 - [x] P3-03 の移設に伴う旧パス参照の追随（Mission10/15/19。2026-09-13 Phase F で修正。あわせて `_judge_mission15`/`history` の `state["mission_id"]` 依存、ssh 中の `release_missions` 例外も修正）
 - [x] Mission21 の PATH 汚染が統合ワールドで発生しない件（2026-09-13 発覚 → 同日修正）: `release_missions` が Mission21 解放時に探偵自身の PATH を汚す方式で確定（`01_decisions_log.md` 参照）
-- [ ] Mission5 の `/root/vault/inner` が統合ワールドでは空部屋になる（`case_file.sh` を動的生成へ移す方針＝Part5 の確定事項により、そこにあった解錠ギミックが廃止されたため）。`locked_evidence.txt` の本文が `inner` を指しているので、部屋に何を置くか（あるいは本文を書き換えるか）のコンテンツ判断が要る。P3-04 の `case_file.sh` 動的生成とあわせて決める
+- [x] Mission5 の `/root/vault/inner` の空部屋問題: 封印解除スクリプト `unseal.sh`（x ビット無し）を置き、`chmod +x` → `sh unseal.sh` を判定条件に追加して解決（2026-09-13）
 
 **疑似ターミナルの使用感（UX-01a, 2026-09-12 実施。445 tests green）**: 普段 CUI を使う人が不自然に思う挙動を実 bash に合わせた。
 `>file`/`>>file` の空白なし表記 / `&&` `||` `;` は黙って一部実行せず `Error: invalid input`（引用符内は対象外。本実装は設計指示書 § 8 構文レベル外のため見送り）/ `~`・`~/...` 展開（`~user` は非対応）/ `cd -`（`OLDPWD`）/ `history` が `command_log` を bash 書式で表示。詳細は `docs/バックエンド_コマンド機能仕様.md`「共通構文」「cd」「history」、テストは `tests/test_shell_idioms.py`。
@@ -53,7 +53,7 @@
 
 - [x] 捜査ファイル一覧（`pages/missions/index.vue`）を MissionHeader と同じポスター意匠に組み直し（2026-09-13。見た目の良否はユーザー確認待ち）
 - [x] Mission2 の報告書を机（`/root/desk/report.txt`）に移し、独り言で机へ誘導（2026-09-13）。独り言はブリーフィングを閉じてから再生、右レールに「← 捜査ファイル一覧」追加
-- [ ] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Mission1〜3 の形が目視で固まってから。文体は `01_decisions_log.md` 2026-09-13 節）
+- [ ] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Opus が担当。**Mission4〜8 は 2026-09-13 起草済み**。残り Mission9〜22）
 - [x] ClaudeDesign 同期（2026-09-13 完了。ClaudeDesign 側に既にあった `monologue-layer` を正として `MonologueLayer.vue` に移植。typography トークン・caret keyframes を pull）。残: noir-client の `--term-success` が ClaudeDesign 未反映（逆ドリフト）
 
 ### テスト
