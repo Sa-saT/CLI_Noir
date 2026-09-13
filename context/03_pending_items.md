@@ -1,6 +1,6 @@
 # 未完了・未確定の項目
 
-更新日: 2026-09-13（Part5 Phase D 完了・常時ターミナル・独り言レイヤーを反映）
+更新日: 2026-09-14（2026-09-13 の追加エピソード・ゲーム機能 12 項目・Phase F 完了を反映）
 
 ---
 
@@ -45,7 +45,7 @@
 - [x] WebSocket 接続基盤（初回 `auth` フレーム認証 + `hello`/`exec`/`result`/`event`/`resume` プロトコル。設計指示書 § 7。`app/composables/useTerminalSocket.ts` + Pinia store `app/stores/terminal.ts`（DESIGN.md § 10-1 の単方向データフロー）+ 型定義 `app/types/ws.ts`。指数バックオフ再接続対応。FE-03。まだどのページからも呼ばれていない状態で Python の websockets クライアントでプロトコルの往復を検証済み — UI 配線は FE-04）
 - [x] コマンド一覧パネル（`app/utils/commandCatalog.ts` で Mission 詳細 API の `allowed_commands` → `CommandPanel`/`CommandDetail` へ変換。`git` は git status/add/commit/push の4件に展開して highlight 表示。ヘッダーの探偵ランクも allowed_commands から算出。FE-05）
 - [x] 場面画像のカレントディレクトリ紐付け（`app/pages/missions/[id].vue` で WS state（Pinia store の `currentPath`/`remoteMode`/`sshHost`）から `host:パス接頭辞` の最長一致解決 → `SceneOverlay` へ。`cd`/`ssh`/`exit` の画像切替は `SceneOverlay` 側の 0.8s クロスフェードが自動追従。FE-06。ssh amusement_park:/gate 用画像は未制作のためプレースホルダ表示 — 下記「場所別画像アセットの制作」で追跡）
-- [ ] 場所別画像アセットの制作（現状は `office.png` 1 枚のみ。※素材制作待ち）。**必要な画像の一覧は `moc/images/NEEDED_IMAGES.md`**（2026-08-17 作成。Part5 統合ワールドの区画 + ssh 接続先から算出。サイズ 1536×1024・画風基準・`SCENE_IMAGES` への登録方法・優先度 A〜D 付き）。解決は前方一致の最長一致なので、`office:/root` があれば全部揃わなくても破綻しない
+- [ ] 場所別画像アセットの制作（現状は `office.png` 1 枚のみ。※素材制作待ち。ユーザーが後日格納）。**必要な画像の一覧は `moc/images/NEEDED_IMAGES.md`**（優先度 A〜E。E は追加エピソード。サイズ 1536×1024・画風基準・`SCENE_IMAGES` への登録方法付き）。解決は前方一致の最長一致なので、`office:/root` があれば全部揃わなくても破綻しない
 - [x] セーブ選択 UI（再ログイン時の commit 一覧。`SaveSelectModal.vue` を実データに接続し、hello フレームの `commits` に1件以上あれば全画面オーバーレイで表示。「このセーブで再開」で `resume` フレーム送信、「最初から」は現在の state のまま続行。FE-07。commit してから再接続 → セーブ選択 → 復元をブラウザで確認済み）
 - [x] Tab 補完（2026-09-13。`app/evaluator/complete.py` + WS `complete`/`completions` + `TerminalView` の `completer` prop。DESIGN.md § 10-4）
 - [x] `TerminalView.vue` のキーマップ（UX-01b, 2026-09-12）: `↑↓` 履歴（ignoredups・上限 500・draft 退避）/ `Ctrl+C`（入力破棄 + `^C` 行）/ `Ctrl+L` と `clear` コマンド（scrollback 消去。store の `clearScrollback()`）/ `Ctrl+A`・`E`・`U`・`W`。DESIGN.md § 10-2。**ブラウザでの目視確認は未実施**（typecheck/build のみ）。`Ctrl+R` 逆検索と Tab 補完も 2026-09-13 実装済み
@@ -53,7 +53,7 @@
 
 - [x] 捜査ファイル一覧（`pages/missions/index.vue`）を MissionHeader と同じポスター意匠に組み直し（2026-09-13。見た目の良否はユーザー確認待ち）
 - [x] Mission2 の報告書を机（`/root/desk/report.txt`）に移し、独り言で机へ誘導（2026-09-13）。独り言はブリーフィングを閉じてから再生、右レールに「← 捜査ファイル一覧」追加
-- [x] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Opus が担当。2026-09-13 全 22 Mission 完了。文言のトーンはユーザーの実プレイ確認待ち）
+- [x] Mission4〜29 の独り言（`story_beats`）・直接ヒントの起草（Opus が担当。2026-09-13 全 29 Mission 完了。文言のトーンはユーザーの実プレイ確認待ち）
 - [x] ClaudeDesign 同期（2026-09-13 完了。ClaudeDesign 側に既にあった `monologue-layer` を正として `MonologueLayer.vue` に移植。typography トークン・caret keyframes を pull）。残: noir-client の `--term-success` が ClaudeDesign 未反映（逆ドリフト）
 
 ### テスト
@@ -71,7 +71,7 @@
   残: 実プレイでの文言・体験確認、画像（`moc/images/NEEDED_IMAGES.md` 優先度 E）、`git_state.repo` はセーブ snapshot / resume の対象外（`git_branches.py` 冒頭に記載。必要なら後で対応）
 
 ### Phase2 拡張の実装タスク（2026-07-06 採用確定・2026-07-20 時点の残り）
-- [ ] `docs/バックエンド_コマンド機能仕様.md` に Phase2 新コマンド（約50個）の定義を追加（実装着手時に段階的に）※egrep/fgrep は 2026-07-07 に定義済み（grep の alias）
+- [ ] `docs/バックエンド_コマンド機能仕様.md` に Phase2 新コマンドの定義を追加（コードが正のまま。`man` ハンドブック（`app/content/manpages.py`）が全コマンドの手引きを持つので優先度は低い）
 - [x] evaluator 構文対応（glob/引用符/`2>`/`$?`/変数/if・for）・仮想プロセス/ユーザー/cronテーブル・アーカイブ入れ子表現・FHS版仮想FSマップは Phase2 P2-01〜P2-19 で実装済み（Backend 節参照）
 - [x] フロントエンド: Tab 補完・`Ctrl+R`・`↑↓` 履歴・`Ctrl+C`・`Ctrl+L`（2026-09-13 までに全て実装）
 - [x] ゲーム機能 12 項目すべて実装（2026-09-13。1 ランク / 2 道具図鑑 / 3 ボーナス / 4 独り言+ヒント / 5 回想 / 6 man / 7 タイムアタック演出 / 8 リプレイ台帳 / 9 Mission29 / 10 エラー図鑑 / 11 実習カード / 12 cowsay・figlet）。見た目・体験の確認はユーザー

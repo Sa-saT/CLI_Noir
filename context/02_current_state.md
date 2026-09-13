@@ -1,6 +1,6 @@
 # 現在のファイル構成と各ファイルの役割
 
-更新日: 2026-09-13（Part5 Phase D・常時ターミナル・独り言レイヤーを反映）
+更新日: 2026-09-14（2026-09-13 の追加エピソード 23〜29・ゲーム機能 12 項目・Phase F 完了を反映）
 
 ---
 
@@ -11,105 +11,70 @@ CLI_Noir/
 ├ CLAUDE.md          … Claude Code 用ガイド（参照優先順位・運用ルールの要約）
 ├ docs/              … 全設計ドキュメント（+ design-system/ = デザイン local ミラー）
 ├ context/           … 本フォルダ（AI コンテキスト復元用。04_task_backlog.md も参照）
-├ noir-client/       … Nuxt 4 フロント実装（2026-07-07 着手、2026-08-12 実バックエンド接続完了。Mission1〜3 通しプレイ可）
-├ noir-api/          … FastAPI バックエンド（2026-07-13 骨格〜MVP、2026-07-20 Mission1〜22 全実装。241 tests green）
-├ moc/               … UI モック（参考用）
+├ noir-client/       … Nuxt 4 フロント実装（実バックエンド接続済み・常時ターミナル）
+├ noir-api/          … FastAPI バックエンド（全 29 Mission 実装・統合ワールド。552 tests green / ruff clean）
+├ moc/               … UI モック（参考用）+ images/NEEDED_IMAGES.md（場面画像の制作リスト）
 └ old_files/         … 過去バージョンのバックアップ（参照不要）
 ```
 
-2026-07-06 の整理で、設計ドキュメント 5 点をルートから `docs/` へ移動した。
-2026-07-07 に Nuxt 実装（`noir-client/`）とデザインシステム local ミラー（`docs/design-system/`）を追加。
-
 ---
 
-## `noir-api/`（FastAPI バックエンド。2026-07-13 骨格〜MVP、2026-07-20 Phase2 完了）
+## `noir-api/`（FastAPI バックエンド）
 
-**Mission1〜22 すべて実プレイ可能**（241 tests green / ruff clean）。詳細は `context/01_decisions_log.md`「Phase2 バックエンド実装」節・`context/03_pending_items.md` Backend 節を参照。
+**全 29 Mission が実プレイ可能**（1〜22 + git 編 23〜25 + サーバー編 26〜28 + やらかし体験室 29）。
+**id は事件番号で固定、プレイ順序は `app/content/missions.py::_DEFS` の並び**（11 → 23〜25 → 29 → 12 … 21 → 26〜28 → 22）。
+ユーザーごとに 1 つの永続統合ワールド `PlayerState.data`（JSON）。書き込みは WS evaluator のみ。
 
-- `app/api/`（auth / missions / state）・`app/ws/terminal.py`（WS ハンドシェイク）は **P3-10/P3-11（2026-09-12）で `PlayerState`（統合ワールド）参照へ切替済み**。`/ws/terminal`（クエリ無し）、`GET /api/state/`。`build_initial_state(mission_id)`・`MissionState` は **2026-09-13 Phase F で撤去**（テストは `tests/helpers.py::state_at_mission(n)` で統合ワールドを組む）
-- `app/models/tables.py`: User / `PlayerState`（user_id UNIQUE の統合ワールド）/ `default_world_state()`。旧 MissionState / `default_state()` は 2026-09-13 Phase F で撤去（Alembic `63217880f0a0` で `missionstate` テーブル drop）
-- `app/content/missions.py`: 全22 Mission の定義 + FS/プロセス/cron/env_vars 初期値。`MissionDef` は `initial_filesystem`・`initial_current_path`・`initial_processes`・`initial_cron_jobs`・`informant_history`・`initial_env_vars` を持つ
+### state の形（`app/models/tables.py::default_world_state()`）
+- `current_path` / `filesystem`（全区画を最初から持ち、未解放はディレクトリ権限で不可視）/ `remote_mode` / `ssh_host` / `current_user`
+- `processes` / `cron_jobs`（解放時に投入）/ `env_vars`（ユーザー別 dict。Mission21 解放時に detective の PATH を汚す）
+- `command_log`（成功コマンドの生テキスト）/ `resolved_command_log`（`{line, resolved_line, paths, mission_id}`。mission_id は打った時点の捜査中 Mission）
+- `git_state`（`staged` / `commits`（セーブ。`pushed` 印）/ `pushed` / `repo`（ブランチ・PR。git 編））
+- `mission_progress`（`completed` / `active_mission_id` / `flags` / `released` / `story_fired` / `scores` / `timers`）
+- `codex`（道具・エラー図鑑）/ `collection`（回想）/ `unlocked_commands`（cowsay/figlet）/ `sandbox`（Mission29 の退避）/ `remote_services`（systemctl の状態）
+
+### モジュール
+- `app/api/`: `auth`（JWT）/ `missions`（一覧・詳細（hints / field_card）・`/{id}/replay/`）/ `state` / `codex`
+- `app/ws/terminal.py`: `auth` → `hello`（state + commits + story）→ `exec`/`result`（+ `event: mission_clear` → `rank_up` → `story`、result に `codex`/`collection`）/ `complete`/`completions` / `resume`（push 済み commit はクリア直後へ）。`frames.py` に Pydantic モデルと `state_summary`（rank / sandbox / mission_started_at 込み）
+- `app/content/`: `missions.py`（MissionDef 29 件 + 世界 FS の合成 `_build_world_fs`・`_RELOCATIONS`・`_MISSION_AREAS`・隠しファイル配置）/ `codex.py`（エラー翻訳）/ `collection.py`（回想 13 枚）/ `field_cards.py`（現場実習カード）/ `manpages.py`（man）
 - `app/evaluator/`:
-  - `fs.py` — パス解決一元化・疑似 `/proc` 動的生成・symlink 解決（`resolve_link`）・権限検査（`can_read`/`can_exec`、owner ベース）+ **パス解決の記録シンク（`start_recording`/`drain_recording`。`contextvars.ContextVar` 方式。P3-08a）**
-  - `commands.py` — 実装コマンド一覧は下記
-  - `engine.py` — トークナイズ（引用符追跡）→ 環境変数展開（`$VAR`/`$?`、シングルクォート保護）→ glob 展開 → パイプ分割 → PATH 解決付き dispatch → リダイレクト（`>`/`>>`/`2>`）→ `$?` 記録 + **成功コマンドごとに `resolved_command_log` へ `{line, resolved_line, paths, mission_id}` を積む（P3-08a。`command_log` と要素数が常に 1:1）**
-  - `script.py`（新規）— `sh` 汎用スクリプトのミニインタープリタ（変数・if・for、ネスト非対応）
-  - `judge.py` — Mission 別カスタム判定（`_CUSTOM_JUDGES`）+ 汎用 AND-regex フォールバック。**P3-08 で `_match_entries`（1コマンド= `(候補文字列, 解決済みパス)`）/ `_match_lines` / `_flat_match_lines` を追加し、判定が「生の行 or `resolved_line` or `paths`」を見るようになった**（BUG-01 解消。`expected_script_patterns` は 1 つも変更していない）
-  - `progress.py`（新規, P3-02/P3-05）— `mission_progress` の純粋関数群（`completed_ids`/`status_from_completed`/`status_for`/`compute_active_mission_id`/`refresh_active_mission_id`/`active_mission_id`）+ **P3-05 で `flags`（両 state 形状を吸収するフラグアクセサ）・`release_missions`（冪等な区画解放）・`advance_mission`（クリア記録→active更新→flagsリセット→解放）を追加**。`api/missions.py::_status_for` はここへ委譲済み
-  - `env.py`（新規, P3-04c）— `env_for(state)`。`env_vars` のフラット形（Mission 別 state）とユーザー別ネスト形（統合ワールド）を吸収する。engine/commands/judge はこれ経由で環境変数を読み書きする
-  - **Part5 統合ワールドの状態（2026-09-07 時点）**: `missions.build_world_filesystem()` が 22 Mission 分の区画を 1 つの世界に統合（P3-03）、`fs.can_traverse` で未解放区画をディレクトリ権限ゲート（P3-04a）、`/root/case_file.sh` はアクティブ Mission から動的合成（P3-04b、疑似 /proc と同方式・`filesystem` に保存しない）、`SSH_HOSTS[host]["required_mission_id"]` で未解放ホストへの `ssh` をゲート（P3-06。未登録ホストと同文言 `Host not found`）。**統合ワールドで Mission1 の実クリア→Mission2 解放まで evaluator 単体では動作する**。判定の相対パス対応（BUG-01）は **P3-08 で完了**（Phase C 完了）。残るは **API/WS 層のカットオーバー（Phase D: P3-09〜P3-11）→ フロント（Phase E）→ テスト移行（Phase F）**
-  - `git_ops.py` — 疑似Git。統合ワールドでは commit スナップショットに mission_progress/processes/cron/user/ssh 状態を含む（P3-09）。`git status` は現状 + 次の一手の案内行（UX-02）
-  - `story.py`（新規, STORY-01）— 独り言レイヤーの発火判定（`start_beats`/`after_beats`/`clear_beats`。発火記録は `mission_progress.story_fired`）
-- 実装済コマンド（allowlist 内、Phase2 含む）: ls(+`-l`)/cd/pwd/cat/less/touch/mkdir/chmod/echo/grep(+`-r`/`-q`/egrep/fgrep)/find/sort/uniq/wc/head/tail/cut/paste/tr/diff/sed/file/tar/gunzip/unzip/ln/md5sum/sha256sum/ps/kill/free/uptime/su/whoami/id/dig/host/ping/ss/crontab/date/export/unset/printenv/which/type/ssh/exit/sh/git/clear/history
-- 未実装（allowlist にあるが未登録）: awk のみ
-- `docs/設計指示書.md` の ghost.example「初期ディレクトリ未定」は**解消済み**（`/den`、Mission12/22 で使用）。`corp_server`・`archive_node` は Phase3 予約のまま未使用
+  - `engine.py` … トークナイズ → 環境変数展開 → glob → パイプ → denylist/allowlist（sandbox 中の rm/dd・未解放のご褒美コマンドはここで判定）→ PATH 解決 → dispatch → リダイレクト → `$?` → ログ
+  - `commands.py` … 一般コマンド + `SSH_HOSTS`（amusement_park / ghost.example / archive_node / corp_server）+ サーバー系（hostname/uname/df/du/ip/systemctl/journalctl/curl mock）+ man/whatis/apropos
+  - `git_ops.py`（status/add/commit/push）+ `git_branches.py`（branch/checkout/log/diff/merge・三方マージ・競合）+ `gh.py`（pr create/view/list/merge）+ `pr_review.py`（レビュー規則）
+  - `judge.py`（`case_file.sh` 判定。`_CUSTOM_JUDGES` 2/6/7/8/10/12/14/15/16/19/20/21/22/23〜29 + 汎用 AND-regex）
+  - `progress.py`（`advance_mission`＝クリア記録→評価→sandbox 解除→解放→事務所へ戻す、`release_missions`、古いセーブへの区画/隠しファイル継ぎ足し）
+  - `story.py`（独り言）/ `rank.py`（探偵ランク）/ `score.py`（ボーナス・タイマー）/ `codex.py`（図鑑登録）/ `rewards.py`（回想・cowsay/figlet）/ `sandbox.py`（Mission29）/ `complete.py`（Tab 補完）/ `env.py` / `fs.py` / `script.py`
+- `alembic/`: 最新 `63217880f0a0`（`missionstate` drop）
+- `tests/`: 552 件。`tests/helpers.py::state_at_mission(n)` でプレイ順序に沿って進めた統合ワールドを組む
 
 ---
 
-## 実装・デザインシステム（2026-07-07 追加）
+## `noir-client/`（Nuxt 4 SPA / ssr:false。常時ターミナル）
 
-### `noir-client/`（Nuxt 4 SPA / ssr:false。2026-08-12 実バックエンド接続完了・FE-01〜08。**2026-09-12 FE3-01/02 で「常時ターミナル」化**: WS 接続は `app.vue` がログイン状態で 1 本張る。Mission ページは表示切替専用）
-- `app/components/*.vue` … DESIGN.md § 5 の 10 コンポーネント + `MonologueLayer.vue`（独り言レイヤー。ClaudeDesign `monologue-layer` の移植: 枠なし・scene 全面の素テキスト・`--font-narration`）。TerminalView がハブ（↑↓履歴・Ctrl キー対応）。SceneOverlay が `image`/`fading` でシーン画像を第一級に扱う（旧 SceneView は統合し廃止）
-- `app/pages/index.vue` … `/` へのアクセスを認証状態に応じて `/missions` or `/login` へ redirect するだけのエントリポイント（旧モック evaluator は撤去済み）
-- `app/pages/login.vue` … ログイン画面（`POST /api/auth/login/`）
-- `app/pages/missions/index.vue` … Mission 一覧（`GET /api/missions/`。cleared/open/locked カード表示）
-- `app/pages/missions/[id].vue` … ゲーム画面本体。ブリーフィング（Mission詳細+開始ボタン）→ `useTerminalSocket` で WS 接続 → TerminalView/CommandPanel/SceneOverlay/SaveSelectModal/ClearEffect を実データで駆動
-- `app/pages/design.vue` … コンポーネントギャラリー
-- `app/composables/useAuth.ts` / `useApi.ts` / `useTerminalSocket.ts` … 認証・認証付きfetch・WS接続（`auth`→`hello`→`exec`/`result`/`event`/`resume`、指数バックオフ再接続）
-- `app/stores/terminal.ts` … Pinia store（`@pinia/nuxt`導入）。WS state/scrollback の単一ソース（DESIGN.md § 10-1）
-- `app/types/ws.ts` … WS フレーム型（`noir-api/app/ws/frames.py` と1:1）
-- `app/utils/commandCatalog.ts` … `allowed_commands` → CommandPanel/CommandDetail 変換 + 探偵ランク算出
-- `app/middleware/auth.ts` … 未ログインガード
-- 場面画像は `host:パス接頭辞` の最長一致で **current_path に紐付け**（2026-07-07 確定・DESIGN.md § 1。実装は `missions/[id].vue` 内、WS state 連動）
-- 未実装: Tab補完（バックエンド `complete` フレーム未実装のため）、`TerminalView` の残りキーマップ（履歴/Ctrl+R等）、`RankUpEffect.vue` の実配線、自動テスト（Vitest/Playwright 未導入）
-- `app/assets/css/tokens/*.css` + `main.css` … デザイントークン（`docs/design-system` のコピー）
-- `public/images/office.png` … 探偵事務所の部屋（`moc/images/mission1.png` 由来。他の場所は未制作でプレースホルダ表示）
+- `app/app.vue` … ログイン状態にひもづけて WS を 1 本張る
+- `app/pages/login.vue` / `missions/index.vue`（ポスター調の事件一覧。pt 表示）/ `missions/[id].vue`（ゲーム画面。表示切替専用）/ `design.vue`
+- `app/components/`: `TerminalView`（↑↓・Ctrl 系・Tab 補完・Ctrl+R）/ `PromptLabel` / `MissionHeader` / `SceneOverlay` / `MonologueLayer`（独り言。最前面 z40）/ `CodexLayer`（図鑑: エラー/道具/回想。z30）/ `ClearEffect`（評価行付き）/ `RankUpEffect`（辞令）/ `FieldCard`（現場実習カード）/ `ReplayLedger` / `SaveSelectModal`（クリア印・日時）/ `CommandPanel` / `CommandDetail` / `NoirButton`
+- クリア時の順番: Mission Complete → 辞令 → 現場実習カード → 独り言（ブリーフィングを閉じてから）
+- `app/composables/useTerminalSocket.ts`（シングルトン WS。`exec` / `complete` / `resume`）/ `useAuth.ts` / `useApi.ts`
+- `app/stores/terminal.ts`（state・scrollback・独り言キュー・図鑑・演出の保留フラグ）/ `app/types/ws.ts`（`frames.py` と 1:1）/ `app/utils/commandCatalog.ts`
+- 未実装: 自動テスト（Vitest/Playwright 未導入。検証は scratchpad の Playwright スクリプトで都度）、右パネルの新コマンド点灯アニメ、場所別画像（`office.png` 以外）
 
 ### `docs/design-system/`（デザインの local ミラー）
-- claude.ai/design プロジェクト「CLI_Noir Design System」の**最小ミラー**（`styles.css` + `tokens/` + `ui_kits/detective-terminal/index.html`）。2026-07-07 に `components/*.jsx` の複製を廃止（Vue SFC と重複・ビルド未使用のため。React 実ソースは ClaudeDesign 側にあり `DesignSync get_file` で都度参照）
-- **デザインの正は ClaudeDesign 側**。更新フロー（ClaudeDesign → local）は `docs/design-system/README.md` を正とする
-- アートディレクション更新済み（2026-07-07）: スチームパンク金属 + ネオングロー + フレンチポスター調。トークンに brass/copper/poster/glow/bezel と font-hero(Jost)/font-accent(Josefin) を追加。コンポーネントの実ソースは `.jsx`（Vue SFC はこれを移植）、`ui_kits/detective-terminal/index.html` は自己完結の全画面リファレンス
+- claude.ai/design「CLI_Noir Design System」の最小ミラー（`styles.css` + `tokens/` + `ui_kits/detective-terminal/index.html`）。**正は ClaudeDesign 側**。更新フローは `docs/design-system/README.md`
 
 ---
 
 ## docs/（アクティブファイル 7 つ）
 
-### `docs/設計指示書.md`（最上位の正）
-- プロジェクト概要・趣旨・ペルソナ / 技術スタック / UI・ルーティング
-- 仮想FS（JSONスキーマ・復元範囲・セーブ選択・疑似 /proc・env_vars（2026-07-08 追加））
-- local/remote（SSH接続先: amusement_park 確定、ghost.example は Mission12 用・初期ディレクトリ未定）
-- API 詳細仕様 / WebSocket 仕様
-- コマンド実行制御（allowlist 約70コマンド + egrep/fgrep + export/unset/printenv/type・denylist・Level 1〜11 探偵ランク表・構文レベルの許可）
-- Mission 判定仕様 / 疑似 Git・セーブ仕様
-- Mission 設計（MVP 1〜3 + Phase2 4〜22 一覧 + ゲーム機能 12 項目 = Phase2 の 8 + 2026-07-07 コンセプト強化の 4（やらかし体験室 / エラー図鑑 / 現場実習カード / ご褒美コマンド））
-- エラーメッセージ一覧 / 受け入れ基準 / 開発フロー
-
-### `docs/Mission参照ファイル.md`
-- Mission 共通テンプレート（mission_id: 1..22）
-- Mission1〜3: 確定詳細（正規表現・ヒント3段階・配置ファイル）
-- Mission4〜22: Phase2 概要確定（あらすじ/フロー/必須コマンド/クリア条件/ゲーム性。詳細正規表現は実装時）。2026-07-08 に Mission7（/proc）・Mission21（PATH）を追加し番号振り直し（旧 7〜19 → 8〜20、旧 20 → 22）
-- Agent 出力フォーマット / 参照優先順位
-
-### `docs/バックエンド_コマンド機能仕様.md`
-- evaluator 実装時のコマンド定義書（引数・前提・正常/異常出力・state更新）
-- ※Phase2 新コマンド（約50個）の定義追加は未着手（03_pending_items 参照）
-
-### `docs/LPIC学習マップ.md`
-- § 1〜8: Phase1 コマンドの「実PCでの意味 ⇔ ゲーム内の対応」対照表
-- § 9〜16: Phase2 拡張（テキスト処理/プロセス/権限・ユーザー/アーカイブ・鑑識/ネットワーク/システム管理/シェルスクリプト/非コマンド学習要素）
-- § 17: Phase3 候補（vi / mount / パッケージ管理。未確定）
-- § 18: LPIC 出題範囲サマリ / § 19: 設計時のルール
-
-### `docs/環境構築手順.md`
-- Nuxt（SPA + TypeScript + Pinia）/ FastAPI + SQLModel + Alembic のセットアップ手順（2026-07-06 Django から変更）
-
-### `docs/DESIGN.md`（2026-07-06 作成）
-- moc 準拠の UI/ビジュアル仕様: アートディレクション・カラートークン・レイアウト・Nuxt コンポーネント分解・モーション仕様
-- **§ 8: moc と確定仕様の差分表**（vi/Notebook/英語UI は不採用等。実装時に moc をそのまま写さないこと）
-
-### `docs/AUTHORING_GUIDE.md`（2026-07-06 作成）
-- AI Agent 向け Mission・コマンド作り込みガイド
-- 絶対原則 / 5幕構造 / ゲーム性の道具箱 / ノワール文体 / Mission定義YAMLスキーマ / Mission4 完全作例 / コマンド定義ルール / DoD チェックリスト / アンチパターン集
+| ファイル | 内容 |
+|---|---|
+| `設計指示書.md`（最上位の正） | 概要 / 技術スタック / 仮想FS・セーブ選択 / local・remote（SSH 4 ホスト）/ API・WS 仕様（complete・rank_up・codex・collection）/ allowlist・denylist・ランク表 / 判定 / 疑似 Git（+ 5b ブランチ・PR は バックエンド仕様に）/ Mission 設計（1〜22 + § 5b 追加 23〜28 + 29）/ ゲーム機能 12 項目（すべて実装済みの注記付き）/ エラー一覧 / 受け入れ基準 |
+| `Mission参照ファイル.md` | Mission1〜3 の確定詳細、4〜22 の仕様 + 起草済み注記、§ 5b 追加エピソード 23〜29 |
+| `バックエンド_コマンド機能仕様.md` | evaluator のコマンド定義 + § 5b ブランチ/マージ/PR、§ 5c サーバー編の基盤 |
+| `LPIC学習マップ.md` | LPIC ⇔ ゲーム内コマンド対照 |
+| `環境構築手順.md` | Nuxt / FastAPI セットアップ |
+| `DESIGN.md` | UI/ビジュアル仕様・コンポーネント分解（CodexLayer/FieldCard/ReplayLedger 込み）・TerminalView 品質基準 |
+| `AUTHORING_GUIDE.md` | Mission・コマンド作り込みガイド |
 
 ---
 
@@ -118,27 +83,5 @@ CLI_Noir/
 | パス | 内容 |
 |---|---|
 | `CLAUDE.md` | Claude Code 用ガイド。ドキュメント参照優先順位と運用ルールの要約 |
-| `moc/index.html` | UI モック（Vue CDN 直書き）。確定仕様との差分は `docs/DESIGN.md` § 8 |
-| `moc/images/mission1.png` | 背景画像の画風基準（セピア調・銅版画風ノワール） |
-| `context/` | 本フォルダ（読み込み順は 00 → 01 → 02 → 03 → 04） |
-
-## old_files/（バックアップ・参照不要）
-
-| ファイル | 内容 |
-|---|---|
-| `設計指示書_001〜008.md` | 設計指示書の過去版（003 = Phase2 統合前 / 006 = 場面画像・egrep/fgrep 前 / 007 = ゲーム機能 9〜12 追加前 / 008 = /proc・PATH 追加前） |
-| `DESIGN_001〜003.md` / `AUTHORING_GUIDE_001〜003.md` / `バックエンド_コマンド機能仕様_001〜002.md` / `環境構築手順_001〜002.md` | 各仕様の変更前バックアップ |
-| `LPIC学習マップ_001〜004.md` / `Mission参照ファイル_001〜003.md` | Phase2 統合前ほか |
-| `LPIC拡張_Mission案_001.md` | Phase2 提案原本（2026-07-06 全面採用・統合済み） |
-| `追加確認事項.md` / `allowlist_denylist_001.md` / `タスクフロー_001.md` | 初期の統合済みファイル |
-
----
-
-## Agent 参照優先順位
-
-1. `docs/設計指示書.md`
-2. `docs/Mission参照ファイル.md`
-3. `docs/バックエンド_コマンド機能仕様.md`
-4. `docs/LPIC学習マップ.md`
-5. `docs/DESIGN.md` / `docs/AUTHORING_GUIDE.md`（実装・コンテンツ作成時）
-6. `docs/環境構築手順.md`
+| `moc/images/NEEDED_IMAGES.md` | 場面画像の制作リスト（優先度 A〜E。E は追加エピソード） |
+| `noir-api/noir.db` | dev DB（`detective01` = ユーザー本人、`e2e01`/`e2e02` = 検証用。パスワード `secret`） |
