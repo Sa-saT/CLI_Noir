@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は Mission1〜22 全実装済み + ユーザーごとの**永続統合ワールド**（`PlayerState`）へ移行済み（2026-09-12 Phase D 完了）。フロントエンド（`noir-client/`）は実バックエンド接続済み・**常時ターミナル**設計（ログインごとに WS 1 本）+ 進行案内「独り言レイヤー」（2026-09-13）。現状と残タスクは `context/03_pending_items.md`・`context/04_task_backlog.md` を参照。
+CLI_Noir は Linux(LPIC) を「ノワール探偵ゲーム」として遊びながら学ぶ CUI 学習ゲーム。**設計ドキュメント主導**で進めており、バックエンド（FastAPI, `noir-api/`）は全 28 Mission（1〜22 + 追加エピソード 23〜28。2026-09-13）実装済み + ユーザーごとの**永続統合ワールド**（`PlayerState`）へ移行済み（2026-09-12 Phase D 完了）。フロントエンド（`noir-client/`）は実バックエンド接続済み・**常時ターミナル**設計（ログインごとに WS 1 本）+ 進行案内「独り言レイヤー」（2026-09-13）。現状と残タスクは `context/03_pending_items.md`・`context/04_task_backlog.md` を参照。
 
 - コンセプト: **Linux(LPIC)・PC への理解 + 黒い画面（ターミナル）は「理解すれば怖くない」**を遊びで身につけさせる（設計指示書 § 11）
-- MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）
+- MVP: Mission1〜3 / Phase2: Mission4〜22・Level 5〜11 採用済み（2026-07-06 確定、2026-07-08 に /proc・PATH の 2 Mission 追加で全 22 に）/ 2026-09-13 に追加エピソード（git 編 23〜25 = Mission11 の後、サーバー編 26〜28 = Mission21 の後）で全 28 に。**id は事件番号で固定、プレイ順序は `_DEFS` の並び**
 - ユーザーへの返答は**常に日本語**で行う
 - ファイル名は英語、UI ラベル・ドキュメントは日本語
 
@@ -19,7 +19,7 @@ CLI_Noir/
 ├ docs/          … 全設計ドキュメント（正）+ design-system/（デザイン local ミラー）
 ├ context/       … AI コンテキスト復元用（セッション開始時に 00 から読む）
 ├ noir-client/   … Nuxt 4 フロント実装（実バックエンド接続済み。app/components/*.vue + pages/missions）
-├ noir-api/      … FastAPI バックエンド（Mission1〜22 全実装済み・統合ワールド。445 tests green / ruff clean）
+├ noir-api/      … FastAPI バックエンド（全 28 Mission 実装済み・統合ワールド。528 tests green / ruff clean）
 ├ moc/           … UI モック（参考用。確定仕様との差分あり）
 └ old_files/     … 過去バージョンのバックアップ（参照不要）
 ```
@@ -44,7 +44,7 @@ CLI_Noir/
 `docs/設計指示書.md` が最上位の正。矛盾があれば設計指示書に従う。
 
 1. `docs/設計指示書.md` — 全体仕様（技術スタック / API / WebSocket / allowlist・レベル表 / 疑似Git / Mission判定 / エラー一覧 / 受け入れ基準）
-2. `docs/Mission参照ファイル.md` — Mission1〜22 の詳細仕様（正規表現・ヒント・配置ファイル）
+2. `docs/Mission参照ファイル.md` — Mission1〜22 の詳細仕様（正規表現・ヒント・配置ファイル）+ § 5b 追加エピソード 23〜28
 3. `docs/バックエンド_コマンド機能仕様.md` — evaluator 実装時の各コマンド定義書（引数 / 出力 / state 更新）
 4. `docs/LPIC学習マップ.md` — LPIC Level 1 とゲーム内コマンドの対応表（非コマンド学習要素含む）
 5. `docs/環境構築手順.md` — Nuxt / FastAPI のセットアップ手順
@@ -84,7 +84,7 @@ cd backend && alembic upgrade head && uvicorn app.main:app --reload
 
 ## アーキテクチャの要点
 
-- **仮想FS**: **ユーザーごとに 1 レコード**（`PlayerState`。22 Mission 分の区画を最初から持ち、未解放区画はディレクトリ権限で不可視）、DB の JSON カラムに永続化。`mission_progress`（completed / active_mission_id / flags / released / story_fired）で進捗管理。`/root/case_file.sh` はアクティブ Mission から動的合成
+- **仮想FS**: **ユーザーごとに 1 レコード**（`PlayerState`。全 Mission 分の区画を最初から持ち、未解放区画はディレクトリ権限で不可視）、DB の JSON カラムに永続化。`mission_progress`（completed / active_mission_id / flags / released / story_fired）で進捗管理。`/root/case_file.sh` はアクティブ Mission から動的合成
 - **WebSocket**: `/ws/terminal`（クエリ無し・ログインごとに 1 本）。初回 `auth` フレームで JWT 認証 → `hello` で state 返却 → `exec`/`result` フレームでコマンド実行（denylist → allowlist → evaluator → state 更新）。**state とクリア判定の書き込みは evaluator のみ**(クライアントが state を書ける HTTP API は廃止済み)
 - **認証**: HTTP は `Authorization: Bearer`(SimpleJWT)、WebSocket は接続後の初回メッセージで JWT を渡す(query parameter は漏洩リスクのため不採用)
 - **コマンド制御**: allowlist 方式。判定順序は denylist → allowlist → 実行。`git` は第1トークン判定後にサブコマンドを別途分岐。`rm` は全般禁止、`curl` は mock API 限定

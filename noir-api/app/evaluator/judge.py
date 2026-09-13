@@ -449,6 +449,172 @@ def _judge_mission22(state: dict) -> tuple[list[str], dict]:
     return ["case_file.sh: all checks passed"], state
 
 
+# ---------------------------------------------------------------------------
+# 追加エピソード（2026-09-13）: git 編 Mission23〜25 / サーバー編 Mission26〜28
+# ---------------------------------------------------------------------------
+_TEAM_DESK = "/root/team_desk"
+_CONFLICT_MARKER_RE = re.compile(r"^(<{7}|={7}|>{7})", re.MULTILINE)
+
+
+def _repo(state: dict) -> dict | None:
+    return state.get("git_state", {}).get("repo")
+
+
+def _tree_file_content(tree: dict, name: str) -> str | None:
+    node = tree.get(name)
+    if node is None or node.get("type") != "file":
+        return None
+    return node.get("content", "")
+
+
+def _judge_mission23(state: dict) -> tuple[list[str], dict]:
+    """Mission23: 枝を切って（checkout -b）そこで commit し、main に merge して港の線が本筋に
+    載っていることを検査する。"""
+    log = state.get("command_log", [])
+    repo = _repo(state)
+    branched = any(re.match(r"\s*git\s+checkout\s+-b\s+\S+", ln) for ln in log)
+    merged = any(re.match(r"\s*git\s+merge\s+\S+", ln) for ln in log)
+    main_notes = ""
+    if repo is not None:
+        main_notes = _tree_file_content(repo["branches"].get("main", {}).get("tree", {}), "case_notes.txt") or ""
+    harbor_in_main = "HARBOR" in main_notes.upper() and "LEAD 3" in main_notes.upper()
+
+    if not branched:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: cut a branch before you follow the lead"], state
+    if not (merged and harbor_in_main):
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: main does not carry the harbor lead yet (merge the branch)"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+def _judge_mission24(state: dict) -> tuple[list[str], dict]:
+    """Mission24: statement.txt に競合マーカーが無い + 正しい時刻（23:50。cctv.log と一致）
+    + Reed の枝を取り込んだマージ commit が main の log にあること。"""
+    repo = _repo(state)
+    node = fs.get_node(state, f"{_TEAM_DESK}/statement.txt")
+    content = node.get("content", "") if fs.is_file(node) else ""
+    main_log = repo["branches"].get("main", {}).get("log", []) if repo else []
+    merged_reed = any("reed/statement" in entry.get("message", "") for entry in main_log)
+    merging = bool(repo and repo.get("merging"))
+
+    if _CONFLICT_MARKER_RE.search(content):
+        progress.flags(state)["case_checked"] = False
+        return ["Error: unresolved conflict markers in statement.txt"], state
+    if "23:50" not in content or "23:10" in content:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: the statement contradicts cctv.log"], state
+    if not merged_reed or merging:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: merge reed/statement and commit the result"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+def _judge_mission25(state: dict) -> tuple[list[str], dict]:
+    """Mission25: PR が merged で、その PR に CHANGES_REQUESTED → APPROVED の履歴があること
+    （一発承認は構造上できない: 初期 report は指摘が付く）。"""
+    repo = _repo(state)
+    prs = repo.get("prs", []) if repo else []
+    merged = [pr for pr in prs if pr.get("state") == "merged"]
+    if not prs:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: open a pull request with gh pr create"], state
+    for pr in merged:
+        states = [r.get("state") for r in pr.get("reviews", [])]
+        if "CHANGES_REQUESTED" in states and states and states[-1] == "APPROVED":
+            progress.flags(state)["case_checked"] = True
+            return ["case_file.sh: all checks passed"], state
+    progress.flags(state)["case_checked"] = False
+    if merged:
+        return ["Warning: pattern mismatch"], state
+    return ["Warning: the pull request is not merged yet"], state
+
+
+def _remote_lines(log: list[str], pattern: str) -> bool:
+    return any(re.match(pattern, ln) for ln in log)
+
+
+def _judge_mission26(state: dict) -> tuple[list[str], dict]:
+    """Mission26: df / du / systemctl status archive-indexer / journalctl -u archive-indexer の
+    4 手 + 報告（/var/log/spool.log と No space left）。"""
+    log = state.get("command_log", [])
+    steps = [
+        _remote_lines(log, r"\s*df\b"),
+        _remote_lines(log, r"\s*du\b"),
+        _remote_lines(log, r"\s*systemctl\s+status\s+archive-indexer\b"),
+        _remote_lines(log, r"\s*journalctl\s+-u\s+archive-indexer\b"),
+    ]
+    reported = any(
+        "/var/log/spool.log" in ln and "No space left" in ln
+        for ln in log
+        if re.match(r"\s*echo\b", ln)
+    )
+    if not all(steps):
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: diagnose before you report (df / du / systemctl / journalctl)"], state
+    if not reported:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+def _service_active(state: dict, host: str, name: str) -> bool:
+    from app.evaluator.commands import service_state
+
+    svc = service_state(state, host, name)
+    return bool(svc) and svc.get("state") == "active"
+
+
+def _judge_mission27(state: dict) -> tuple[list[str], dict]:
+    """Mission27: instance-id と 4444 の報告 + backdoor-relay 停止 + app-web は稼働のまま。"""
+    log = state.get("command_log", [])
+    reported = any(
+        re.search(r"\bi-[0-9a-f]{8,}", ln) and "4444" in ln
+        for ln in log
+        if re.match(r"\s*echo\b", ln)
+    )
+    relay_running = _service_active(state, "corp_server", "backdoor-relay")
+    web_running = _service_active(state, "corp_server", "app-web")
+
+    if not web_running:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: you stopped the legitimate service (app-web)"], state
+    if relay_running:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: the back door is still open (backdoor-relay)"], state
+    if not reported:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
+def _judge_mission28(state: dict) -> tuple[list[str], dict]:
+    """Mission28: 両ホストへ ssh + corp_server の sshd 復旧 + 両 OS（Debian / Ubuntu）の報告。"""
+    log = state.get("command_log", [])
+    visited_both = _remote_lines(log, r"\s*ssh\s+archive_node\b") and _remote_lines(
+        log, r"\s*ssh\s+corp_server\b"
+    )
+    sshd_up = _service_active(state, "corp_server", "sshd")
+    reported = any(
+        "Debian" in ln and "Ubuntu" in ln for ln in log if re.match(r"\s*echo\b", ln)
+    )
+    if not visited_both:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: visit both sites before you report"], state
+    if not sshd_up:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: the backup route is still closed"], state
+    if not reported:
+        progress.flags(state)["case_checked"] = False
+        return ["Warning: pattern mismatch"], state
+    progress.flags(state)["case_checked"] = True
+    return ["case_file.sh: all checks passed"], state
+
+
 _CUSTOM_JUDGES = {
     2: _judge_mission2,
     6: _judge_mission6,
@@ -463,6 +629,12 @@ _CUSTOM_JUDGES = {
     20: _judge_mission20,
     21: _judge_mission21,
     22: _judge_mission22,
+    23: _judge_mission23,
+    24: _judge_mission24,
+    25: _judge_mission25,
+    26: _judge_mission26,
+    27: _judge_mission27,
+    28: _judge_mission28,
 }
 
 

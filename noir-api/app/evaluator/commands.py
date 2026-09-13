@@ -20,13 +20,13 @@ from app.evaluator.errors import CommandError
 from app.evaluator.judge import run_case_file
 from app.evaluator.registry import command
 
-def _rfile(content: str) -> dict:
-    """remote FS 用のファイルノード（読み取り専用ヒント）。"""
+def _rfile(content: str, owner: str = "park") -> dict:
+    """remote FS 用のファイルノード（読み取り専用ヒント）。owner は表示用（ls -l）。"""
     return {
         "type": "file",
         "content": content,
         "mode": "r--r--r--",
-        "owner": "park",
+        "owner": owner,
         "mtime": "2026-01-01T00:00:00Z",
         "immutable": True,
     }
@@ -182,11 +182,11 @@ SSH_HOSTS: dict[str, dict] = {
                     "backup": {
                         "type": "dir",
                         "children": {
-                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11"),
-                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12"),
+                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11", "root"),
+                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12", "root"),
                         },
                     },
-                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                    "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n", "root"),
                 },
             },
             "var": {
@@ -195,19 +195,13 @@ SSH_HOSTS: dict[str, dict] = {
                     "log": {
                         "type": "dir",
                         "children": {
-                            "spool.log": _rfile(
-                                "spool: queued job 4471 for corp_server\n"
+                            "spool.log": _rfile("spool: queued job 4471 for corp_server\n"
                                 "spool: queued job 4472 for corp_server\n"
-                                "spool: disk write failed: No space left on device"
-                            ),
-                            "syslog": _rfile(
-                                "Mar 03 02:00:00 archive-node-01 systemd[1]: "
-                                "Started Archive indexer."
-                            ),
-                            "auth.log": _rfile(
-                                "Mar 03 02:00:00 archive-node-01 sshd[900]: "
-                                "Accepted publickey for park"
-                            ),
+                                "spool: disk write failed: No space left on device", "root"),
+                            "syslog": _rfile("Mar 03 02:00:00 archive-node-01 systemd[1]: "
+                                "Started Archive indexer.", "root"),
+                            "auth.log": _rfile("Mar 03 02:00:00 archive-node-01 sshd[900]: "
+                                "Accepted publickey for park", "root"),
                         },
                     },
                 },
@@ -284,9 +278,9 @@ SSH_HOSTS: dict[str, dict] = {
                     "app": {
                         "type": "dir",
                         "children": {
-                            "app.py": _rfile("# app placeholder\n"),
-                            "README.txt": _rfile("Company web app.\n"),
-                            "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n"),
+                            "app.py": _rfile("# app placeholder\n", "root"),
+                            "README.txt": _rfile("Company web app.\n", "root"),
+                            "case_file.sh": _rfile("# 事件ファイル: sh case_file.sh で判定する\n", "root"),
                         },
                     },
                 },
@@ -297,14 +291,14 @@ SSH_HOSTS: dict[str, dict] = {
                     "backups": {
                         "type": "dir",
                         "children": {
-                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11"),
-                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12"),
+                            "backup-2026-09-11.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-11", "root"),
+                            "backup-2026-09-12.tar.gz": _rfile("BACKUP PLACEHOLDER 2026-09-12", "root"),
                         },
                     },
                     "log": {
                         "type": "dir",
                         "children": {
-                            "app.log": _rfile("app: started on :8080\napp: healthy"),
+                            "app.log": _rfile("app: started on :8080\napp: healthy", "root"),
                         },
                     },
                 },

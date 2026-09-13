@@ -162,9 +162,9 @@ def _commit(state: dict, argv: list[str]) -> tuple[list[str], dict]:
 
     # § 5b: repo があれば現在の枝の tree を作業ディレクトリの中身で更新し、log に積む
     # （merging 中なら "Merge branch '<name>'" に差し替えて merging を消す）。
-    git_branches.finalize_commit(state, message)
+    branch_lines = git_branches.finalize_commit(state, message)
 
-    return [f"[saved #{next_id}] {message}"], state
+    return [f"[saved #{next_id}] {message}", *branch_lines], state
 
 
 def _push(state: dict) -> tuple[list[str], dict]:

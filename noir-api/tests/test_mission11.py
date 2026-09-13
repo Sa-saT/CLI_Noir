@@ -87,7 +87,7 @@ def test_mission11_golden_transcript() -> None:
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
     assert 11 in s["mission_progress"]["completed"]
-    assert progress.active_mission_id(s["mission_progress"]) == 12
+    assert progress.active_mission_id(s["mission_progress"]) == 23  # 次は git 編（プレイ順序）
 
 
 def test_mission11_incomplete_text_blocks_clear() -> None:

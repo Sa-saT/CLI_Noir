@@ -86,7 +86,7 @@ def test_mission21_golden_transcript() -> None:
     out, s = _run(s, "git push")
     assert out == ["Mission Complete! Next mission unlocked."]
     assert 21 in s["mission_progress"]["completed"]
-    assert progress.active_mission_id(s["mission_progress"]) == 22
+    assert progress.active_mission_id(s["mission_progress"]) == 26  # 次はサーバー編（プレイ順序）
 
 
 def test_mission21_fails_without_restoring_path() -> None:

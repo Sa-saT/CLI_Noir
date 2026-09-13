@@ -651,6 +651,67 @@ _MISSION21_FS = {
 }
 
 
+# 追加エピソード git 編（Mission23〜25）: 相部屋の捜査室 /root/team_desk が 3 Mission 共通の
+# リポジトリ。Mission23 解放時に git_state.repo（main）を作り、Mission24 解放時に同僚 Reed の枝を
+# 仕込む（statement.txt の 2 行目だけ 23:10 → 23:50。設計は docs/Mission参照ファイル.md § 5b）。
+_MISSION23_FS = {
+    "root": {
+        "type": "dir",
+        "children": {
+            "team_desk": {
+                "type": "dir",
+                "children": {
+                    "case_notes.txt": _file(
+                        "CASE: the harbor shipment\n"
+                        "LEAD 1: warehouse manager seen at the pier (unconfirmed)\n"
+                        "LEAD 2: shipping manifest altered (confirmed)\n",
+                        immutable=False,
+                    ),
+                    "suspects.txt": _file(
+                        "Nico Faro\n"
+                        "Selene Vance\n"
+                        "Reed Calloway\n",
+                        immutable=True,
+                    ),
+                    "cctv.log": _file(
+                        "23:05 gate camera: van enters pier 13\n"
+                        "23:50 gate camera: Nico Faro exits warehouse B\n"
+                        "00:12 gate camera: van leaves pier 13\n",
+                        immutable=True,
+                    ),
+                    "statement.txt": _file(
+                        "WITNESS STATEMENT - harbor night watchman\n"
+                        "I saw a man leave warehouse B at 23:10.\n"
+                        "He carried a ledger under his arm.\n",
+                        immutable=False,
+                    ),
+                    "report.txt": _file(
+                        "HARBOR CASE REPORT (draft)\n"
+                        "Suspect: unknown\n"
+                        "Evidence: cctv.log\n",
+                        immutable=False,
+                    ),
+                },
+            },
+        },
+    }
+}
+
+# Mission24 で仕込む同僚 Reed の枝: 分岐した時点（base）では時刻が空欄で、探偵は main に
+# 23:10（Mission23 の配置ファイル）、Reed は自分の枝に 23:50 を書いた——同じ行を両側が
+# 埋めたので三方マージが競合する。
+_MISSION24_STATEMENT_BASE = (
+    "WITNESS STATEMENT - harbor night watchman\n"
+    "I saw a man leave warehouse B at [time unconfirmed].\n"
+    "He carried a ledger under his arm.\n"
+)
+_MISSION24_REED_TREE_STATEMENT = (
+    "WITNESS STATEMENT - harbor night watchman\n"
+    "I saw a man leave warehouse B at 23:50.\n"
+    "He carried a ledger under his arm.\n"
+)
+
+
 # Mission22（最終事件）: これまで学んだ全技術を関所として直列に配置する。
 # find → ssh(ghost.example の既存証拠を再利用) → chmod → grep|sort|uniq -c →
 # tar → md5sum → 自作 sh → 黒幕名（Mission12 の黒幕 Selene Vance と同一人物）報告 →
@@ -1081,9 +1142,87 @@ _DEFS: list[MissionDef] = [
             {"id": "clear", "when": "clear", "text": "三片なら手でも並べられた。百片なら？ 道具の価値は、数が増えたときに分かる。"},
         ],
     ),
-    # --- ここに Mission23〜25 相当（git-team 編。id は既存と衝突しない新規採番）を
-    #     挿入予定。_DEFS の並び順がそのままプレイ順序になる（このコメント直下 =
-    #     Mission11 の直後・Mission12 の直前）。---
+    MissionDef(
+        23, "Branching Leads", "分岐する捜査線",
+        "本筋の調書（main）を汚さず、別の枝（branch）で港の線を追い、main に merge して戻す。",
+        ["git"],
+        # 判定は judge.py の Mission23 専用ロジック（枝で commit + main へ merge）。
+        initial_filesystem=_MISSION23_FS,
+        initial_repo={"root": "/root/team_desk", "branch": "main", "message": "initial case notes"},
+        hints=[
+        "ゴール: /root/team_desk で git checkout -b lead/harbor の枝を切り、case_notes.txt に港の線（HARBOR を含む行）を書き足して commit、git checkout main で戻ってから git merge lead/harbor で本筋に取り込み、sh case_file.sh → git push する。",
+        "git branch で今の枝、git checkout -b <名前> で新しい枝を切って移動。枝の中で echo \"…\" >> case_notes.txt して git add . / git commit -m。git checkout main に戻ると追記は消えて見える（枝に置いてある）。git merge lead/harbor で main に取り込む。",
+        "cd /root/team_desk → git branch（main にいる）→ git checkout -b lead/harbor（枝を切る）→ echo \"LEAD 3: HARBOR van seen at pier 13 (cctv)\" >> case_notes.txt → git add . → git commit -m \"harbor lead\" → git checkout main（追記が消えている）→ git log → git merge lead/harbor（本筋へ）→ cat case_notes.txt（戻った）→ sh /root/case_file.sh → git add . → git commit -m \"merged\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "本部から通達。「本筋の調書（main）は汚すな。仮説は別の線で追え」。\n相部屋の捜査室（team_desk）に共有の調書がある。港の線は、枝を切って追う。"},
+        {"id": "branch", "when": "after", "line": r"^git branch\s*$", "text": "* main——今いる線は本筋ひとつ。ここに仮説を書くと、本部の調書に混ざる。"},
+        {"id": "new_branch", "when": "after", "line": r"^git checkout -b ", "text": "枝を切った。ここに書くものは、この線の中だけに残るはず。"},
+        {"id": "wrote", "when": "after", "line": r"^echo .*>>? *case_notes", "text": "港の線を書き足した。枝にセーブ（git add → git commit）しておく。"},
+        {"id": "back_to_main", "when": "after", "line": r"^git checkout main", "text": "本筋に戻った。……調書から港の線が消えている!? 消えたんじゃない、枝に置いてきただけ、のはず。"},
+        {"id": "log", "when": "after", "line": r"^git log", "text": "履歴は枝ごとに別。どの線でどこまで進んだかが一目で分かる。"},
+        {"id": "merged", "when": "after", "line": r"^git merge ", "output": "Fast-forward|Merge made", "text": "取り込んだ。港の線が本筋に流れ込んだ——枝を切って、確かめて、戻す。これが同じ机で働く作法らしい。"},
+        {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch|branch|merge", "text": "本筋に港の線が届いていない。枝で commit したか、main に merge したか……。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "本筋は汚さず、線は増えた。記録して本部へ。"},
+        {"id": "clear", "when": "clear", "text": "枝は仮説の置き場で、本筋は確定の置き場。混ぜないから、後で戻れる。"},
+        ],
+    ),
+    MissionDef(
+        24, "Conflicting Statements", "食い違う調書",
+        "同僚 Reed の枝を merge すると同じ行で競合する。証拠（cctv.log）で正しい側を選び、一本化して commit する。",
+        ["git", "sed"],
+        # 判定は judge.py の Mission24 専用ロジック（競合解消 + 正しい時刻 + マージ commit）。
+        # 舞台は Mission23 と同じ /root/team_desk（区画は 23 が解放済み）。
+        initial_branches={
+            "reed/statement": {
+                "base_from": "main",
+                "files": {"statement.txt": _MISSION24_REED_TREE_STATEMENT},
+                "base_files": {"statement.txt": _MISSION24_STATEMENT_BASE},
+                "message": "reed: correct the time from the night watchman",
+            }
+        },
+        hints=[
+        "ゴール: /root/team_desk で git merge reed/statement して競合（CONFLICT）を起こし、statement.txt の <<<<<<< / ======= / >>>>>>> の間から cctv.log と合う側（23:50）を残して目印を消し、git add statement.txt → git commit で確定、sh case_file.sh → git push する。",
+        "競合したファイルは cat で読むと <<<<<<< HEAD（自分側）と >>>>>>> reed/statement（相手側）に挟まれた 2 通りの行が並ぶ。cat cctv.log で本当の時刻を確かめ、正しい 1 行だけ残す（sed -i は無いので、echo で書き直すか sed '…' file > file）。目印の行も全部消す。",
+        "cd /root/team_desk → git merge reed/statement（CONFLICT）→ cat statement.txt（両方の主張）→ cat cctv.log（23:50 が本当）→ echo \"WITNESS STATEMENT - harbor night watchman\" > statement.txt → echo \"I saw a man leave warehouse B at 23:50.\" >> statement.txt → echo \"He carried a ledger under his arm.\" >> statement.txt → cat statement.txt（目印が無いか）→ git add statement.txt → git commit -m \"resolve statement\" → sh /root/case_file.sh → git add . → git commit -m \"merged reed\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "同僚の Reed が同じ調書（statement.txt）を別の枝で書いていた。取り込め、と言われている。\n同じ行を二人が別の内容で書いたら——機械はどうする？"},
+        {"id": "conflict", "when": "after", "line": r"^git merge reed", "output": "CONFLICT", "text": "止まった。CONFLICT——機械は勝手に決めない。決めるのは、証拠を読んだ探偵のはず。"},
+        {"id": "markers", "when": "after", "line": r"^cat .*statement", "output": "<<<<<<<", "text": "<<<<<<< HEAD が俺の主張、>>>>>>> reed/statement が Reed の主張。23:10 と 23:50。どちらが本当かは、カメラ（cctv.log）が知っている。"},
+        {"id": "evidence", "when": "after", "line": r"^cat .*cctv", "output": "23:50", "text": "23:50、Nico Faro が倉庫 B を出る。Reed が正しい。俺の行を捨てて、目印も全部消す。"},
+        {"id": "resolved", "when": "after", "line": r"^cat .*statement", "output": r"^(?![\s\S]*<<<<<<<)[\s\S]*23:50", "text": "一本になった。目印も無い。これでマージを確定できる（git add → git commit）。"},
+        {"id": "committed", "when": "after", "line": r"^git commit ", "output": "Merge branch", "text": "マージ確定。二人の調書が一つになった。"},
+        {"id": "judge_markers", "when": "after", "line": r"^sh .*case_file\.sh", "output": "conflict markers", "text": "目印（<<<<<<< ======= >>>>>>>）が残っている、と。あれは機械のメモで、調書の一部じゃない。"},
+        {"id": "judge_wrong", "when": "after", "line": r"^sh .*case_file\.sh", "output": "contradicts", "text": "カメラと食い違っている。残す側を間違えた……証拠に合わせるのが筋。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "調書は一本化された。記録して本部へ。"},
+        {"id": "clear", "when": "clear", "text": "競合は事故じゃない。二人が同じ場所を真剣に書いた証拠だ。——決めるのは機械じゃなく、証拠を読んだ人間。"},
+        ],
+    ),
+    MissionDef(
+        25, "The Pull Request", "本部への送付状",
+        "報告書の枝から gh pr create で本部へ送り、主任の指摘（Changes requested）を直して Approved を取り、gh pr merge で本筋に取り込む。",
+        ["git", "gh"],
+        # 判定は judge.py の Mission25 専用ロジック（PR 作成 → 指摘 → 追加 commit → 承認 → merge）。
+        # レビューのルールは app/evaluator/pr_review.py。
+        hints=[
+        "ゴール: /root/team_desk で git checkout -b report/harbor して report.txt を書き commit、gh pr create --title \"Harbor case\" で本部に送り、gh pr view の指摘（証拠を絶対パス /root/team_desk/cctv.log で引用 / 容疑者名を suspects.txt と一致）を直して再 commit、Approved になったら gh pr merge、sh case_file.sh → git push する。",
+        "gh pr create --title \"…\" --body \"…\" で PR が #番号 付きで開く。gh pr view で主任のレビューが読める。Changes requested の各行を report.txt に反映して git add . / git commit -m すると、次の gh pr view で再評価される。Approved が出たら gh pr merge。",
+        "cd /root/team_desk → git checkout -b report/harbor → echo \"Suspect: Nico Faro\" >> report.txt → git add . → git commit -m \"draft report\" → gh pr create --title \"Harbor case\" --body \"first draft\" → gh pr view（Changes requested）→ echo \"Evidence: /root/team_desk/cctv.log 23:50 Nico Faro exits warehouse B\" >> report.txt → git add . → git commit -m \"cite evidence\" → gh pr view（Approved）→ gh pr merge → sh /root/case_file.sh → git add . → git commit -m \"report merged\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "港の報告書を本部の主任（Chief Morgan）に送る。直接 main に書く時代は終わった——枝で書いて、送付状（PR）を付けて、判子を待つ。\n一発で通ると思わないほうがいい。"},
+        {"id": "branch", "when": "after", "line": r"^git checkout -b report", "text": "報告書の枝。ここで書いて、ここから送る。"},
+        {"id": "pr_open", "when": "after", "line": r"^gh pr create", "output": "#", "text": "送付状が本部に届いた。番号が付いた——あとは主任の目が入るのを待つ。"},
+        {"id": "requested", "when": "after", "line": r"^gh pr view", "output": "CHANGES_REQUESTED", "text": "突き返された!? ……いや、これが普通だ。指摘の行を一つずつ潰す。直したら commit、また見てもらう。"},
+        {"id": "approved", "when": "after", "line": r"^gh pr view", "output": "APPROVED", "text": "Approved——判子が押された。取り込む（gh pr merge）。"},
+        {"id": "pr_merged", "when": "after", "line": r"^gh pr merge", "output": "Merged", "text": "本筋に入った。主任の目を通った報告書だけが、本部の調書になる。"},
+        {"id": "not_approved", "when": "after", "line": r"^gh pr merge", "output": "not approved", "text": "まだ判子が無い。指摘が残っている——gh pr view で確かめる。"},
+        {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch|pull request", "text": "送付状（PR）を出して、指摘を直して、承認を取って、merge したか……順番に。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "報告書は本部の調書になった。記録して push。"},
+        {"id": "clear", "when": "clear", "text": "送って、突き返されて、直して、通る。遠回りに見えて、一人で書くより早く正しい場所に着く——それがレビュー、なのだろう。"},
+        ],
+    ),
     MissionDef(
         12, "Ghost Line", "幽霊回線を追え",
         "dig で IP を割り出し、ping で生存確認して ssh で突入する。",
@@ -1340,9 +1479,83 @@ _DEFS: list[MissionDef] = [
             {"id": "clear", "when": "clear", "text": "コマンドは魔法じゃなく、リスト（PATH）の中の住所から呼ばれる道具だった。\n——「そんなコマンドは知らない」と言われたら、まずリストを疑え。"},
         ],
     ),
-    # --- ここに Mission26〜28 相当（server 編。id は既存と衝突しない新規採番）を
-    #     挿入予定。_DEFS の並び順がそのままプレイ順序になる（このコメント直下 =
-    #     Mission21 の直後・Mission22（最終事件）の直前）。---
+    MissionDef(
+        26, "The Machine That Never Sleeps", "眠らない機械",
+        "ssh archive_node に入り、uptime/free/df/du/systemctl/journalctl で「止まりかけた保管サーバー」の原因を突き止めて報告する。",
+        ["ssh", "exit", "uptime", "free", "df", "du", "systemctl", "journalctl", "hostname", "uname"],
+        # 判定は judge.py の Mission26 専用ロジック（df/du/systemctl/journalctl の 4 手 + 報告）。
+        # 舞台は SSH_HOSTS["archive_node"]（required_mission_id=26。local FS 不要）。
+        hints=[
+        "ゴール: ssh archive_node に入り、df -h で満杯のディスク、du -sh /var/log/* で肥大したファイル、systemctl status archive-indexer と journalctl -u archive-indexer で止まった理由を確かめ、exit して echo で「/var/log/spool.log」と「No space left」を含む報告を書き、sh case_file.sh → git push する。",
+        "df -h は区画ごとの使用率（Use%）、du -sh <パス> はそのパスの大きさ。systemctl status <サービス> で動いているか、journalctl -u <サービス> でそのサービスの日誌が読める。報告は echo \"…\" の 1 行に肥大ファイルのパスとエラー文言の両方を入れる。",
+        "ssh archive_node → uptime → free → df -h（/var が 98%）→ du -sh /var/log/*（spool.log が 17G）→ systemctl status archive-indexer（failed）→ journalctl -u archive-indexer（No space left on device）→ exit → echo \"archive-indexer failed: /var/log/spool.log filled /var (No space left on device)\" → sh case_file.sh → git add . → git commit -m \"archive\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "署の地下にある保管サーバー（archive_node）が、夜中に止まりかける、と管理係から。\n機械が止まる理由は、だいたい満腹か過労のはず。現地（ssh）で診る。"},
+        {"id": "in", "when": "after", "line": r"^ssh archive_node", "text": "入った。古い機械の匂いがする。まず、どれだけ起きているか（uptime）と、腹の具合（free / df）。"},
+        {"id": "uptime", "when": "after", "line": r"^uptime", "remote": True, "text": "長く起きている。過労ではなさそう。"},
+        {"id": "disk", "when": "after", "line": r"^df", "output": "98%", "remote": True, "text": "/var が 98%——満腹だ。何が腹を膨らませている？ 大きさを量る（du）。"},
+        {"id": "du", "when": "after", "line": r"^du ", "output": "17G", "remote": True, "text": "spool.log が 17G。ログが吐き続けて、置き場を食い潰した。"},
+        {"id": "status", "when": "after", "line": r"^systemctl status archive-indexer", "output": "failed", "remote": True, "text": "archive-indexer が failed。止まったのはこいつ。理由は日誌（journalctl）に書いてあるはず。"},
+        {"id": "journal", "when": "after", "line": r"^journalctl -u archive-indexer", "output": "No space left", "remote": True, "text": "No space left on device——書く場所が無くて倒れた。満腹が原因で確定。報告に書く。"},
+        {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "diagnose before", "text": "診断の手順が足りない、と。df、du、systemctl status、journalctl——四つ揃えてから報告。"},
+        {"id": "judge_mismatch", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "報告に肥大ファイルの場所（/var/log/spool.log）と倒れた理由（No space left）を両方書いたか……。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "原因は割れた。記録して本部へ。"},
+        {"id": "clear", "when": "clear", "text": "満腹（ディスク）、過労（負荷）、そして日誌（ログ）。機械の診察はこの三つから——地下でも、雲の上でも同じ。"},
+        ],
+    ),
+    MissionDef(
+        27, "The Witness in the Clouds", "雲の上の証人",
+        "ssh corp_server に入り、hostname/メタデータ/ip/ss で身元と開いた扉を確かめ、正体不明のサービスだけを systemctl stop で止めて報告する。",
+        ["ssh", "exit", "hostname", "curl", "ip", "ss", "systemctl", "journalctl"],
+        # 判定は judge.py の Mission27 専用ロジック（instance-id/4444 の報告 + backdoor-relay 停止
+        # + app-web 稼働）。舞台は SSH_HOSTS["corp_server"]（required_mission_id=27）。
+        hints=[
+        "ゴール: ssh corp_server に入り、curl http://169.254.169.254/latest/meta-data/instance-id で機械の身元、ss -tln で開いているポート（見慣れない 4444）、systemctl status backdoor-relay で正体を確かめて systemctl stop backdoor-relay、exit して echo で instance-id と 4444 を含む報告を書き、sh case_file.sh → git push する。app-web は止めない。",
+        "クラウドの機械は curl http://169.254.169.254/latest/meta-data/（メタデータ）で身元が引ける。ss -tln で LISTEN しているポート、systemctl status <サービス> で誰が開けているか、journalctl -u でいつからか。止めるのは systemctl stop <サービス>。止めた後 ss -tln で扉が閉じたか確認。",
+        "ssh corp_server → hostname → curl http://169.254.169.254/latest/meta-data/instance-id → ip a → ss -tln（:8080 と :4444）→ systemctl status backdoor-relay → journalctl -u backdoor-relay → systemctl stop backdoor-relay → ss -tln（4444 が消えた）→ exit → echo \"i-0f3e9a7c2b1d4e5f6 port 4444 backdoor-relay stopped\" → sh case_file.sh → git add . → git commit -m \"cloud\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "本部が借りている雲の上の機械（corp_server）に、誰かが勝手に扉を開けたらしい。\n地下の機械と何が違う？ 置き場所が違うだけ、のはず。まず身元を確かめる。"},
+        {"id": "in", "when": "after", "line": r"^ssh corp_server", "text": "入った。窓の無い部屋。ここがどこの何という機械か、名札（hostname）と身分証（メタデータ）で確かめる。"},
+        {"id": "metadata", "when": "after", "line": r"^curl .*169\.254\.169\.254", "output": "i-", "text": "instance-id——雲の上の機械の身分証。この番号で本部の台帳と照合できる。"},
+        {"id": "no_meta", "when": "after", "line": r"^curl ", "output": "Could not resolve|Failed to connect", "text": "そこには何も無い。身分証の住所は 169.254.169.254 のはず。"},
+        {"id": "ports", "when": "after", "line": r"^ss ", "output": "4444", "remote": True, "text": "8080 は本部の窓口（app-web）。4444——見慣れない扉が開いている。誰が開けた？"},
+        {"id": "relay", "when": "after", "line": r"^systemctl status backdoor-relay", "remote": True, "text": "backdoor-relay。中継……どこへ？ 日誌（journalctl）を見る。"},
+        {"id": "journal", "when": "after", "line": r"^journalctl -u backdoor-relay", "output": r"10\.66\.6\.6", "remote": True, "text": "10.66.6.6——幽霊回線の住所。あの黒幕の巣へ流している。止める。"},
+        {"id": "stopped", "when": "after", "line": r"^systemctl stop backdoor-relay", "remote": True, "text": "止めた。扉が閉じたか、もう一度 ss で確かめる。"},
+        {"id": "wrong_stop", "when": "after", "line": r"^systemctl stop app-web", "remote": True, "text": "しまった、それは本部の窓口!? ……戻す（systemctl start app-web）。"},
+        {"id": "judge_wrong", "when": "after", "line": r"^sh .*case_file\.sh", "output": "legitimate service", "text": "正規の窓口を止めたまま、と。app-web を start で戻す。"},
+        {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "報告に身分証（instance-id）と扉の番号（4444）、そして backdoor-relay を止めたか……。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "扉は閉じた。記録して本部へ。"},
+        {"id": "clear", "when": "clear", "text": "雲の上でも、中身は同じ Linux だった。違ったのは身分証の引き方だけ。"},
+        ],
+    ),
+    MissionDef(
+        28, "Two Sites", "二つの拠点",
+        "オンプレ（archive_node）の夜間バックアップがクラウド（corp_server）に届かない。両方に入って原因（sshd 停止）を直し、両拠点の OS を報告する。",
+        ["ssh", "exit", "crontab", "journalctl", "systemctl", "md5sum", "uname"],
+        # 判定は judge.py の Mission28 専用ロジック（両ホスト ssh + corp_server sshd 復旧 + 両 OS 報告）。
+        hints=[
+        "ゴール: ssh archive_node で crontab -l と ls -l /srv/backup と journalctl -u backup を見て「corp_server の 22 番に繋がらない」を掴み、exit → ssh corp_server で systemctl status sshd（failed）→ systemctl start sshd で復旧、両方で cat /etc/os-release を読み、exit して echo で Debian と Ubuntu の両方を含む報告を書き、sh case_file.sh → git push する。",
+        "crontab -l で夜間ジョブの時刻、ls -l で今日の分が無いこと、journalctl -u backup で失敗の理由（Connection refused = 相手の扉が閉じている）。相手側で systemctl status sshd → failed なら systemctl start sshd。両拠点で cat /etc/os-release を読むと PRETTY_NAME に OS 名が出る。",
+        "ssh archive_node → crontab -l → ls -l /srv/backup → journalctl -u backup（Connection refused）→ cat /etc/os-release（Debian）→ exit → ssh corp_server → systemctl status sshd（failed）→ journalctl -u sshd → systemctl start sshd → systemctl status sshd（active）→ ls -l /var/backups → cat /etc/os-release（Ubuntu）→ exit → echo \"backup route restored: corp_server sshd was down. archive_node=Debian 12, corp_server=Ubuntu 24.04\" → sh case_file.sh → git add . → git commit -m \"two sites\" → git push",
+        ],
+        story_beats=[
+        {"id": "start", "when": "start", "text": "地下（archive_node）の夜間バックアップが、雲の上（corp_server）に届いていない。\n荷物が届かないなら、出した側と受け取る側、両方を見る。"},
+        {"id": "cron", "when": "after", "line": r"^crontab -l", "remote": True, "text": "0 2 * * *——毎晩 2 時に backup.sh。時限装置の読み方は、もう覚えた。"},
+        {"id": "missing", "when": "after", "line": r"^ls .*backup", "remote": True, "text": "11 日、12 日……13 日の分が無い。昨夜、何かが止めた。"},
+        {"id": "refused", "when": "after", "line": r"^journalctl -u backup", "output": "Connection refused", "remote": True, "text": "corp_server の 22 番に繋がらない——受け取る側の扉（sshd）が閉じている。向こうへ行く。"},
+        {"id": "os_debian", "when": "after", "line": r"^cat /etc/os-release", "output": "Debian", "remote": True, "text": "こっちは Debian。控えておく。"},
+        {"id": "sshd_down", "when": "after", "line": r"^systemctl status sshd", "output": "failed", "remote": True, "text": "sshd が failed。扉が閉じていたのはこれだ。今入れているのは別の口（コンソール）から、ということか。"},
+        {"id": "sshd_up", "when": "after", "line": r"^systemctl start sshd", "remote": True, "text": "扉を開けた。今夜の 2 時には荷物が届くはず。"},
+        {"id": "os_ubuntu", "when": "after", "line": r"^cat /etc/os-release", "output": "Ubuntu", "remote": True, "text": "こっちは Ubuntu。名前は違うが、中身は同じ Linux——コマンドも同じだった。"},
+        {"id": "judge_closed", "when": "after", "line": r"^sh .*case_file\.sh", "output": "still closed", "text": "荷物の通り道がまだ閉じている、と。corp_server の sshd を start したか……。"},
+        {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "両方の拠点に入って、両方の OS（Debian / Ubuntu）を報告に書いたか……。"},
+        {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "通り道は戻った。記録して本部へ。"},
+        {"id": "clear", "when": "clear", "text": "オンプレとクラウドの違いは、置き場所の違いでしかなかった。同じ Linux が二か所にある——それだけのこと。"},
+        ],
+    ),
     MissionDef(
         22, "Case Closed", "最終事件 — すべてを繋げろ",
         "学んだ全技術を関所として突破し、黒幕の名を本部に提出する。",
@@ -1481,6 +1694,9 @@ _MISSION_AREAS: dict[int, list[str]] = {
     20: ["/home/mr_black"],
     21: ["/root/toolbox_room"],
     22: ["/root/clues", "/root/logs"],
+    # 追加エピソード（2026-09-13）。git 編 3 本は同じ捜査室を共有（24・25 は区画を持たない）。
+    # サーバー編は ssh 先（archive_node / corp_server）が舞台で local 区画を持たない。
+    23: ["/root/team_desk"],
 }
 
 # Mission に紐付かず最初から通行できるディレクトリ（探偵の自宅 + 街のインフラ）。

@@ -70,19 +70,43 @@ def init_repo(state: dict, root: str, branch: str, message: str) -> None:
     state.setdefault("git_state", {})["repo"] = repo
 
 
-def add_branch(state: dict, name: str, base_from: str, tree: dict, message: str) -> None:
+def add_branch(
+    state: dict,
+    name: str,
+    base_from: str,
+    tree: dict | None,
+    message: str,
+    files: dict[str, str] | None = None,
+    base_files: dict[str, str] | None = None,
+) -> None:
     """`MissionDef.initial_branches` の解放フック本体。
 
     `base`（三方マージの共通祖先）は `base_from` ブランチの、この時点の tree の
-    deepcopy。`tree` は呼び出し側が与えた children をそのまま使う（base_from の
-    現在の tree の deepcopy ではない＝最初から差分入りの枝を作れる）。
+    deepcopy（`base_files` があればその content だけ差し替える＝「分岐した時点では
+    まだ埋まっていなかった行」を表現できる）。枝の中身は `tree`（children を
+    そのまま使う）か、`files`（base_from の今の tree を写し、指定ファイルの content
+    だけ差し替える。プレイヤーが前 Mission で何を書いたか分からなくても「同じ行だけ
+    違う枝」を作れる。Mission24）のどちらか。
     """
     repo = state["git_state"]["repo"]
     base_branch = repo["branches"][base_from]
     commit_id = _next_commit_id(repo)
+
+    def _with_overrides(children: dict, overrides: dict[str, str] | None) -> dict:
+        out = copy.deepcopy(children)
+        for path, content in (overrides or {}).items():
+            node = out.get(path)
+            if node is None or node.get("type") != "file":
+                out[path] = fs.new_file(content)
+            else:
+                node["content"] = content
+        return out
+
+    if tree is None:
+        tree = _with_overrides(base_branch["tree"], files)
     repo["branches"][name] = {
         "tree": copy.deepcopy(tree),
-        "base": copy.deepcopy(base_branch["tree"]),
+        "base": _with_overrides(base_branch["tree"], base_files),
         "log": [{"id": commit_id, "message": message}],
     }
 
@@ -304,15 +328,18 @@ def status_prefix(state: dict) -> list[str]:
     return lines
 
 
-def finalize_commit(state: dict, message: str) -> None:
+def finalize_commit(state: dict, message: str) -> list[str]:
     """`git commit` の repo 拡張: 現在の枝の tree を作業ディレクトリの中身で更新し、
     log に積む。`merging` 中なら log メッセージを `Merge branch '<name>'` に差し替え、
     `merging` を消す（競合マーカーが残っていても実 git と同じく成功する。見抜くのは
     `case_file.sh`/レビューの判定側の仕事）。
+
+    戻り値は commit 出力に添える行（実 git の `[main 0000003] Merge branch 'x'` 相当。
+    repo が無ければ空）。
     """
     repo = state.get("git_state", {}).get("repo")
     if repo is None:
-        return
+        return []
 
     branch = repo["branches"][repo["current_branch"]]
     branch["tree"] = copy.deepcopy(_working_children(state, repo))
@@ -323,4 +350,6 @@ def finalize_commit(state: dict, message: str) -> None:
         repo["merging"] = None
     else:
         log_message = message
-    branch["log"].append({"id": _next_commit_id(repo), "message": log_message})
+    commit_id = _next_commit_id(repo)
+    branch["log"].append({"id": commit_id, "message": log_message})
+    return [f"[{repo['current_branch']} {commit_id}] {log_message}"]

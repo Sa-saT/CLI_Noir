@@ -182,7 +182,7 @@ def test_merge_line_level_conflict_and_resolve_via_commit(repo_state: dict) -> N
     _, s = _run(s, "echo resolved > /root/team_desk/notes.txt")
     _, s = _run(s, "git add .")
     out, s = _run(s, 'git commit -m "resolve"')
-    assert out == ['[saved #3] resolve']
+    assert out == ['[saved #3] resolve', "[main 0000004] Merge branch 'reed/statement'"]
     assert s["git_state"]["repo"]["merging"] is None
 
     out, s = _run(s, "git log")
@@ -308,7 +308,7 @@ def test_world_save_commit_and_mission1_push_still_work_with_repo_present() -> N
 
     _, s = _run(s, "git add .")
     out, s = _run(s, 'git commit -m "solved"')
-    assert out == ["[saved #1] solved"]
+    assert out[0] == "[saved #1] solved"  # repo があれば枝の commit 行が続く
     assert len(s["git_state"]["commits"]) == 1
     # repo は今回の commit（世界セーブ）にリンクされていないが、通常のコミットが
     # repo の main ブランチにも波及していないことを確認する（team_desk を触って

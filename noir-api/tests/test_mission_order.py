@@ -44,11 +44,15 @@ def test_next_and_previous_are_inverse_along_play_order() -> None:
             assert previous_mission_id(nxt) == mission.id
 
 
+def by_id_12(defs: list):
+    return next(m for m in defs if m.id == 12)
+
+
 def _defs_with_22_moved_before_13(original: list) -> list:
     """22 を 13 の直前へ移した `_DEFS` の複製（他の Mission の並びは変えない）。
 
-    元の並びは id 順（1..22）なので、この並べ替えにより
-    「id の大小」と「プレイ順序」が初めて食い違う状態を作れる。
+    22 は最終事件で本来は末尾なので、この並べ替えで「id の大小」と「プレイ順序」が
+    食い違う状態（22 が 13 の手前）を作れる。
     """
     by_id = {m.id: m for m in original}
     without_22 = [m for m in original if m.id != 22]
@@ -79,7 +83,8 @@ def test_order_assumptions_follow_play_order_not_id(monkeypatch) -> None:
     assert progress.status_from_completed(13, {12}) == "locked"
 
     # compute_active_mission_id: プレイ順序で最初の未完了 Mission を返す。
-    completed_up_to_12 = {m.id for m in reordered[:12]}  # {1, ..., 12}
+    # 並べ替え後、12 までの手前（プレイ順序）にあるもの全部（git 編 23〜25 込み）
+    completed_up_to_12 = {m.id for m in reordered[: reordered.index(by_id_12(reordered)) + 1]}
     assert (
         progress.compute_active_mission_id({"completed": list(completed_up_to_12)})
         == 22

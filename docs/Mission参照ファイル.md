@@ -358,7 +358,7 @@
 
 ---
 
-## 5b. 追加エピソード提案（2026-09-13。**未確定 — ユーザー確認待ち**）
+## 5b. 追加エピソード（2026-09-13 確定・実装済み）
 
 ユーザー要望（2026-09-13 デモプレイ後）: ① 中盤に **チーム内で共有するための git 操作**（ブランチ・マージ・PR・
 レビュー）の Mission を追加 ② 後半に **サーバー知識**（オンプレ・クラウド共通）の Mission を追加。以下は推論した設計案。
@@ -397,7 +397,7 @@
 - あらすじ: 相棒（不採用の相棒キャラではなく同僚探偵 "Reed"）が同じ調書の同じ行を別の内容で書いていた。枝
   `reed/statement` を取り込むと競合する
 - 舞台: `/root/team_desk/statement.txt`。事前に枝 `reed/statement`（同じ行を「目撃時刻 23:50」と主張）を仕込む。
-  main 側は「23:10」
+  main 側は「23:10」。分岐点（base）では時刻が `[time unconfirmed]` なので、両側が同じ行を埋めた＝三方マージが競合する
 - フロー: `git merge reed/statement` → `CONFLICT (content): Merge conflict in statement.txt` → `cat statement.txt` で
   `<<<<<<< HEAD` / `=======` / `>>>>>>> reed/statement` を読む → 証拠（`/root/team_desk/cctv.log` に 23:50 の記録）で
   正しい側を選ぶ → `sed`/`echo` で目印を消して一本化 → `git add statement.txt` → `git commit`（マージ確定）
@@ -452,7 +452,7 @@
 - クリア条件: 両ホストへの ssh + 原因（sshd 停止）の特定と復旧 + 両拠点の OS 情報の報告
 - ゲーム性: 「同じ Linux が二か所にある」ことの実感。オンプレ／クラウドの区別は置き場所の違いでしかない
 
-### 5b-4. 実装メモ（確定後）
+### 5b-4. 実装メモ（2026-09-13 実装済み。機構は `docs/バックエンド_コマンド機能仕様.md` § 5b/5c、判定は `judge.py` 23〜28、コンテンツは `missions.py`）
 - `git_state` に `branches: {name: {"tree": <team_desk のスナップショット>, "head": commit_id}}` と `current_branch` を追加。
   `git checkout` は `/root/team_desk` 配下だけ差し替え。`merge` は行単位の三方比較（同じ行が両側で異なれば競合マーカー）
 - `gh` を registry に追加（`pr create` / `pr view` / `pr merge`）。レビュー本文は Mission の `review_rules` から生成

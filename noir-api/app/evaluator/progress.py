@@ -219,8 +219,10 @@ def release_missions(state: dict) -> None:
                         state,
                         branch_name,
                         spec["base_from"],
-                        spec["tree"],
+                        spec.get("tree"),
                         spec["message"],
+                        files=spec.get("files"),
+                        base_files=spec.get("base_files"),
                     )
 
         released.append(mission_id)
