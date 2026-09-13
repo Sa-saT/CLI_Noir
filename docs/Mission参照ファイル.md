@@ -280,6 +280,7 @@
 - 必須: `ls -l`, `file`
 - クリア条件: 実体ファイルの絶対パス記述（リンクのパスは不正解）
 - ゲーム性: 推理がそのまま `ls -l` の読解訓練になる。Mission2 の絶対パス学習の応用編
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission15: The Informant's Trail「情報屋の足取り」
 - 学習テーマ: 履歴・ログ監視（Level 5〜6）
@@ -288,6 +289,7 @@
 - 必須: `history`, `tail`, `grep`
 - クリア条件: 履歴再現（同一コマンド列の実行）+ 行き先の記述一致
 - ゲーム性: 「他人の履歴から意図を推理する」= コマンド理解の総復習。履歴が攻略チャートになるメタ構造
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission16: The Great Sweep「一斉捜索令状」
 - 学習テーマ: ワイルドカード・引用符（概念）
@@ -296,6 +298,7 @@
 - 必須: glob（`*` `?` `[...]`）の使用、引用符付きパス
 - クリア条件: glob パターン使用 + 引用符付きファイルの閲覧 + 発見コードの記述
 - ゲーム性: 「令状の範囲＝パターン」。空白入りファイル名は引用符を知らないと物理的に開けない
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission17: Fingerprint「指紋は嘘をつかない」
 - 学習テーマ: チェックサム・真正性検証（Level 8）
@@ -304,6 +307,7 @@
 - 必須: `md5sum`（または `sha256sum`）, `cat`（`diff`, `sort` は加点）
 - クリア条件: md5sum 実行 + 改ざんファイル名と改ざん箇所の記述一致
 - ゲーム性: 「1文字違えば指紋は別物」というハッシュの性質を推理トリックに使う。Mission10 の発展形
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission18: Silence in the Static「雑音の中の声」
 - 学習テーマ: 標準エラー・リダイレクト・終了コード（概念）
@@ -312,6 +316,7 @@
 - 必須: `2>/dev/null` を含む実行（`echo $?` は加点）
 - クリア条件: `2>\s*/dev/null` パターンの実行 + 手がかりの記述
 - ゲーム性: 「出力には2本の管がある」を雑音と声で可視化。雑音の絶望→1記号で静寂、のカタルシス
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission19: The Detective's Playbook「捜査手順書を書け」
 - 学習テーマ: シェルスクリプト基礎（Level 11）
@@ -320,6 +325,7 @@
 - 必須: `sh`, 変数定義と `$変数` 参照, `if` 文
 - クリア条件: 変数定義 + if 文を含むスクリプトの作成と実行成功
 - ゲーム性: 「実行する側→書く側」への視点逆転。for 文で複数ファイル巡回は加点
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission20: Map of the City「この街の地図」
 - 学習テーマ: FHS・実 Linux のディレクトリ構成（概念）
@@ -329,6 +335,7 @@
 - クリア条件: `/etc` `/var/log` `/tmp` `/home` の4区画探索フラグ + 黒幕ユーザー名の記述一致
 - ゲーム性: 新コマンドゼロ・知識だけで解く「地理」の回。クリア後に実機を開いた時「知っている街」になっている
 - 備考: FHS 版の仮想FSマップが必要（既存の探偵事務所マップとは別レイアウト）
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission21: The Missing Toolbox「消えた道具箱」（2026-07-08 追加）
 - 学習テーマ: 環境変数・PATH（Level 10 / LPIC 103.1）
@@ -338,6 +345,7 @@
 - クリア条件: PATH 復旧フラグ（`env_vars.PATH` の正常値一致）+ 復旧後の allowlist コマンド成功 + 偽 PATH 値の記述一致
 - ゲーム性: 「コマンドが打てない」異常事態そのものが謎。絶対パス実行という抜け道が「PATH = コマンド探索経路」の意味を裏から証明する。Mission20（街の地図）の「/bin = 道具街」の比喩をそのまま回収
 - 備考: 統合ワールドでは Mission21 解放時（Mission20 クリアの `git push`）に `release_missions` が**探偵自身**の `env_vars["detective"]["PATH"]` を汚染値 `/tmp/.stolen` に上書きする（2026-09-13 確定。2026-08-12 の「別アカウントに閉じ込めて su で入る」案は、Mission が順番制で他 Mission へ波及しないこと・「自分の道具箱が盗まれる」筋書きと LPIC の学び（自分の環境の PATH を直す）に一致することから、本人の環境を汚す方式へ変更）。`unset` の体験は加点要素
+- 独り言（story_beats）・3 段階ヒント: 2026-09-13 起草済み（文言は `noir-api/app/content/missions.py` の `hints` / `story_beats` が正。Mission1〜3 と同じ文体規約）
 
 ### Mission22: Case Closed「最終事件 — すべてを繋げろ」
 - 学習テーマ: 総合演習（Level 1〜11 の複合・卒業試験）
@@ -346,6 +354,7 @@
 - 必須: `find`, `ssh`, `chmod`, パイプ, `tar`, `md5sum`, `sh`（自作）, 疑似 git 一式
 - クリア条件: 全関所フラグの達成 + 黒幕名の正規表現一致 + git push
 - ゲーム性: ヒントは1段階目のみ（相棒が「もう教えることはない」）。クリア時に「実PCでも同じことができる」エピローグを表示し、実機・LPIC 受験への導線とする
+- 独り言（story_beats）・ヒント: 2026-09-13 起草済み。ヒントは 1 段階（8 関所の順序を示すゴール説明）のみ（文言は `noir-api/app/content/missions.py` が正）
 
 ---
 

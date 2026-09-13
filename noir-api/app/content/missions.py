@@ -1116,6 +1116,22 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission14 専用ロジック（report の echo 行に実体の
         # 絶対パスがあるか。リンクパスのみの報告は不合格）で行う。
         initial_filesystem=_MISSION14_FS,
+        hints=[
+            "ゴール: /root/mirror_hall の deed_*.txt はどれも案内板（シンボリックリンク）。ls -l と file で辿って実体のファイルの絶対パスを突き止め、それを echo で報告して sh case_file.sh → git push する。",
+            "ls -l /root/mirror_hall で「名前 -> 行き先」の矢印が出る（矢印付きはリンク）。file <パス> は symbolic link to … と教えてくれる。矢印を辿って、矢印の無いファイル（ASCII text）に着いたらそれが実体。報告は echo \"実体の絶対パス\"（リンクのパスを書くと突き返される）。",
+            "ls -l /root/mirror_hall（矢印を見る）→ file /root/mirror_hall/deed_a.txt（symbolic link to deed_b）→ file /root/mirror_hall/deed_b.txt（symbolic link to vault/real_deed.txt）→ file /root/mirror_hall/vault/real_deed.txt（ASCII text = 実体）→ cat /root/mirror_hall/vault/real_deed.txt → echo \"/root/mirror_hall/vault/real_deed.txt\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"deed\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "鏡の館（mirror_hall）。権利書（deed）が何枚もあるが、本物は一枚だけらしい。\n残りは鏡——どこかを映しているだけ。映しているなら、映している先があるはず。"},
+            {"id": "arrows", "when": "after", "line": r"^ls -l .*mirror_hall", "output": "->", "text": "矢印（->）。deed_a は deed_b を、deed_b は vault の中を指している。矢印の付いた名前は案内板（リンク）で、本体じゃない。"},
+            {"id": "link", "when": "after", "line": r"^file .*deed_[abc]", "output": "symbolic link", "text": "鑑識も言っている——symbolic link。案内板だ。矢印の先へ。"},
+            {"id": "real", "when": "after", "line": r"^file .*real_deed", "output": "ASCII text", "text": "ASCII text——矢印が無い。ここが本物。住所は `/` からの絶対パスで控える。"},
+            {"id": "through_mirror", "when": "after", "line": r"^cat .*deed_[abc]", "output": "DEED:", "text": "読める……が、これは鏡越しに見ているだけ。報告に書くのは鏡の場所じゃなく、本物の場所のはず。"},
+            {"id": "judge_mirror", "when": "after", "line": r"^sh .*case_file\.sh", "output": "only a mirror", "text": "「それは鏡だ」と突き返された。案内板の住所じゃなく、実体の住所を。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "実体の絶対パスを echo で報告したか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "本物の在処が判った。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "鏡は何枚あっても、本物は一枚。矢印を辿り切る癖——それが鏡の館の出口だった。"},
+        ],
     ),
     MissionDef(
         15, "The Informant's Trail", "情報屋の足取り",
@@ -1125,6 +1141,21 @@ _DEFS: list[MissionDef] = [
         # 行き先の報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION15_FS,
         informant_history=_MISSION15_HISTORY,
+        hints=[
+            "ゴール: history に残った情報屋の操作 2 行をそのまま打ち直し、journal.log から行き先（PIER 13）を突き止めて echo \"PIER 13\" で報告、sh case_file.sh → git push する。",
+            "history で情報屋が打ったコマンドが番号付きで出る。判定は「同じコマンドを一字一句そのまま」実行したかを見る（tail -n 5 … と grep PIER …）。行き先は grep の結果の行に書いてある。",
+            "history（足取り）→ tail -n 5 /root/informant_trail/journal.log（末尾 5 行）→ grep PIER /root/informant_trail/journal.log（行き先）→ echo \"PIER 13\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"trail\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "情報屋が消えた。机の端末には、最後に打った操作の履歴（history）が残っているらしい。\n同じ操作をなぞれば、同じ場所に辿り着くはず。"},
+            {"id": "history", "when": "after", "line": r"^history\b", "output": "journal", "text": "二行。tail で末尾を読み、grep で PIER を探している……行き先は journal.log の中か。同じ手順を、同じ言葉で。"},
+            {"id": "tail", "when": "after", "line": r"^tail .*journal", "text": "最後の足取り。倉庫、そして「note left」——置き手紙。"},
+            {"id": "pier", "when": "after", "line": r"^grep PIER .*journal", "output": "PIER 13", "text": "PIER 13——13 番桟橋。情報屋はここへ向かった。報告に書く。"},
+            {"id": "judge_retrace", "when": "after", "line": r"^sh .*case_file\.sh", "output": "exact steps", "text": "「足取りをそのままなぞれ」と。履歴（history）の二行を、一字一句同じに。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "行き先（PIER 13）を報告に書いたか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "足取りは掴んだ。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "打った言葉は履歴に残る。残るなら、なぞれる——それが history の使い道、なのかもしれない。"},
+        ],
     ),
     MissionDef(
         16, "The Great Sweep", "一斉捜索令状",
@@ -1134,6 +1165,23 @@ _DEFS: list[MissionDef] = [
         # cat 成功 + コード報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION16_FS,
         initial_current_path="/root/warehouse",
+        hints=[
+            "ゴール: /root/warehouse の大量の case_*.txt を glob（case_[0-9].txt）で絞り込み、空白入りの \"top secret.txt\" を引用符付きで開いて CODE: を echo で報告、sh case_file.sh → git push する。",
+            "ls case_* は全部並んで見づらい。ls case_[0-9].txt なら 1 桁番号だけに絞れる（判定はこの [0-9] の使用を見る）。空白入りの名前は cat \"top secret.txt\" のように引用符で囲む（囲まないと 2 つの名前に分かれて file not found）。",
+            "cd /root/warehouse → ls case_*（多すぎる）→ ls case_[0-9].txt（数字 1 桁だけ）→ cat \"top secret.txt\"（引用符で開く）→ echo \"CODE: 4821-VESPER\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"sweep\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "一斉捜索令状が下りた。倉庫（warehouse）には事件簿が山ほどある——全部開ける時間は無い。\n名前の形で絞る（glob）。それと、空白の入った名前には気をつけろ、と先輩が言っていた気がする。"},
+            {"id": "too_many", "when": "after", "line": r"^ls .*case_\*", "text": "……多すぎる。* は全部を拾う。もっと狭い網——[0-9] なら数字一文字だけのはず。"},
+            {"id": "narrowed", "when": "after", "line": r"\[0-9\]", "text": "九件に絞れた。網の目を選べば、山も一握りになる。"},
+            {"id": "split_name", "when": "after", "line": r"^cat top secret", "output": "not found", "text": "見つからない!? ……空白で名前が二つに割れている。引用符（\"\"）で一つに束ねないと。"},
+            {"id": "opened", "when": "after", "line": r'^cat "top secret', "output": "CODE:", "text": "開いた。CODE: 4821-VESPER——令状の本命。報告に写す。"},
+            {"id": "judge_glob", "when": "after", "line": r"^sh .*case_file\.sh", "output": "glob pattern", "text": "「網を絞れ」と。case_[0-9].txt のような形で。"},
+            {"id": "judge_unopened", "when": "after", "line": r"^sh .*case_file\.sh", "output": "unopened file", "text": "本命をまだ開けていない。空白入りの名前は引用符で。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "コード（CODE: …）を報告に写したか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "捜索完了。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "* は全部、[0-9] は一文字。網の目を選ぶのは探偵の仕事で、空白は引用符で束ねる——名前の扱いも、捜査のうち。"},
+        ],
     ),
     MissionDef(
         17, "Fingerprint", "指紋は嘘をつかない",
@@ -1145,6 +1193,20 @@ _DEFS: list[MissionDef] = [
             r"copy_4",
         ],
         initial_filesystem=_MISSION17_FS,
+        hints=[
+            "ゴール: /root/contracts の copy_1〜5.txt を md5sum で指紋照合し、ledger.txt の原本ハッシュと一致しない 1 通（copy_4）を見つけて echo で報告、sh case_file.sh → git push する。",
+            "md5sum <ファイル> でファイルの指紋（ハッシュ）が出る。複数まとめて md5sum copy_*.txt でもよい。cat ledger.txt の ORIGINAL MD5 と見比べ、違う 1 通が改ざん版。diff copy_1.txt copy_4.txt で何が違うかも分かる。報告は echo \"copy_4 …\"。",
+            "cd /root/contracts → cat ledger.txt（原本の指紋）→ md5sum copy_*.txt（5 通の指紋）→ diff copy_1.txt copy_4.txt（違いを見る）→ echo \"copy_4 was tampered\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"fingerprint\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "契約書の写しが五通（contracts）。どれも同じに見えるが、一通だけ書き換えられているらしい。\n目で見比べても無駄だった事件を思い出す。指紋（ハッシュ）を採るしかない。"},
+            {"id": "ledger", "when": "after", "line": r"^cat .*ledger", "output": "MD5", "text": "台帳に原本の指紋がある。これと照合すれば、偽物は自分から名乗り出るはず。"},
+            {"id": "fingerprint", "when": "after", "line": r"^md5sum ", "text": "指紋が出た。同じ中身なら同じ指紋——一文字でも違えば、まるで別人の指紋になる。"},
+            {"id": "diff", "when": "after", "line": r"^diff .*copy_", "output": "interest", "text": "0% と O%。ゼロとオー——また、あの一文字か。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "指紋採取（md5sum）の証跡と、偽物の名前（copy_4）の報告——両方要る。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "偽物は割れた。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "指紋は嘘をつかない。ファイルが本物かどうかは、見た目ではなくハッシュで決まる——ダウンロードした物も、同じこと。"},
+        ],
     ),
     MissionDef(
         18, "Silence in the Static", "雑音の中の声",
@@ -1156,6 +1218,21 @@ _DEFS: list[MissionDef] = [
             r"PLATE: NX-4471",
         ],
         initial_filesystem=_MISSION18_FS,
+        hints=[
+            "ゴール: /root/archive を grep -r で探すと読めないファイルの雑音（permission denied）が混ざる。2>/dev/null で雑音を捨てて目撃証言を読み、PLATE: の番号を echo で報告して sh case_file.sh → git push する。",
+            "エラーは 2 番の管（標準エラー出力）を流れる。コマンドの末尾に 2>/dev/null を付けるとエラーだけ捨てられる（判定はこれの使用を見る）。grep -r \"witness\" /root/archive 2>/dev/null で証言のファイルだけが残る。",
+            "grep -r \"witness\" /root/archive（雑音混じり）→ grep -r \"witness\" /root/archive 2>/dev/null（雑音を捨てる）→ cat /root/archive/witness_note.txt（証言を読む）→ echo \"PLATE: NX-4471\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"static\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "資料庫（archive）のどこかに目撃証言（witness）がある。だが庫内は封印ファイルだらけで、探すたびに「読めない」の雑音が鳴る。\n雑音と声は、別々の管を通っているはず。"},
+            {"id": "static", "when": "after", "line": r"^grep -r [^2]*$", "output": "permission denied", "text": "雑音だらけ。だが声も混ざっている……。エラーは 2 番の管（2>）。管ごと排水溝（/dev/null）へ流せないか。"},
+            {"id": "silence", "when": "after", "line": r"2>\s*/dev/null", "text": "静かになった。残ったのは声だけ。"},
+            {"id": "witness", "when": "after", "line": r"^cat .*witness_note", "output": "PLATE:", "text": "黒い車、ナンバー NX-4471。報告に写す。"},
+            {"id": "status", "when": "after", "line": r"^echo \$\?", "text": "直前のコマンドの成否（$?）。0 なら成功、それ以外は失敗——これも 2 番の管の仲間、なのかもしれない。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "雑音を捨てた証跡（2>/dev/null）と、ナンバーの報告（PLATE: …）——両方要る。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "声は拾った。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "出力には管が二本ある。声（1）と雑音（2）。雑音の管だけ塞げば、声ははっきり聞こえる。"},
+        ],
     ),
     MissionDef(
         19, "The Detective's Playbook", "捜査手順書を書け",
@@ -1164,6 +1241,24 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission19 専用ロジック（patrol.sh 実行 + FOUND 出力 +
         # 自作スクリプトに変数定義と if を含む）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION19_FS,
+        hints=[
+            "ゴール: /root/precinct_desk/sample.sh を手本に、変数と if を使った自作スクリプト /root/precinct_desk/patrol.sh を echo で書き、chmod +x して sh で実行し FOUND を出してから sh case_file.sh → git push する。",
+            "スクリプトは echo '行' > patrol.sh（1 行目）、echo '行' >> patrol.sh（2 行目以降）で組み立てる。中身は 変数=値 / if grep -q \"$変数\" evidence.txt; then / echo \"FOUND\" / fi の 4 行。evidence.txt に出てくる名前（Sam）を変数に入れる。$ を含む行はシングルクォートで囲む。",
+            "cd /root/precinct_desk → cat sample.sh（手本）→ cat evidence.txt（探す名前）→ echo 'TARGET=Sam' > patrol.sh → echo 'if grep -q \"$TARGET\" evidence.txt; then' >> patrol.sh → echo '  echo \"FOUND\"' >> patrol.sh → echo 'fi' >> patrol.sh → cat patrol.sh（確認）→ chmod +x patrol.sh → sh patrol.sh（FOUND が出る）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"playbook\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "今日から書く側だ。今まで実行するだけだった手順（sh）を、後輩のために手順書として残す。\n署の机（precinct_desk）に見本（sample.sh）と証拠（evidence.txt）がある。"},
+            {"id": "sample", "when": "after", "line": r"^cat .*sample\.sh", "text": "変数に言葉を入れて（KEYWORD=）、それを探させ（grep -q）、見つかったら告げる（echo FOUND）。四行で一つの捜査手順、ということか。"},
+            {"id": "evidence", "when": "after", "line": r"^cat .*evidence\.txt", "text": "Sam Whitfield——探す名前はこれ。手順書には名前を変数に入れて渡す。"},
+            {"id": "first_line", "when": "after", "line": r"^echo .*> *[^>]*patrol\.sh", "text": "一行目を書いた。続きは >> で足していく（> だと上書きで消える）。"},
+            {"id": "review", "when": "after", "line": r"^cat .*patrol\.sh", "text": "読み返す。変数、if、echo FOUND、fi——見本と同じ形になっているか。"},
+            {"id": "denied", "when": "after", "line": r"^sh .*patrol\.sh", "output": "permission denied", "text": "動かない。実行の鍵（chmod +x）——資料室で覚えたやつだ。"},
+            {"id": "found", "when": "after", "line": r"^sh .*patrol\.sh", "output": "FOUND", "text": "FOUND！ 自分で書いた手順が、自分の代わりに証拠を見つけた。"},
+            {"id": "not_found", "when": "after", "line": r"^sh .*patrol\.sh", "output": r"^$", "text": "何も言わない……見つからなかった、ということ。変数の名前か、探すファイルの場所を見直す。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "手順書に変数と if が入っていて、実行して FOUND が出たか——echo FOUND を直書きしただけでは通らない。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "手順書は本物になった。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "case_file.sh も、誰かが書いた手順書だった。実行する側から書く側へ——黒い画面は、書けば動く。"},
+        ],
     ),
     MissionDef(
         20, "Map of the City", "この街の地図",
@@ -1172,6 +1267,23 @@ _DEFS: list[MissionDef] = [
         # 判定は judge.py の Mission20 専用ロジック（/etc・/var/log・/tmp・/home の
         # 4区画探索 + 黒幕名報告）で行うため expected_script_patterns は空。
         initial_filesystem=_MISSION20_FS,
+        hints=[
+            "ゴール: /etc・/var/log・/tmp・/home の 4 区画をそれぞれ ls / cat / tail / grep のどれかで調べ、黒幕のユーザー名（/home の下の名前）を echo で報告して sh case_file.sh → git push する。",
+            "ls / で街の全体図。設定は /etc（cat /etc/hosts, /etc/passwd）、出来事は /var/log（tail /var/log/entry.log）、消し忘れは /tmp（ls -a /tmp で隠しファイル）、住民は /home（ls /home）。判定は 4 区画すべてを覗いたかを見る。報告は echo \"ユーザー名\"。",
+            "ls /（全体図）→ cat /etc/hosts（市役所）→ tail /var/log/entry.log（公文書館: 誰がどこへ）→ cat /tmp/.forgotten（ゴミ捨て場の消し忘れ）→ ls /home/mr_black（住宅街）→ echo \"mr_black\"（報告）→ sh /root/case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"map\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "事務所を出て、街へ。この街（Linux）には決まった区画がある——設定は市役所（/etc）、出来事は公文書館（/var/log）、住民は住宅街（/home）、消したい物はゴミ捨て場（/tmp）。\n黒幕の住民登録は、どこかにあるはず。"},
+            {"id": "map", "when": "after", "line": r"^ls /\s*$", "text": "街の全体図。bin は道具街、etc は市役所、home は住宅街……名前は看板だ。"},
+            {"id": "etc", "when": "after", "line": r"^(cat|ls|grep|tail) .*/etc", "text": "市役所の台帳。名簿（passwd）には住民の名前と家（/home/…）が並んでいる。"},
+            {"id": "log", "when": "after", "line": r"^(cat|tail|grep) .*/var/log", "output": "unknown", "text": "23:55、正体不明の誰かが /home/mr_black へ向かった——公文書館は出来事を全部残している。"},
+            {"id": "tmp", "when": "after", "line": r"^(cat|ls|grep|tail) .*/tmp", "text": "ゴミ捨て場。ドットで始まる名前は隠しファイル——消し忘れは、いつもここにある。"},
+            {"id": "home", "when": "after", "line": r"^(cat|ls|grep|tail) .*/home", "text": "住宅街。mr_black の家に住民登録がある。名前を報告に書く。"},
+            {"id": "judge_map", "when": "after", "line": r"^sh .*case_file\.sh", "output": "map is incomplete", "text": "地図がまだ埋まっていない、と。/etc、/var/log、/tmp、/home——四つ全部を覗いたか。"},
+            {"id": "judge_fail", "when": "after", "line": r"^sh .*case_file\.sh", "output": "pattern mismatch", "text": "黒幕のユーザー名を報告に書いたか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "住民登録は押さえた。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "新しい道具は一つも使わなかった。街の区画を知っているだけで、辿り着けた。\n——次に本物の黒い画面を開いたとき、そこは知っている街のはず。"},
+        ],
     ),
     MissionDef(
         21, "The Missing Toolbox", "消えた道具箱",
@@ -1182,6 +1294,24 @@ _DEFS: list[MissionDef] = [
         # expected_script_patterns は空。
         initial_filesystem=_MISSION21_FS,
         initial_env_vars=_MISSION21_ENV_VARS,
+        hints=[
+            "ゴール: 壊された PATH（道具箱の場所リスト）を echo $PATH で確認し、export PATH=/usr/local/bin:/usr/bin:/bin で直して grep か find を成功させ、壊されていた値（/tmp/.stolen）を echo で報告して sh case_file.sh → git push する。",
+            "grep が command not found でも道具は消えていない。echo $PATH（または printenv PATH）で今の値が見える。絶対パスなら動く: /bin/cat /root/toolbox_room/hint.txt。which grep で在処も分かる。直すのは export PATH=/usr/local/bin:/usr/bin:/bin。報告は echo \"壊されていた値\"。",
+            "echo $PATH（壊れた値 /tmp/.stolen を見る）→ /bin/cat /root/toolbox_room/hint.txt（絶対パスで手掛かりを読む）→ which grep（道具の在処）→ export PATH=/usr/local/bin:/usr/bin:/bin（復旧）→ grep TOOL /root/toolbox_room/hint.txt（道具が戻った）→ echo \"/tmp/.stolen\"（報告）→ sh case_file.sh（判定）→ git add .（記録対象に載せる）→ git commit -m \"toolbox\"（セーブ）→ git push（提出）",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "事務所に戻ると異変が起きていた。grep も find も「そんな道具は知らない」と言う。\n盗まれたのは道具じゃない——道具箱の場所リスト（PATH）のはず。"},
+            {"id": "gone", "when": "after", "line": r"^(grep|find|cat|ls)\b", "output": "command not found", "text": "……道具が無い。いや、無いのは道具じゃなく、探す場所のリストのほうだ。今のリストを見る（echo $PATH）。"},
+            {"id": "path", "when": "after", "line": r"^(echo \$PATH|printenv PATH)", "output": "stolen", "text": "/tmp/.stolen——リストが丸ごと書き換えられている。道具街（/bin）が無ければ、名前で呼んでも誰も来ない。"},
+            {"id": "abs", "when": "after", "line": r"^/bin/", "text": "住所で直接呼べば動く。道具はまだ道具街にある——リストが破られただけ、で確定。"},
+            {"id": "which", "when": "after", "line": r"^(which|type) ", "output": "/bin/", "text": "在処は /bin。ならリストに /bin を戻せばいい（export PATH=…）。"},
+            {"id": "restored", "when": "after", "line": r"^export PATH=", "text": "リストを書き戻した。道具を呼んでみる。"},
+            {"id": "sh_gone", "when": "after", "line": r"^sh ", "output": "command not found", "text": "事件ファイルすら開けない——sh も道具のひとつ、ということか。住所で呼ぶ（/bin/sh）手もあるが、先にリストを直すほうが早い。"},
+            {"id": "judge_broken", "when": "after", "line": r"^(/bin/)?sh .*case_file\.sh", "output": "PATH is still broken", "text": "まだリストが壊れたまま、と。export PATH=/usr/local/bin:/usr/bin:/bin。"},
+            {"id": "judge_fail", "when": "after", "line": r"^(/bin/)?sh .*case_file\.sh", "output": "pattern mismatch", "text": "直した後に道具（grep か find）を一度使ったか。壊されていた値（/tmp/.stolen）を報告に書いたか……。"},
+            {"id": "judge_pass", "when": "after", "line": r"^(/bin/)?sh .*case_file\.sh", "output": "all checks passed", "text": "道具箱は取り戻した。記録して本部へ。"},
+            {"id": "clear", "when": "clear", "text": "コマンドは魔法じゃなく、リスト（PATH）の中の住所から呼ばれる道具だった。\n——「そんなコマンドは知らない」と言われたら、まずリストを疑え。"},
+        ],
     ),
     MissionDef(
         22, "Case Closed", "最終事件 — すべてを繋げろ",
@@ -1191,6 +1321,22 @@ _DEFS: list[MissionDef] = [
         # "Warning: checkpoint <n> incomplete" で示す）で行うため
         # expected_script_patterns は空。
         initial_filesystem=_MISSION22_FS,
+        # 最終事件のヒントは 1 段階目のみ（Mission参照 § 22「もう教えることはない」）。
+        hints=[
+            "ゴール: これまでの技術を 8 つの関所の順に通す — ① find で /root/clues の鍵（*.key）を探す ② ssh ghost.example で証拠を読み exit ③ chmod +r で /root/vault/locked.txt を読む ④ grep | sort | uniq -c で /root/logs/calls.log を集計 ⑤ tar -xf で /root/clues/evidence.tar を開く ⑥ md5sum で中身を照合 ⑦ 変数と if の自作 sh で FOUND を出す ⑧ 黒幕の名前を echo で報告 — そして sh case_file.sh → git push。",
+        ],
+        story_beats=[
+            {"id": "start", "when": "start", "text": "全部の事件が、一人に繋がっていた。手がかり（clues）、資料室（vault）、通話記録（logs）——これまでの道具を全部使って、黒幕の名を本部に出す。\nもう教えてくれる先輩はいない。"},
+            {"id": "key", "when": "after", "line": r"^find ", "output": r"\.key", "text": "鍵が見つかった。中身は……回線の宛先か。"},
+            {"id": "orders", "when": "after", "line": r"^cat .*orders\.txt", "output": "BOSS:", "text": "また、この名前。全部の糸がここへ戻ってくる。"},
+            {"id": "burner", "when": "after", "line": r"^cat .*locked\.txt", "output": "burner", "text": "使い捨ての番号。通話記録（calls.log）で裏を取る——回数を数えれば、嘘は消える。"},
+            {"id": "counted", "when": "after", "line": r"uniq\s+-c", "text": "最頻出の番号が、資料室の番号と一致した。"},
+            {"id": "note", "when": "after", "line": r"^cat .*final_note", "text": "S.V.——署名入りの走り書き。本物かどうかは、指紋（md5sum）で決める。"},
+            {"id": "verdict", "when": "after", "line": r"^sh .*\.sh", "output": "FOUND", "text": "手順書が「FOUND」と告げた。自分の書いた判定が、自分の推理を裏付けた。"},
+            {"id": "checkpoint", "when": "after", "line": r"^sh .*case_file\.sh", "output": "checkpoint", "text": "関所が一つ抜けている、と。番号の順に——find、ssh、chmod、パイプ集計、tar、md5sum、自作 sh、報告。"},
+            {"id": "judge_pass", "when": "after", "line": r"^sh .*case_file\.sh", "output": "all checks passed", "text": "八つの関所、すべて通った。記録して——最後の push だ。"},
+            {"id": "clear", "when": "clear", "text": "黒幕の名は本部へ届いた。事件は閉じた。\n——ここでやったことは全部、本物の黒い画面でそのまま通じる。理解すれば、怖くない。"},
+        ],
     ),
 ]
 

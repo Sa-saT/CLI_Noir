@@ -53,7 +53,7 @@
 
 - [x] 捜査ファイル一覧（`pages/missions/index.vue`）を MissionHeader と同じポスター意匠に組み直し（2026-09-13。見た目の良否はユーザー確認待ち）
 - [x] Mission2 の報告書を机（`/root/desk/report.txt`）に移し、独り言で机へ誘導（2026-09-13）。独り言はブリーフィングを閉じてから再生、右レールに「← 捜査ファイル一覧」追加
-- [ ] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Opus が担当。**Mission4〜13 は 2026-09-13 起草済み**。残り Mission14〜22）
+- [x] Mission4〜22 の独り言（`story_beats`）・直接ヒントの起草（Opus が担当。2026-09-13 全 22 Mission 完了。文言のトーンはユーザーの実プレイ確認待ち）
 - [x] ClaudeDesign 同期（2026-09-13 完了。ClaudeDesign 側に既にあった `monologue-layer` を正として `MonologueLayer.vue` に移植。typography トークン・caret keyframes を pull）。残: noir-client の `--term-success` が ClaudeDesign 未反映（逆ドリフト）
 
 ### テスト

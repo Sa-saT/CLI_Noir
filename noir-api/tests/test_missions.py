@@ -70,16 +70,16 @@ def test_detail_and_not_found(client: TestClient, session: Session) -> None:
     assert missing.json()["detail"] == "Error: mission not found"
 
 
-def test_detail_hints_are_three_stage_where_authored(
+def test_detail_hints_are_authored_for_all_missions(
     client: TestClient, session: Session
 ) -> None:
-    """起草済み Mission は 3 段階ヒント、未起草は空配列（起草が進むと下の一覧を更新する）。"""
+    """全 Mission に直接ヒントがある（Mission22 は最終事件のため 1 段階のみ）。"""
     create_user(session, "detective01", "secret")
     headers = _auth_header(client)
 
-    for mission_id in (2, 3, 4, 8, 13):
+    for mission_id in range(1, 22):
         detail = client.get(f"/api/missions/{mission_id}/", headers=headers).json()
         assert len(detail["hints"]) == 3, mission_id
 
-    mission14 = client.get("/api/missions/14/", headers=headers).json()
-    assert mission14["hints"] == []
+    mission22 = client.get("/api/missions/22/", headers=headers).json()
+    assert len(mission22["hints"]) == 1
